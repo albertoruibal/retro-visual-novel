@@ -1,0 +1,6 @@
+MSX emulation: WebMSX (https://github.com/ppeccin/WebMSX) C-BIOS embedded build.
+C-BIOS is an open-source MSX BIOS replacement, distributed under the
+2-clause BSD license (https://cbios.sourceforge.net/).
+WebMSX is used for in-browser MSX1 emulation; no copyrighted MSX BIOS is
+included. The upstream WebMSX repository does not ship a root license file;
+this notice records the source and the C-BIOS license terms.

@@ -1,0 +1,138 @@
+# ZX Spectrum 128K
+
+The original target and the reference implementation of the story format. The story engine is the shared
+`src/portable/core/`; `src/zx/plat_zx.c` supplies NIRVANA+ art, the 64-column console, paged loading, keyboard input,
+the boot password screen and per-scene music.
+
+- **Display:** NIRVANA+ bicolor art band, 256 x `8 * art_rows` pixels, 16 Spectrum colours (ink/paper per 8x2 cell plus
+  bright). `art_rows` is even, 8..16; default 10.
+- **Layout:** row 0 is the scene title, rows 1..`art_rows` are the raced art band. By default rows `art_rows+1`..22 hold
+  text and pinned options while row 23 is the inventory band: text is top-aligned, options are pinned to the bottom
+  (the last one on row 22), and the item screen pins its options/Drop/Back entries the same way. With
+  `## zx menu: popup` the text owns rows `art_rows+1`..23, the options and held items move to a `SPACE`-key dialog,
+  and there is no inventory band; the item screen then starts its options/Drop/Back entries immediately below the
+  description. The pinned layout allows `22 - art_rows` text+option rows; the dialog layout allows
+  `23 - art_rows` text rows. Text and item descriptions may be any length and word-wrap at 62 columns; with
+  `menu: popup` overflowing text scrolls, while the pinned layout must fit (the editor checks the worst case across
+  all flag/item combinations). Up to 8 logical text lines and 6 options remain.
+- **Engine:** NIRVANA+ (Einar Saukas) — **vendored** in `vendor/nirvanap/`, built per game as
+  `vendor/nirvanap/nirvanap.lib` with `TOTAL_ROWS` = `## zx` `art_rows:` (default 10): it races bicolor attribute rows
+  **1..art_rows** (the art band). On the pinned layout the story band is rows **art_rows+1..22** and row **23** is
+  the inventory band; with `menu: popup` the story/menu pane extends through row **23**.
+  Linked ahead of z88dk's `zx_clib` via `zcc -Lvendor/nirvanap -lnirvanap`.
+- **Art:** `## zx` `art_rows:` (even 8..16, default 10) sets the band height in character rows, so the band is
+  256×(8·art_rows) with the crop aspect 32/art_rows. Each `## <art-id>` under `# Art` is a paged blob
+  (`8·art_rows`-byte tile map + deduped 48-byte 16x16 bicolor btiles), drawn into the bicolor area (raced attributes
+  span rows 1..art_rows). Blobs are ZX0-compressed on disk and decompressed with interrupts enabled; the new picture is
+  decoded straight over the single art workspace (the old one stays in the screen bitmap) and drawn over it — the band
+  never blanks and the swap does not stall music. Any number of scenes may share one art; a scene change that reuses the
+  art already on screen skips the redraw. There is no resident tile blob and no 4-bitmap limit.
+- **Scene store (128K):** art and scene records are **offset-encoded** and **ZX0-compressed** (each blob is `[u16
+  length][zx0]`), packed together into paged RAM banks 1, 3, 4, 6 and 7 (`games/<slug>/build/scene_banks/bankN.bin`),
+  and decompressed into a per-game-sized workspace by `src/zx/paging.asm:paged_unpack()` before use. `paged_unpack`
+  stages compressed bytes in `_stage_ws` (0x6000) and decodes into `_scene_ws`/`_art_ws`; `SCENE_WS_SIZE` and
+  `ART_WS_SIZE` are emitted by `tools/gen_scenes.py` for the largest scene and art/inventory blobs, so the fixed
+  region carries no unused workspace. The NIRVANA+ engine sits at 0xDC03. `build/port_data.h` is a generated shim that
+  exposes the same scene data to the shared core (the `port_*` names and layout flags), without duplicating storage.
+- **Sound:** a game may declare several AY songs (`# Game songs:`, each backed by `assets/music/<id>.pt3`) and choose
+  one per scene (`music: <id>`, or `off`/`on`). The shared player (`src/portable/core/music.c`) decodes the selected
+  module from its paged bank into the lower-RAM song workspace after `_stage_ws` via `plat_song_ws()` and plays it
+  with z88dk's VT2/PT3 player from the NIRVANA+ ISR hook — the engine's documented `call X` slot at
+  `NIRVANAP_ISR_HOOK`, attached by `plat_music_hook()`. Songs share the paged-bank store with art and scenes; the
+  resident buffer is sized per game to its largest module (capped at 4158 bytes *decompressed*). Press `P` to
+  pause/resume the current song. The editor's Music tab can convert an uploaded `.mid` to a `.pt3` with
+  [spectrumizer](https://github.com/revengator/spectrumizer) (kept alongside as `assets/music/<id>.mid`) and audition
+  any module inline through spectrumizer's software AY.
+- **Options:** `art_rows` (the `## zx` block; the legacy `art_lines:`/`# game art_lines:` spelling is still read),
+  `menu: popup` for the pop-up dialog, `title_ink:` for the scene/item heading colour (default `text`, i.e. the body
+  colour; any bright or `dim_` Spectrum ink), plus the body/highlight text colours and text background (selectable
+  words always highlight; inventory items use the text colour until selected), `carry`, `password`, inventory labels and
+  songs.
+- **Build:** `zcc +zx`, the vendored NIRVANA+ library, then appmake TAP plus a fully resident 128K SNA. Outputs
+  `<slug>.tap` and `<slug>.sna`.
+- **Emulator:** JSSpeccy 3 (128K), inline in the Emulator tab.
+
+## Memory map (128K)
+
+| Region | Contents |
+|---|---|
+| 0x4000-0x7FFF | screen; 0x6000-0x7FFF is the lower-RAM window: `_stage_ws` followed by the AY song workspace |
+| 0x8000-0xBFFF | fixed: code/data, scene + art workspaces, directories, item names |
+| 0xC000-0xFFFF | home bank 0: CRT, game state, NIRVANA+ engine @0xDC03 |
+| banks 1,3,4,6,7 | paged compressed art blobs + scene records + AY songs |
+
+`paged_unpack(bank, src, dst)` (src/zx/paging.asm) is the only paging primitive. Each blob in a bank is `[u16 compressed
+length][zx0 stream]`. Only the short page-and-copy is done with interrupts disabled: `di`, page the bank via port
+0x7FFD, copy the compressed bytes into the always-resident `_stage_ws` (0x6000, lower RAM), page bank 0 back and `ei`.
+The vendored 69-byte ZX0 decoder (`vendor/zx0/zx0.asm`) then runs **with interrupts enabled** from `_stage_ws` into the
+caller's workspace (`_scene_ws`, `_art_ws`, or the lower-RAM song workspace), so the AY player and the NIRVANA+ raster
+race keep running.
+The NIRVANA+ ISR preserves all registers and SP, so interrupting the decode is safe. Scenes and art have separate
+workspaces so a scene's strings survive while its art is drawn.
+
+Scene text budget: the scene title renders on row 0, above the art band. On the pinned layout the worst-case wrapped
+text rows + options must be <= `22 - art_rows` rows (rows `art_rows+1`..22), with the options pinned to the bottom and
+the last one on row 22 directly above the inventory band on row 23. `tools/editor` evaluates all flag/item
+combinations when counting conditional lines and options. With `menu: popup` the options leave the band, the text may
+use rows through 23, and overflowing scene text and item descriptions scroll with the arrow keys; there is no fit
+limit.
+
+Storage budget: art, scene and song blobs share the five paged 16K banks (1,3,4,6,7), so the resident limit is **~81.9
+KB** (81,920 minus a magic byte per bank). Every blob is ZX0-compressed by `tools/gen_scenes.py`, so what counts against
+that limit is the *compressed* size (plus a 2-byte length prefix): art and scenes typically shrink to **50-68%**,
+roughly **1.6-2x** the raw capacity (e.g. 76 KB of art+scenes in ~50 KB). A scene record is ~190 bytes plus 2 bytes per
+option condition; a song may be up to 4158 B decompressed, and only the game's largest module is reserved in the
+lower-RAM song workspace; an art blob is `8·art_rows` bytes + 48 bytes per unique 16x16 tile, i.e. up to
+`392·art_rows` B raw (3,920 B at the default 10). Packing is best-fit-decreasing over the compressed blobs, so a few
+hundred bytes of slack matter. A single compressed blob must fit the 4096-byte `_stage_ws`, and `_stage_ws` plus the
+song workspace must fit the 8K lower-RAM window at 0x6000. Build fails with `scene/art/song data exceeds available
+banks` when the total overflows — remove or merge arts (repoint a scene's `art:` to an existing id) to recover space.
+
+## Art conversion
+
+The converter crops each art to its `crop:` rectangle (`x y w h`, percent of the source) and scales it to the art band
+(256×(8·art_rows); the default `art_rows` 10 is 256x80); absent is the centred band-aspect window (32/art_rows, i.e.
+3.2:1 at the default) — the whole frame for a source that already matches, else a full-width or full-height strip. The
+Art tab overlays a resizable box on the Original image to set it (the box keeps the band aspect): the previews and the
+saved value update when the drag is released. NIRVANA+ conversion picks each 8x2 cell's ink/paper
+by exhaustive search, then assigns pixels to those two colours by the selected `dither:` scheme: `off` (default, hard
+nearest-colour snap), an ordered scheme — `bayer2` (2x2, coarsest), `bayer4`, `bayer8` (finest) — `noise` (fixed grain,
+no ordered pattern), or an error-diffusion kernel — `floyd` (Floyd-Steinberg, smoothest), `atkinson` (high contrast),
+`jarvis`, `stucki` or `sierra`. Flat mid-tones then dither into a mix instead of collapsing to one colour. Several
+further `# Game` options keep more of the source's colour: `match:` (the `rgb` default or the `perceptual` redmean
+metric), `palette:` (`none`, `spectrum` = snap to the 16 Spectrum colours, or `adaptive` = median-cut to
+`palette_colors:`, default 16), and `saturation:`/`contrast:`/`brightness:`/`gamma:` source adjustments (default 1.0;
+raise `saturation` so muted AI art lands closer to the Spectrum's flat palette). Every option (like the `crop:`) is a `#
+Game` default that any art may override with its own line, and all are applied at conversion time, so the engine carries
+no conversion state. All modes are deterministic and keep the unique-tile count at or near the `8·art_rows`-tile cap,
+so the paged-bank budget is unaffected.
+
+## Implementation notes
+
+A few implementation details worth recording here:
+
+- **Accents:** the z88dk 4x8 console font has no accented glyphs, so `tools/gen_scenes.py` maps `Á Ñ á é í Ü ü ñ ó ú ¿`
+  onto blank font slots (`0x5B..0x60`, `0x7B..0x7F`) and emits the slot offsets and hand-drawn 4x8 glyphs;
+  `src/zx/plat_zx.c` patches them into the CRT's own `CRT_FONT_64` table at startup, so no second 768-byte font is
+  resident. A glyph is duplicated in both nibbles because 64-column printing uses the high nibble on even columns and
+  the low nibble on odd ones. `game.md` keeps real UTF-8 accents; only `—`/curly quotes/`…` are romanised, and any
+  other non-ASCII character fails the build.
+- **btiles = 48 bytes** (32 bitmap + 16 attr, `INK|PAPER<<3|BRIGHT<<6`), verified against the engine's drawT asm — see
+  `tools/zxart.py`.
+- **Records are offset-encoded, not pointers** (`tools/gen_scenes.py`): `SceneHdr` in `build/scene_data.h` holds `u16`
+  offsets resolved against `_scene_ws`; art blobs resolve against `_art_ws`. Packed into banks with a magic first byte
+  (0x5C) so the loader can tell a resident bank (SNA) from a blank one.
+- **Blobs are ZX0-compressed** (`tools/gen_scenes.py` calls the z88dk host tool `z88dk-zx0`); each blob in a bank is
+  `[u16 compressed length][zx0 stream]`. The 69-byte standard decoder is vendored in `vendor/zx0/`. `paged_unpack`
+  copies just the compressed bytes into the always-resident lower-RAM `_stage_ws` under `di`, then decodes into the
+  workspace with `ei`, so the AY player (music) and the raster race keep running; the engine only disables interrupts
+  for the short copy. The `u16` prefix is what lets the runtime copy the exact compressed length, so no per-blob length
+  arrays are needed (the decoder itself is self-terminating). Songs decode straight into the lower-RAM workspace after
+  `_stage_ws`.
+- **TAP vs SNA:** `tools/make_tap.py` appends one headerless 16K block per bank to the appmake loader+main TAP (read at
+  startup by `src/zx/loader.asm` via ROM LD-BYTES); `tools/make_sna.py` packs a 128K snapshot with every bank resident
+  (so the loader no-ops). The .tap is the real-hardware path; the .sna is the deterministic test path in ZEsarUX.
+
+Key files: `src/portable/core/` + `src/portable/plat.h` (shared engine and music player), `src/zx/plat_zx.c`
+(Spectrum platform layer, NIRVANA+ ISR hook and lower-RAM song address), `src/zx/paging.asm`, `src/zx/loader.asm`,
+`vendor/nirvanap/`, `vendor/zx0/`, `tools/gen_scenes.py`.

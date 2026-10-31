@@ -1,0 +1,638 @@
+#!/usr/bin/env python3
+"""Build a game's 128K adventure (portable replacement for adventure.sh).
+
+One shared engine builds any game under ``games/<slug>/``. The per-game inputs
+(``game.md``, ``assets/art``) live in the game folder and the generated
+intermediates (``scene_data.h``, ``scene_banks.asm``,
+``scene_bankN.asm``, ``scene_flags.txt``, ``adventure.bin``,
+``adventure_NIRVANAP.bin``) go under ``games/<slug>/build/``. Only the playable
+artifacts (``<slug>.tap``, ``<slug>.sna`` and the other targets' ROM/disk
+outputs) stay at the game root.
+
+This is the sh-free driver the editor server spawns; it performs the identical
+steps as the old ``tools/adventure.sh`` but uses :mod:`subprocess` directly, so
+it runs on Windows and macOS as well as Linux (the old script depended on a
+POSIX shell and GNU ``stat -c%s``).
+
+Usage:
+    python3 tools/build.py list-targets
+    python3 tools/build.py build [game] [target...]
+    python3 tools/build.py build [game] --all
+    python3 tools/build.py run   [game] [target]
+
+    zcc ... src/zx/*.c src/zx/paging.asm src/zx/loader.asm \
+            games/<slug>/build/scene_banks.asm ... -I games/<slug>/build \
+            -o <game>/build/adventure.bin
+    appmake -> <game>/<slug>.tap (tape) and <game>/<slug>.sna (128K snapshot)
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gamestore
+import scenefile
+import targets
+from targets.base import portable_sources
+import z88dkpath
+# The target plugins import this module lazily by name; make sure that name
+# resolves to the running script as well as to a normal import.
+sys.modules.setdefault("build", sys.modules[__name__])
+
+ROOT = gamestore.ROOT
+BANK = 0x4000
+
+
+def _fwd(p):
+    """Normalise path separators for the z88dk tools.
+
+    z88dk's Windows binaries accept forward slashes, so passing them avoids the
+    backslash quoting pitfalls inside the compiler/assembler argument parser.
+    """
+    return str(p).replace("\\", "/")
+
+
+def _settings_z88dk():
+    """The editor's saved z88dk_path, so a CLI build honours the UI setting.
+
+    The editor server passes ``$Z88DK`` directly, so this is only a fallback
+    for running ``tools/build.py`` on its own.
+    """
+    path = os.environ.get("RVN_SETTINGS") or os.environ.get("ZXAD_SETTINGS")
+    if not path:
+        if sys.platform == "darwin":
+            cfg = os.path.join(os.path.expanduser("~"), "Library",
+                               "Application Support")
+        elif os.name == "nt":
+            cfg = os.environ.get("APPDATA") or os.path.expanduser("~")
+        else:
+            cfg = os.environ.get("XDG_CONFIG_HOME") or \
+                os.path.join(os.path.expanduser("~"), ".config")
+        path = os.path.join(cfg, "retro-visual-novel", "settings.json")
+        for old in (os.path.join(cfg, "zx-novel", "settings.json"),
+                    os.path.join(cfg, "zxadventure", "settings.json")):
+            if os.path.exists(path):
+                break
+            if os.path.exists(old):
+                path = old
+    try:
+        with open(path, encoding="utf-8") as f:
+            val = json.load(f).get("z88dk_path")
+    except Exception:                          # noqa: BLE001 - missing/garbled
+        return ""
+    return str(val).strip() if val else ""
+
+
+def zcc_config(z88dk):
+    """zcc's config directory for a toolchain tree.
+
+    A source/Docker install keeps it in ``lib/config``; the snap relocates the
+    whole kit under ``share/z88dk``. Prefer whichever actually has the target
+    config, so both layouts work without the user setting ``ZCCCFG``.
+    """
+    for rel in (("share", "z88dk", "lib", "config"), ("lib", "config")):
+        path = os.path.join(z88dk, *rel)
+        if os.path.isfile(os.path.join(path, "zx.cfg")):
+            return path
+    return os.path.join(z88dk, "lib", "config")
+
+
+def build_env():
+    """Environment with the z88dk toolchain on PATH (mirrors adventure.sh).
+
+    An explicit ``$Z88DK`` or the editor's saved path wins; otherwise the
+    Snap install is detected automatically before the ``/tmp/z88dk`` fallback.
+    """
+    env = dict(os.environ)
+    z88dk = env.get("Z88DK") or _settings_z88dk() or z88dkpath.default_root()
+    env["Z88DK"] = z88dk
+    env["ZCCCFG"] = zcc_config(z88dk)
+    env["PATH"] = os.path.join(z88dk, "bin") + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def run(cmd, env, cwd=None, stdout=None):
+    """Run one step, streaming its output; stop the build if it fails."""
+    proc = subprocess.run(cmd, cwd=cwd or ROOT, env=env, stdout=stdout)
+    if proc.returncode != 0:
+        sys.stderr.write("build step failed: %s\n" % " ".join(cmd))
+        raise SystemExit(proc.returncode)
+
+
+def _py():
+    """The interpreter to run the sibling tools with (portable/bundled safe)."""
+    return sys.executable or "python3"
+
+
+def stage_inputs(dest, sources):
+    """Copy build inputs flat into ``dest``; return their basenames.
+
+    Generated port asm names bank images by a path relative to ``ROOT``. Those
+    paths may contain spaces (the AppImage mount) and are relative to the
+    normal build cwd, so rewrite each ``BINARY``/``INCBIN`` to the flat copy's
+    basename. Callers then run zcc with ``cwd=dest`` and relative names, which
+    also avoids zcc mangling source paths that contain spaces.
+    """
+    names = []
+    for src in sources:
+        if not src or not os.path.exists(src):
+            continue
+        name = os.path.basename(src)
+        dst = os.path.join(dest, name)
+        if name.endswith(".asm"):
+            with open(src, encoding="utf-8") as f:
+                text = f.read()
+
+            def repl(match):
+                rel = match.group(2).replace("\\", "/")
+                path = rel if os.path.isabs(rel) else os.path.join(ROOT, rel)
+                base = os.path.basename(rel)
+                shutil.copyfile(path, os.path.join(dest, base))
+                return match.group(1) + '"' + base + '"'
+
+            text = re.sub(r'(?m)^(\s*(?:BINARY|INCBIN)\s+)"([^"]+)"',
+                          repl, text)
+            with open(dst, "w", encoding="utf-8") as f:
+                f.write(text)
+        else:
+            shutil.copyfile(src, dst)
+        names.append(name)
+    return names
+
+
+def guard_map(gdir):
+    """Paging routines must stay below 0xC000, or paging overwrites itself."""
+    mp = os.path.join(gdir, gamestore.BUILD_NAME, "adventure.map")
+    if not os.path.exists(mp):
+        return
+    txt = open(mp).read()
+    bad = []
+    for sym in ("_paged_unpack", "_zx0_unpack", "_load_banks",
+                "_scene_bank_list"):
+        m = re.search(rf"^{sym}\s+= \$([0-9A-Fa-f]+)", txt, re.M)
+        if m and int(m.group(1), 16) >= 0xC000:
+            bad.append(sym)
+    if bad:
+        raise SystemExit(
+            "home-region overflow: %s linked at or above 0xC000 (bank 0), "
+            "so paging would overwrite its own code. Shrink the game "
+            "(fewer/shorter scenes, text, options or arts)." % ", ".join(bad))
+
+
+def _scene_define(gdir, key):
+    """Read an integer ``#define key N`` from the game's scene_data.h, or None.
+
+    gen_scenes.py emits the per-game sizes there (ART_WS_SIZE, SCENE_WS_SIZE,
+    ART_LINES, ...) and we pass the assembler ones; absent means None.
+    """
+    path = os.path.join(gdir, gamestore.BUILD_NAME, "scene_data.h")
+    try:
+        txt = open(path).read()
+    except OSError:
+        return None
+    m = re.search(r"^#define\s+%s\s+(\d+)" % re.escape(key), txt, re.M)
+    return int(m.group(1)) if m else None
+
+
+def _engine_config(rows):
+    """The vendored NIRVANA+ config with ``__NIRVANAP_TOTAL_ROWS`` set to rows.
+
+    The engine races rows 1..TOTAL_ROWS, so a game's ``## zx`` ``art_rows:``
+    becomes TOTAL_ROWS (the internal scene_data.h name is ART_LINES). Both the
+    z80asm ``defc`` and the m4 ``define`` line in config_private.inc are patched;
+    the m4 line is what the Z88DK_FOR loops read (see vendor/nirvanap/README).
+    """
+    path = os.path.join(ROOT, "vendor", "nirvanap", "config_private.inc")
+    src = open(path).read()
+    src, n1 = re.subn(r"(defc\s+__NIRVANAP_TOTAL_ROWS\s*=\s*)\d+",
+                      lambda m: m.group(1) + str(rows), src)
+    src, n2 = re.subn(r"(define\(`__NIRVANAP_TOTAL_ROWS',\s*)\d+",
+                      lambda m: m.group(1) + str(rows), src)
+    if not (n1 and n2):
+        raise SystemExit(
+            "vendor/nirvanap/config_private.inc: cannot patch "
+            "__NIRVANAP_TOTAL_ROWS (expected a defc and a define line)")
+    return src
+
+
+def _map_addr(gdir, symbol):
+    """The linked address of one symbol from the game's adventure.map."""
+    path = os.path.join(gdir, gamestore.BUILD_NAME, "adventure.map")
+    try:
+        txt = open(path).read()
+    except OSError:
+        return None
+    m = re.search(rf"^{re.escape(symbol)}\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    return int(m.group(1), 16) if m else None
+
+
+def write_engine_blob(gdir, engdir, engine_asm, asm_sources, env):
+    """Rebuild the standalone NIRVANA+ image merged into the TAP/SNA.
+
+    `zcc` links the engine into the game's address space but omits it from
+    adventure.bin, so the TAP/SNA need a raw image from org 0xDC03. Regenerate
+    it every build from the same patched engine that was linked (including the
+    wrappers the game actually references); using a per-game stale file here
+    kept the old TOTAL_ROWS after an art_rows change.
+    """
+    head = _map_addr(gdir, "__NIRVANAP_head")
+    tail = _map_addr(gdir, "__code_nirvanap_tail")
+    if head is None or tail is None:
+        raise SystemExit(
+            "adventure.map is missing the NIRVANA+ bounds "
+            "(__NIRVANAP_head / __code_nirvanap_tail); cannot build the "
+            "engine image")
+    if head != 0xDC03:
+        raise SystemExit(
+            "NIRVANA+ engine head is 0x%04X, expected 0xDC03" % head)
+
+    wrappers = []
+    for name, symbol in (
+            ("NIRVANAP_start.asm", "NIRVANAP_start"),
+            ("NIRVANAP_drawT_raw_callee.asm", "NIRVANAP_drawT_raw_callee"),
+            ("NIRVANAP_fillT_raw_callee.asm", "NIRVANAP_fillT_raw_callee")):
+        if name not in asm_sources:
+            continue
+        addr = _map_addr(gdir, symbol)
+        if addr is not None:
+            wrappers.append((addr, name))
+    wrappers.sort()
+
+    out = os.path.join(gdir, gamestore.BUILD_NAME, "adventure_NIRVANAP.bin")
+    names = [engine_asm] + [name for _addr, name in wrappers]
+    # z80asm -b writes one image per section, named <prefix>_<SECTION>.bin;
+    # the NIRVANAP section image already contains the linked wrappers and
+    # starts at org 0xDC03. The empty <prefix> file is not the image.
+    prefix = os.path.join(engdir, "engine_blob")
+    section = prefix + "_NIRVANAP.bin"
+    run(["z88dk-z80asm", "-b", "-D__CLASSIC=1", "-o" + _fwd(prefix), *names],
+        env, cwd=engdir)
+    if not os.path.exists(section):
+        raise SystemExit("z88dk-z80asm did not write %s" % section)
+    blob = open(section, "rb").read()
+    expected = tail - head
+    if len(blob) != expected:
+        raise SystemExit(
+            "NIRVANA+ engine image is %d bytes but the linked map needs %d "
+            "(0x%04X..0x%04X); the engine sources and the game link disagree"
+            % (len(blob), expected, head, tail))
+    if len(blob) > 0x10000 - head:
+        raise SystemExit("NIRVANA+ engine image overruns bank 0")
+    with open(out, "wb") as f:
+        f.write(blob)
+    try:
+        os.remove(prefix)
+    except OSError:
+        pass
+    return out
+
+
+def merge_engine(gdir):
+    """Merge the fixed-address NIRVANA+ engine into the main image."""
+    main = bytearray(open(os.path.join(gdir, gamestore.BUILD_NAME,
+                                       "adventure.bin"), "rb").read())
+    engine = os.path.join(gdir, gamestore.BUILD_NAME, "adventure_NIRVANAP.bin")
+    if not os.path.exists(engine):
+        raise SystemExit(
+            "missing %s; the ZX build did not generate the NIRVANA+ image"
+            % engine)
+    eng = open(engine, "rb").read()
+    off = 0xDC03 - 0x8000
+    if len(main) > off:
+        raise SystemExit(
+            "home bank overflow: adventure.bin is %d bytes but must be <= %d "
+            "(0xDC03-0x8000); the main image would overlap the NIRVANA+ engine. "
+            "Shorten scene text/item descriptions or remove arts to recover RAM."
+            % (len(main), off))
+    if len(main) < off:
+        main += bytes(off - len(main))
+    main[off:off + len(eng)] = eng
+    open(os.path.join(gdir, gamestore.BUILD_NAME,
+                      "adventure_merged.bin"), "wb").write(main)
+
+
+def memory_report(gdir):
+    """How full the 128K machine is once the game is resident."""
+    def size(path):
+        return os.path.getsize(path) if os.path.exists(path) else 0
+
+    main = size(os.path.join(gdir, gamestore.BUILD_NAME, "adventure.bin"))
+    engine = os.path.join(gdir, gamestore.BUILD_NAME, "adventure_NIRVANAP.bin")
+    eng = size(engine)
+    banks_dir = os.path.join(gdir, gamestore.BUILD_NAME, "scene_banks")
+    data = sum(size(os.path.join(banks_dir, "bank%d.bin" % b))
+               for b in (1, 3, 4, 6, 7))
+    fixed = min(main, BANK)                       # 0x8000..0xBFFF
+    home0 = max(main - BANK, (0xDC03 - 0xC000) + eng)
+    used = BANK + fixed + home0 + data            # screen + fixed + bank 0 + paged
+    total = 8 * BANK
+    print("memory: %d/%d bytes (%.1f%% of 128K full)"
+          % (used, total, 100.0 * used / total))
+
+
+def _build_zx(slug):
+    """The original ZX 128K pipeline. Returns its artifact list."""
+    game = gamestore.resolve(slug)
+    if game is None:
+        raise SystemExit("no such game: %r (see 'games/')" % (slug,))
+    gdir = game["dir"]
+    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+    os.makedirs(bdir, exist_ok=True)
+    env = build_env()
+    # Tell the child tools (gen_scenes/make_tap/make_sna) exactly which folder
+    # to work on, so an opened game outside games/ resolves for all of them.
+    env["RVN_GAME"] = gdir
+    py = _py()
+
+    # --- generate tables + banks ------------------------------------------
+    # Per-art Spectrum btiles are built from the art's selected source image
+    # (assets/art/<id>/, the `image:` candidate) straight into the paged
+    # scene/art banks; there is no resident tile blob.
+    run([py, os.path.join(ROOT, "tools", "gen_scenes.py"), gdir], env)
+
+    # --- build the vendored NIRVANA+ engine -------------------------------
+    # The engine races attribute rows 1..TOTAL_ROWS, so it is rebuilt per game
+    # with TOTAL_ROWS from the ZX target's `art_rows` option (ART_LINES in
+    # scene_data.h). A temp config_private.inc, first on the m4 include path,
+    # overrides the vendored one so the art band's height matches the
+    # generated tables/banks.
+    art_lines = _scene_define(gdir, "ART_LINES") or 10
+    vendor = os.path.join(ROOT, "vendor", "nirvanap")
+    builddir = tempfile.mkdtemp(prefix=".zx-", dir=bdir)
+    engdir = os.path.join(builddir, "engine")
+    objdir = os.path.join(builddir, "obj")
+    cfgdir = os.path.join(builddir, "cfg")
+    srcdir = os.path.join(builddir, "src")
+    try:
+        for path in (engdir, objdir, cfgdir, srcdir):
+            os.makedirs(path)
+        with open(os.path.join(cfgdir, "config_private.inc"), "w") as f:
+            f.write(_engine_config(art_lines))
+        # Build from a writable copy inside the game folder: a packaged app
+        # runs from a read-only bundle, and z80asm's m4 pass writes the
+        # generated .asm next to its source. Run m4 ourselves so paths (the
+        # AppImage mount has spaces) are passed as separate argv entries.
+        lst = os.path.join(vendor, "nirvanap_sccz80.lst")
+        with open(lst) as f:
+            sources = [line.strip() for line in f if line.strip()]
+        asm_sources = []
+        for name in sources:
+            if name.endswith(".m4"):
+                continue
+            shutil.copyfile(os.path.join(vendor, name),
+                            os.path.join(engdir, name))
+            asm_sources.append(name)
+        engine_m4 = next(n for n in sources if n.endswith(".m4"))
+        engine_asm = os.path.basename(engine_m4)[:-3]
+        with open(os.path.join(engdir, engine_asm), "w") as out:
+            run(["m4", "-I" + _fwd(cfgdir), "-I" + _fwd(vendor),
+                 "-I" + _fwd(os.path.join(vendor, "m4")),
+                 _fwd(os.path.join(vendor, engine_m4))],
+                env, cwd=engdir, stdout=out)
+        run(["z88dk-z80asm", "-d", "-Oobj", "-xnirvanap.lib",
+             "-D__CLASSIC=1", engine_asm, *asm_sources], env, cwd=engdir)
+
+        # --- compile (128K banked classic model) --------------------------
+        # Scene banks are raw data (build/scene_banks/*.bin), loaded at
+        # runtime by src/zx/loader.asm; not linked in, so appmake only sees the
+        # main block. Stage every input in the game-folder build dir and run
+        # from there with relative names: zcc mangles source paths that contain
+        # spaces (AppImage mount paths and some game folders do).
+        # loader.asm/zx0.asm are listed first so the paging routines stay low.
+        # ART_WS_SIZE / SCENE_WS_SIZE right-size src/zx/paging.asm's workspaces
+        # to this game (the assembler has no .h include, so they go via -Ca).
+        # The song workspace is computed in plat_zx.c from STAGE_WS_SIZE and
+        # lives in lower RAM after _stage_ws, so it needs no assembler define.
+        inputs = [
+            os.path.join(ROOT, "src", "zx", "loader.asm"),
+            os.path.join(ROOT, "vendor", "zx0", "zx0.asm"),
+            os.path.join(bdir, "scene_banks.asm"),
+            *portable_sources(ROOT),
+            os.path.join(ROOT, "src", "portable", "plat.h"),
+            os.path.join(ROOT, "src", "zx", "plat_zx.c"),
+            os.path.join(ROOT, "src", "zx", "paging.asm"),
+            os.path.join(ROOT, "src", "zx", "engine.h"),
+            os.path.join(bdir, "scene_data.h"),
+            os.path.join(bdir, "scene_data.c"),
+            os.path.join(bdir, "port_data.h"),
+        ]
+        for path in inputs:
+            shutil.copyfile(path, os.path.join(srcdir, os.path.basename(path)))
+        shutil.copyfile(os.path.join(engdir, "nirvanap.lib"),
+                        os.path.join(srcdir, "nirvanap.lib"))
+        cmd = ["zcc", "+zx", "-compiler=sccz80", "-vn", "-clib=default",
+               "-startup=1", "-I.", "-L.", "-lnirvanap",
+               "-pragma-define:CRT_DISABLELOADER=1"]
+        for key in ("ART_WS_SIZE", "SCENE_WS_SIZE"):
+            val = _scene_define(gdir, key)
+            if val is not None:
+                cmd.append("-Ca-D%s=%d" % (key, val))
+        cmd += ["loader.asm", "zx0.asm", "scene_banks.asm", "scene_data.c",
+                "state.c", "game.c", "render.c", "inventory.c", "scene.c",
+                "menu.c", "main.c", "plat_zx.c", "music.c",
+                "paging.asm", "-o", "adventure.bin", "-lndos", "-m"]
+        run(cmd, env, cwd=srcdir)
+        for name in ("adventure.bin", "adventure.map"):
+            src = os.path.join(srcdir, name)
+            if os.path.exists(src):
+                shutil.copyfile(src, os.path.join(bdir, name))
+        # The engine image must come from this build: the linked map tells us
+        # which wrappers the game uses and their order, so a stale
+        # adventure_NIRVANAP.bin can never mask an art_rows change.
+        write_engine_blob(gdir, engdir, engine_asm, asm_sources, env)
+    finally:
+        shutil.rmtree(builddir, ignore_errors=True)
+
+    guard_map(gdir)
+
+    # --- tape + 128K snapshot ---------------------------------------------
+    # appmake can't put the fixed-address NIRVANAP+ engine or raw 0xC000 bank
+    # blocks on a tape, so merge the engine into the main image and let appmake
+    # produce the loader+main TAP, then append the scene banks; the SNA is
+    # packed directly with every bank resident.
+    merge_engine(gdir)
+    run(["z88dk-appmake", "+zx", "-b",
+         _fwd(os.path.join(bdir, "adventure_merged.bin")),
+         "-o", _fwd(os.path.join(bdir, "advbase.tap")),
+         "--org", "32768", "--blockname", "advmain"], env)
+    run([py, os.path.join(ROOT, "tools", "make_tap.py"),
+         os.path.join(bdir, "advbase.tap"),
+         os.path.join(gdir, game["slug"] + ".tap"), gdir], env)
+    run([py, os.path.join(ROOT, "tools", "make_sna.py"), gdir,
+         os.path.join(gdir, game["slug"] + ".sna")], env)
+    for tmp in ("advbase.tap", "adventure_merged.bin"):
+        try:
+            os.remove(os.path.join(bdir, tmp))
+        except OSError:
+            pass
+
+    tap = os.path.join(gdir, game["slug"] + ".tap")
+    sna = os.path.join(gdir, game["slug"] + ".sna")
+    print("OK: %s (%d bytes), %s (%d bytes)"
+          % (tap, os.path.getsize(tap), sna, os.path.getsize(sna)))
+    memory_report(gdir)
+    return [
+        {"path": tap, "kind": "zx-tap", "size": os.path.getsize(tap)},
+        {"path": sna, "kind": "zx-sna", "size": os.path.getsize(sna)},
+    ]
+
+
+Z88DK_TOOLS = ("zcc", "z88dk-z80asm", "z88dk-appmake", "z88dk-zx0")
+
+
+def _z88dk_missing(env=None):
+    env = env or build_env()
+    path = env.get("PATH", "")
+    return [name for name in Z88DK_TOOLS
+            if shutil.which(name, path=path) is None]
+
+
+def _game_doc(slug):
+    game = gamestore.resolve(slug)
+    if game is None:
+        raise SystemExit("no such game: %r (see 'games/')" % (slug,))
+    md = os.path.join(game["dir"], "game.md")
+    return game, scenefile.parse(md)
+
+
+def _target_ids(doc, requested=None, build_all=False):
+    if build_all:
+        ids = []
+        for t in targets.all_targets().values():
+            if t.id not in ids:
+                ids.append(t.id)
+        return targets.ordered_targets(sorted(ids))
+    if requested:
+        return targets.ordered_targets(
+            str(x).strip().lower() for x in requested if str(x).strip())
+    return targets.ordered_targets(targets.selected_targets(doc))
+
+
+def build_selected(slug, requested=None, build_all=False):
+    """Build every selected target; return a per-target result summary."""
+    game, doc = _game_doc(slug)
+    env = build_env()
+    missing = _z88dk_missing(env)
+    if missing:
+        raise SystemExit(
+            "z88dk is incomplete — missing %s. Set $Z88DK or choose the "
+            "toolchain folder in the editor's Settings (Build toolchain)"
+            % ", ".join(missing))
+    ids = _target_ids(doc, requested, build_all)
+    if not ids:
+        raise SystemExit("no build targets selected (add targets: to game.md)")
+    summary = []
+    failures = 0
+    for index, target_id in enumerate(ids):
+        target = targets.get_target(target_id)
+        if len(ids) > 1:
+            if index:
+                print()
+            print(targets.build_separator(
+                target_id, target.label if target else ""), flush=True)
+        if target is None:
+            print(f"[{target_id}] error: unknown build target")
+            failures += 1
+            summary.append({"target": target_id, "status": "error",
+                            "error": "unknown target", "outputs": []})
+            continue
+        options = targets.target_options(doc, target)
+        ctx = targets.BuildContext(slug=game["slug"], gdir=game["dir"],
+                                   bdir=os.path.join(game["dir"],
+                                                    gamestore.BUILD_NAME),
+                                   doc=doc, options=options, env=env,
+                                   py=_py(), root=ROOT)
+        print(f"[{target_id}] building {target.label} ...", flush=True)
+        started = time.monotonic()
+        try:
+            if target.available is not None:
+                avail, reason = target.available()
+                if not avail:
+                    raise RuntimeError(reason)
+            result = target.build(ctx) or targets.BuildResult(target=target_id)
+            seconds = time.monotonic() - started
+            summary.append({"target": target_id, "status": "done",
+                            "outputs": result.outputs,
+                            "warnings": result.warnings,
+                            "seconds": round(seconds, 1)})
+        except SystemExit as err:
+            failures += 1
+            seconds = time.monotonic() - started
+            print(f"[{target_id}] failed in {seconds:.1f}s: {err}")
+            summary.append({"target": target_id, "status": "error",
+                            "error": str(err), "outputs": [],
+                            "seconds": round(seconds, 1)})
+        except Exception as err:                # noqa: BLE001 - one target fails
+            failures += 1
+            seconds = time.monotonic() - started
+            print(f"[{target_id}] failed in {seconds:.1f}s: {err}")
+            summary.append({"target": target_id, "status": "error",
+                            "error": str(err), "outputs": [],
+                            "seconds": round(seconds, 1)})
+    return summary, failures
+
+
+def run_game(slug, target_id=None):
+    summary, failures = build_selected(slug, [target_id] if target_id else None)
+    if failures:
+        raise SystemExit("build failed; not starting the emulator")
+    target_id = target_id or (summary[0]["target"] if summary else "zx")
+    if target_id != "zx":
+        print(f"{target_id}: build complete; use an external emulator "
+              f"(outputs above)")
+        return
+    game, _ = _game_doc(slug)
+    tap = os.path.join(game["dir"], game["slug"] + ".tap")
+    env = build_env()
+    run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "off"], env)
+    time.sleep(1)
+    run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "run", tap], env)
+
+
+def list_targets():
+    for item in targets.targets_json()["targets"]:
+        status = "available" if item["available"] else \
+            "unavailable: " + (item["unavailable_reason"] or "missing toolchain")
+        print(f"{item['id']:<4} {item['label']:<24} "
+              f"{', '.join(item['outputs']):<12} {status}")
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] == "list-targets":
+        list_targets()
+        return
+    if args and args[0] in ("build", "run"):
+        cmd = args[0]
+        rest = args[1:]
+    else:
+        cmd = "build"
+        rest = args
+    build_all = "--all" in rest
+    rest = [a for a in rest if a != "--all"]
+    if not rest:
+        raise SystemExit("usage: build.py %s <game> [target ...] [--all]" % cmd)
+    game_arg = rest[0]
+    requested = rest[1:] or None
+    if cmd == "run":
+        run_game(game_arg, requested[0] if requested else None)
+    else:
+        summary, failures = build_selected(game_arg, requested, build_all)
+        print()
+        for item in summary:
+            elapsed = item.get("seconds")
+            timing = f" in {elapsed:.1f}s" if elapsed is not None else ""
+            print(f"[{item['target']}] {item['status']}{timing}")
+            for out in item.get("outputs", []):
+                print(f"  {out['path']} ({out.get('size', '?')} bytes)")
+        if failures:
+            raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

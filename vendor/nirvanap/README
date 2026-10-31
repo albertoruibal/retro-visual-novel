@@ -1,0 +1,42 @@
+# Vendored NIRVANA+ engine (Retro Visual Novel engine)
+
+This directory is a **minimal** vendoring of Einar Saukas' NIRVANA+ bicolor
+engine, taken from the z88dk source tree:
+
+    /tmp/z88dk/libsrc/_DEVELOPMENT/arch/zx/nirvanap/
+
+Files:
+
+    NIRVANAP_ENGINE.asm.m4          engine (m4-templated, upstream unchanged)
+    NIRVANAP_start.asm              sccz80 wrapper -> asm_NIRVANAP_start
+    NIRVANAP_drawT_raw_callee.asm   sccz80 wrapper for NIRVANAP_drawT_raw()
+    NIRVANAP_fillT_raw_callee.asm   sccz80 wrapper for NIRVANAP_fillT_raw()
+    m4/z88dk.m4                     defines Z88DK_FOR (only macro the engine uses)
+    config_private.inc              trimmed build config (see below)
+    nirvanap_sccz80.lst             z80asm source list
+
+## Why vendored
+
+The project renders an art band whose height is per game (`# game art_lines`,
+even 8..16, default 10 = 256x80 = 5 tile rows) and keeps character rows
+`art_lines+1`..21 for standard attributes and `printf` text (the story band) and
+rows 22..23 for the two-line inventory band. The engine's raster race writes
+`$5820 + row*32`, i.e. attribute rows 1..N (it starts one row below the top).
+Upstream z88dk builds NIRVANA+ with `__NIRVANAP_TOTAL_ROWS = 23`, so its
+per-frame raster rewrites rows 1..23 and erases the text band. `tools/build.py`
+builds our copy with `__NIRVANAP_TOTAL_ROWS = art_lines`: it writes a temporary
+`config_private.inc` (patched from this one) and puts its directory first on the
+m4 include path, so the engine races rows `1..art_lines` only — the band the art
+fills — leaving row 0 (blank, above the art) and rows `art_lines+1`..23 for text
+and the inventory. Only bytes inside the engine's padded hole change, so
+`org_nirvanap` (`0xDC03`) and the engine's size are unaffected.
+
+`config_private.inc` is the upstream generated config trimmed to the symbols
+`NIRVANAP_ENGINE.asm.m4` references; its `__NIRVANAP_TOTAL_ROWS` (10) is the
+default a game gets when it does not set `art_lines`.
+
+## License / attribution
+
+NIRVANA+ is by Einar Saukas. It may be used freely (including commercially)
+provided the project clearly mentions it was developed using NIRVANA+. This
+project credits it in the source and on screen ("Powered by NIRVANA+").

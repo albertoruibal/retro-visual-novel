@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Visual Novel</title>
+<link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/base.css">
+<link rel="stylesheet" href="/static/layout.css">
+<link rel="stylesheet" href="/static/chrome.css">
+<link rel="stylesheet" href="/static/panels.css">
+<link rel="stylesheet" href="/static/art.css">
+<link rel="stylesheet" href="/static/feedback.css">
+<link rel="stylesheet" href="/static/graph.css">
+<link rel="stylesheet" href="/static/web.css">
+<link rel="stylesheet" href="/static/responsive.css">
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <img id="brand" src="/static/icon.svg" alt="" aria-hidden="true">
+    <h1 id="title">Retro Visual Novel</h1>
+    <span class="gamebar">
+      <button id="opengame" class="primary" title="Open a game folder">Open folder…</button>
+      <button id="newgame" title="Create a new game folder">New…</button>
+      <span id="gamepick">
+        <button id="gamelabel" class="gamelabel" aria-haspopup="menu" aria-expanded="false" title="Switch game"></button>
+        <div id="gamepickpop" class="menu" role="menu" hidden></div>
+      </span>
+      <button id="reload" title="Reload the opened game">Reload</button>
+    </span>
+    <span class="spacer"></span>
+    <span id="dirty" class="status"></span>
+    <button id="save" class="primary">Save</button>
+    <button id="editorsettings" title="Editor-wide settings (z88dk path, image server)">Settings</button>
+  </div>
+
+  <div id="viewtabs">
+    <button class="viewtab" data-view="settings">Game</button>
+    <button class="viewtab" data-view="systems">Systems</button>
+    <button class="viewtab" data-view="art">Art</button>
+    <button class="viewtab" data-view="music">Music</button>
+    <button class="viewtab" data-view="scenes">Scenes</button>
+    <button class="viewtab" data-view="flags">Flags</button>
+    <button class="viewtab" data-view="items">Items</button>
+    <button class="viewtab" data-view="graph">Graph</button>
+    <button class="viewtab" data-view="raw">Source</button>
+    <button class="viewtab" data-view="build">Build</button>
+    <button class="viewtab" data-view="web">Web</button>
+    <button class="viewtab" data-view="emu">Emulator</button>
+  </div>
+
+  <div id="view-edit" class="view" data-mode="settings">
+    <div id="artbar">
+      <span class="hint">Images are made by the local stable-diffusion server.</span>
+      <span class="spacer"></span>
+      <span id="sdstatus" class="status">checking…</span>
+      <button id="regenall" title="Regenerate every art in this game">Regenerate images</button>
+      <button id="regenmissing" title="Generate only the arts that have no image yet">Generate missing</button>
+      <button id="stopgen" class="danger" title="Stop image generation" disabled>Stop</button>
+    </div>
+    <div id="side">
+      <label for="mobsel" id="mobselwrap">Select <select id="mobsel"></select></label>
+      <div class="sec sec-game">
+        <div class="group">Game</div>
+        <div class="item" data-tab="game">Game settings</div>
+      </div>
+      <div class="sec sec-art">
+        <div class="group">References
+          <button id="addref" class="minibtn">+ Add</button>
+        </div>
+        <div id="reflist"></div>
+        <div class="group">Art (shared by scenes)
+          <button id="addart" class="minibtn">+ Add</button>
+        </div>
+        <div id="artlist"></div>
+      </div>
+      <div class="sec sec-song">
+        <div class="group">Songs
+          <button id="addsong" class="minibtn">+ Add</button>
+        </div>
+        <div id="songlist"></div>
+      </div>
+      <div class="sec sec-scene">
+        <div class="group">Scenes
+          <button id="addscene" class="minibtn">+ Add</button>
+        </div>
+        <div id="scenelist"></div>
+      </div>
+      <div class="sec sec-flag">
+        <div class="group">Flags
+          <button id="addflag" class="minibtn">+ Add</button>
+        </div>
+        <div id="flaglist"></div>
+      </div>
+      <div class="sec sec-item">
+        <div class="group">Items
+          <button id="additem" class="minibtn">+ Add</button>
+        </div>
+        <div id="itemlist"></div>
+      </div>
+    </div>
+
+    <div id="main"></div>
+
+    <div id="right">
+      <div class="group">Issues</div>
+      <div id="issues" style="padding:8px 10px"></div>
+      <div class="group">Inventory</div>
+      <div id="invlist" style="padding:8px 10px"></div>
+    </div>
+  </div>
+
+  <div id="view-graph" class="view">
+    <div id="graphbar">
+      <span class="hint">Scene links — arrows go from a scene to the scene each option targets. Hover a line to see its label; click a node to edit it.</span>
+      <span class="spacer"></span>
+      <span class="legend"><i class="sw end"></i>ending</span>
+      <span class="legend"><i class="sw sel"></i>selected</span>
+    </div>
+    <div id="graphwrap"><svg id="scenegraph" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  </div>
+
+  <div id="view-raw" class="view">
+    <div id="rawbar">
+      <span class="hint">Edit this game's <code>game.md</code> directly. Saves
+        are validated and written atomically (a <code>.bak</code> is kept).</span>
+      <span class="spacer"></span>
+      <span id="rawstatus" class="status"></span>
+      <button id="rawrevert">Revert</button>
+      <button id="rawsave" class="primary">Save</button>
+    </div>
+    <div id="rawbody">
+      <div id="raweditor"></div>
+    </div>
+  </div>
+
+  <div id="view-build" class="view">
+    <div id="buildbar">
+      <div id="buildhead">
+        <button id="build" class="primary">Build game</button>
+        <span id="buildstatus" class="status"></span>
+        <span class="spacer"></span>
+        <button id="buildclear" class="minibtn">Clear</button>
+      </div>
+      <div id="buildlog" class="log"></div>
+    </div>
+  </div>
+
+  <div id="view-web" class="view">
+    <div id="webbar">
+      <span class="hint">The mobile-first web runtime, previewed from the exported folder.</span>
+      <span class="spacer"></span>
+      <span id="webstatus" class="status"></span>
+      <button id="webreload" class="minibtn">Reload</button>
+      <button id="webnewtab" class="minibtn">Open in new tab</button>
+      <button id="webexport" class="primary">Export web</button>
+      <button id="webzip" class="minibtn" disabled>Download zip</button>
+    </div>
+    <div id="webhost">
+      <div id="webempty" class="webempty" hidden>Open a game to play it in the browser.</div>
+      <iframe id="webframe" title="Web runtime" hidden></iframe>
+    </div>
+  </div>
+
+  <div id="view-emu" class="view">
+    <div id="emubar">
+      <span id="runbar">
+        <label for="emusystem" class="hint" style="margin:0">System</label>
+        <select id="emusystem"></select>
+        <button id="run" class="primary" disabled>▶ Play</button>
+        <span id="runstatus" class="status"></span>
+      </span>
+      <span class="hint" id="emuhint">Select a system in the Systems tab.</span>
+    </div>
+    <div id="emuhost"><div id="emu"></div></div>
+  </div>
+
+  <div id="settingsmodal" class="modal" hidden>
+    <div class="modal-panel" id="settingspanel">
+      <div class="modal-head">
+        <h3>Editor settings</h3>
+        <span class="spacer"></span>
+        <button id="settingsclose" class="modal-x" title="Close settings"
+                aria-label="Close settings">×</button>
+      </div>
+      <div id="settingstabs" role="tablist">
+        <button type="button" class="subtab active" data-pane="z88dk"
+                role="tab" aria-selected="true">Build toolchain</button>
+        <button type="button" class="subtab" data-pane="servers"
+                role="tab" aria-selected="false">Image server</button>
+      </div>
+      <div id="settingsbody"></div>
+    </div>
+  </div>
+</div>
+<script src="/monaco/vs/loader.js"></script>
+<script src="/static/core.js"></script>
+<script src="/static/load.js"></script>
+<script src="/static/sidebar.js"></script>
+<script src="/static/flags.js"></script>
+<script src="/static/panes.js"></script>
+<script src="/static/pane-glue.js"></script>
+<script src="/static/art.js"></script>
+<script src="/static/refs.js"></script>
+<script src="/static/jobs.js"></script>
+<script src="/static/graph.js"></script>
+<script src="/static/actions.js"></script>
+<script src="/static/emulator.js"></script>
+<script src="/static/web.js"></script>
+<script src="/static/raw.js"></script>
+<script src="/static/app.js"></script>
+<script src="/emulator/jsspeccy/jsspeccy.js"></script>
+</body>
+</html>

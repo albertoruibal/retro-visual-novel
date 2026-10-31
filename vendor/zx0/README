@@ -1,0 +1,23 @@
+# Vendored ZX0 decoder (Retro Visual Novel)
+
+This directory vendors the "Standard" (69-byte) ZX0 decompressor by Einar
+Saukas with its BSD 3-Clause licence (`LICENSE`), taken from the z88dk source
+tree:
+
+    /tmp/z88dk/libsrc/compress/zx0/z80/dzx0_standard.asm
+
+`zx0.asm` exposes it as `_zx0_unpack` (HL = source, DE = destination) in
+`SECTION code_user`, so it lands in the always-resident fixed region
+(0x8000..0xBFFF) rather than the z88dk clib. The CPC target assembles it with
+`-Ca-DZX0_LOW`, which puts it in `SECTION code_l` instead: the CPC pages an
+extra bank over 0x4000 while decoding, so the decoder must stay below 0x4000.
+The compressor is the host tool
+`z88dk-zx0` (already in the z88dk install), invoked by `tools/gen_scenes.py`.
+
+Art, scene and song blobs are compressed with ZX0 and decompressed straight
+from the paged bank by `src/zx/paging.asm`. ZX0 is self-terminating, so no stored
+length is needed.
+
+## License / attribution
+
+ZX0 is by Einar Saukas, BSD 3-Clause (see `LICENSE`).

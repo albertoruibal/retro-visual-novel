@@ -1,0 +1,115 @@
+# Playing the games
+
+Every target runs the same story engine, so scenes, options, highlighted words and items behave the same way. What
+changes is how you move, confirm and open the inventory/action list. The built games are listed under **Outputs** in
+[the README](../README.md).
+
+The text of a scene is above the options, and an option that is hidden by a flag is simply not shown. Highlighted
+`{{words}}` are one-shot: selecting one sets its flag and redraws the scene. A system with `menu: popup` enabled in
+`# Systems` puts its options and held items in a dialog instead of the pinned list (the Master System, Game Boy Color
+and CPC Mode 0 always do this).
+
+## Controls at a glance
+
+| Target | Move / scroll | Confirm | Options & items |
+|---|---|---|---|
+| ZX Spectrum 128K | Cursor keys or W/A/S/D | Enter | Bottom inventory row, or `SPACE` dialog |
+| Amstrad CPC (Mode 0) | Cursor/WASD/8/2/4/6/joystick | Enter/fire | `SPACE` opens/closes action dialog |
+| Amstrad CPC (Modes 1/2) | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned/inventory, or `SPACE` dialog |
+| MSX2 | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
+| Sega Master System | D-pad | Button 2 | Button 1 opens/closes the action dialog |
+| Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
+| Web runtime | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
+
+## Web runtime
+
+The exported web runtime and the editor's **Web** tab use the same mobile-first SPA. Tap or click an option, a
+highlighted word or an inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the focused control, and
+`Escape` closes the item screen. The inventory bar stays at the bottom on phones,
+and **Restart** resets the story. Music is not present in the web runtime. See
+[the web runtime](web-runtime.md) for export and implementation details.
+
+## ZX Spectrum 128K
+
+- **Movement:** the cursor keys (CAPS SHIFT + `5`/`6`/`7`/`8`; the bare number keys also work) or `W` `A` `S` `D`.
+  `UP`/`DOWN` move between the options; `LEFT`/`RIGHT` move between highlighted words. With the pop-up dialog,
+  `UP`/`DOWN` scroll overflowing scene text and `LEFT`/`RIGHT` move between words.
+- **Confirm:** `ENTER` selects the highlighted word or option.
+- **Inventory:** `DOWN` from the last option moves the cursor to the inventory row 23. `LEFT`/`RIGHT` (or `A`/`D`)
+  step through the held items, `UP` returns to the options, and `ENTER` opens the selected item. On the item screen
+  `UP`/`DOWN` move between the item's options, **Drop** and **Back**, and `ENTER` confirms.
+- A scene or item option with a `msg` line first shows that message in a popup over the text pane. Dismiss it with
+  the usual movement/confirm controls, then the option's effects and target run as normal.
+- **Pop-up dialog:** with `## zx menu: popup`, `SPACE` opens and closes an action dialog instead; it lists
+  the scene options first and then the held items (prefixed `*`), with `UP`/`DOWN` to move and `ENTER` to choose.
+  The text then uses every row below the art and there is no permanent inventory row; overflowing scene text and
+  item descriptions scroll. On an item screen, `UP`/`DOWN` scroll a long description while the cursor is on the
+  first entry.
+- **Music:** press `P` to pause/play the AY music. Music is set per scene and resumes when unmuted.
+- **Boot password:** if the game sets one, type it at the boot screen and press `ENTER`. `DELETE` (or Backspace)
+  erases the last character.
+- Without the pop-up dialog the text pane is fixed: keep a scene's wrapped lines (and options) within the rows below
+  the art band. With the dialog, long text scrolls.
+
+## Amstrad CPC 6128
+
+Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
+
+- **Movement:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or the joystick.
+- **Confirm:** `ENTER` or the joystick fire button when the dialog is enabled; with pinned options `SPACE` also
+  confirms.
+- **Words:** `LEFT`/`RIGHT` move between highlighted words.
+- **Mode 0:** the text uses every row below the art. `SPACE` opens and closes an action dialog listing the
+  scene options first and then the held items (prefixed `*`); `UP`/`DOWN` move and scroll it, `ENTER`/fire confirms,
+  and `SPACE` closes it. A long scene body scrolls with `UP`/`DOWN` (or `LEFT`/`RIGHT` when the scene has no
+  words). On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry.
+- **Modes 1/2:** by default the options stay pinned below the text and row 24 is the inventory band. `DOWN` from the
+  last option enters it, `LEFT`/`RIGHT` step through the items, `UP` returns and `ENTER` opens the selected item.
+  `LEFT`/`RIGHT` also scroll a long scene body when it has no highlighted words. With `## cpc menu: popup`, `SPACE`
+  opens and closes the same action dialog as Mode 0 instead.
+
+## MSX2
+
+- **Movement:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or the joystick.
+- **Confirm:** `ENTER` or the joystick fire button when the dialog is enabled; with pinned options `SPACE` also
+  confirms.
+- **Words:** `LEFT`/`RIGHT` move between highlighted words.
+- **Options and inventory:** by default the options are pinned below the text and row 23 is the inventory band.
+  `DOWN` from the last option enters it, `LEFT`/`RIGHT` step through the held items, `UP` returns to the options, and
+  `ENTER` opens the selected item. On the item screen `UP`/`DOWN` move between the entries, and while the cursor is
+  on the first entry they scroll a long description. With `## msx2 menu: popup`, `SPACE` or joystick button 2
+  opens and closes the action dialog instead, and the text may use row 23.
+- The text pane never scrolls, so a scene's text (and options on the pinned layout) must fit the rows left below the
+  art band.
+
+## Sega Master System
+
+- **D-pad:** `UP`/`DOWN` scroll a long scene body, or move between highlighted words when the text fits.
+  `LEFT`/`RIGHT` move between highlighted words (or scroll when the scene has none).
+- **Button 2:** confirm the highlighted word or option.
+- **Button 1:** open and close the action dialog. It lists the scene options first and then the held items (prefixed
+  `*`); the D-pad moves and scrolls the list, button 2 confirms and button 1 closes it.
+- On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
+  permanent inventory row.
+
+## Nintendo Game Boy Color
+
+- **D-pad:** `UP`/`DOWN` scroll a long scene body, or move between highlighted words when the text fits.
+  `LEFT`/`RIGHT` move between highlighted words (or scroll when the scene has none).
+- **A or Start:** confirm the highlighted word or option.
+- **B:** open and close the action dialog. It lists the scene options first and then the held items (prefixed `*`);
+  the D-pad moves and scrolls the list, `A`/`Start` confirms and `B` closes it.
+- On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
+  permanent inventory row. On a CGB the configured `highlight_ink:` colours the selection; the `>` marker remains so
+  the same cartridge is still usable on a monochrome Game Boy.
+- The Game Boy Color build has no AY music or boot-password screen.
+
+## Other notes
+
+- Items can have their own options; choosing one applies its effects and returns to the current scene. **Drop**
+  removes the item and frees its slot.
+- A game's `# Game carry:` cap limits how many items are held; when the pack is full, `pick` options are hidden, so
+  dropping an item is how you make room.
+- On the targets with a permanent inventory row (ZX, MSX2, CPC Modes 1/2) the item screen also has **Drop** and
+  **Back** entries. On the dialog targets (SMS, Game Boy Color, CPC Mode 0, and any system with `menu: popup`) the
+  action dialog is the only way in.

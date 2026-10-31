@@ -1,0 +1,4 @@
+# The build context is this folder only; drop local runtime state.
+__pycache__
+*.pyc
+.state.json

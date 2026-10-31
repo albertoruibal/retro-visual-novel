@@ -1,0 +1,63 @@
+{
+  "name": "retro-visual-novel",
+  "productName": "Retro Visual Novel",
+  "version": "0.1.0",
+  "description": "Desktop editor + builder for the Retro Visual Novel creator",
+  "license": "MIT",
+  "author": {
+    "name": "Alberto Alonso Ruibal",
+    "email": "alberto@alonsoruibal.com"
+  },
+  "homepage": "https://example.com/retro-visual-novel",
+  "desktopName": "com.retrovisualnovel.editor",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:no-sandbox": "electron --no-sandbox .",
+    "venv": "node scripts/prepare-python.js",
+    "bundle": "node scripts/bundle.js",
+    "pack": "npm run bundle && electron-builder --dir",
+    "dist": "npm run bundle && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.retrovisualnovel.editor",
+    "productName": "Retro Visual Novel",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "executableName": "retro-visual-novel",
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      { "from": "dist-resources/engine", "to": "engine" },
+      { "from": "dist-resources/python", "to": "python" }
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Development",
+      "icon": "build/icons",
+      "syncDesktopName": true,
+      "maintainer": "Alberto Alonso Ruibal <alberto@alonsoruibal.com>"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
+    }
+  }
+}

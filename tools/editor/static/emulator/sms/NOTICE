@@ -1,0 +1,4 @@
+Sega Master System emulation uses EmulatorJS (https://emulatorjs.org) with
+the smsplus core. EmulatorJS is GPL-3.0 (see LICENSE). The smsplus core is
+derived from Charles MacDonald's SMS Plus emulator; retain its upstream
+attribution and license terms when redistributing.

@@ -1,0 +1,9 @@
+# Keep the (now editor-only) build context small. The editor build uses
+# tools/editor as its context; these rules cover any other Dockerfile that
+# builds from the repo root.
+.git
+.idea
+ZEsarUX-13.0
+tools/out
+**/__pycache__
+*.pyc

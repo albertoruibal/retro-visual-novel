@@ -1,0 +1,5 @@
+Nintendo Game Boy emulation uses EmulatorJS (https://emulatorjs.org) with the
+Gambatte libretro core. EmulatorJS is GPL-3.0 (see ../emulatorjs/LICENSE).
+Gambatte is GPL-2.0 (see LICENSE.GPL2); retain its upstream attribution and
+license terms when redistributing. Core repository:
+https://github.com/EmulatorJS/gambatte-libretro

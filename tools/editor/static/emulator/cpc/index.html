@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Amstrad CPC 6128</title>
+<style>
+  html, body { margin:0; width:100%; height:100%; background:#000; overflow:hidden; }
+  #canvas { display:block; width:100vw; height:100vh; object-fit:contain; image-rendering:pixelated; background:#000; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0" width="768" height="540"></canvas>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const dsk = q.get('rom');
+  const run = (q.get('run') || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase();
+  const canvas = document.querySelector('#canvas');
+  if (!dsk) { document.body.textContent = 'No disk supplied'; return; }
+  window.Module = {
+    noInitialRun: true,
+    canvas: canvas,
+    locateFile: (path) => 'emulator/' + path,
+    print: (s) => console.log(s),
+    printErr: (s) => console.error(s),
+    onRuntimeInitialized: async function () {
+      try {
+        const resp = await fetch(dsk, { cache: 'no-store' });
+        if (!resp.ok) throw new Error('disk ' + resp.status);
+        const data = new Uint8Array(await resp.arrayBuffer());
+        Module.FS.mkdirTree('/games');
+        try {
+          const cfg = await fetch('cap32.cfg', { cache: 'no-store' });
+          if (cfg.ok) Module.FS.writeFile('/cap32.cfg', new Uint8Array(await cfg.arrayBuffer()));
+        } catch (_) { /* the preloaded config is usually present */ }
+        const file = '/games/' + (q.get('name') || 'game') + '.dsk';
+        Module.FS.writeFile(file, data);
+        const args = ['-c', '/cap32.cfg'];
+        if (run) args.push('-a', 'RUN"' + run + '\n');
+        args.push(file);
+        canvas.focus();
+        Module.callMain(args);
+      } catch (e) {
+        console.error(e);
+        document.body.textContent = 'Could not start CPC: ' + e.message;
+      }
+    }
+  };
+})();
+</script>
+<script src="emulator/caprice32.js"></script>
+</body>
+</html>

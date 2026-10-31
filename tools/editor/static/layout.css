@@ -1,0 +1,110 @@
+/* ----------------------------------------------------------------- layout */
+#app { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; }
+#view-edit { display: none; grid-template-columns: 248px 1fr 330px;
+             grid-template-rows: auto 1fr; min-height: 0; }
+#view-edit.active { display: grid; }
+#artbar {
+  grid-column: 1 / -1; display: none; align-items: center; gap: 12px;
+  padding: 12px 18px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+#view-edit[data-mode="art"] #artbar { display: flex; }
+#artbar .spacer { flex: 1; }
+#artbar .hint { margin: 0; }
+#side, #right { overflow-y: auto; background: var(--surface); }
+#side { grid-column: 1; grid-row: 2; border-right: 1px solid var(--line); }
+#right { grid-column: 3; grid-row: 2; border-left: 1px solid var(--line); }
+#main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 20px 24px 40px; }
+
+/* Editing tabs share one shell; data-mode hides the sections that don't
+ * belong to the active tab (Settings / Art / Scenes). */
+/* Each edit tab owns one sidebar section; hide the rest. */
+#view-edit[data-mode="settings"] .sec-art,
+#view-edit[data-mode="settings"] .sec-song,
+#view-edit[data-mode="settings"] .sec-scene,
+#view-edit[data-mode="settings"] .sec-flag,
+#view-edit[data-mode="settings"] .sec-item { display: none; }
+#view-edit[data-mode="art"] .sec-game,
+#view-edit[data-mode="art"] .sec-song,
+#view-edit[data-mode="art"] .sec-scene,
+#view-edit[data-mode="art"] .sec-flag,
+#view-edit[data-mode="art"] .sec-item { display: none; }
+#view-edit[data-mode="music"] .sec-game,
+#view-edit[data-mode="music"] .sec-art,
+#view-edit[data-mode="music"] .sec-scene,
+#view-edit[data-mode="music"] .sec-flag,
+#view-edit[data-mode="music"] .sec-item { display: none; }
+#view-edit[data-mode="scenes"] .sec-game,
+#view-edit[data-mode="scenes"] .sec-art,
+#view-edit[data-mode="scenes"] .sec-song,
+#view-edit[data-mode="scenes"] .sec-flag,
+#view-edit[data-mode="scenes"] .sec-item { display: none; }
+#view-edit[data-mode="flags"] .sec-game,
+#view-edit[data-mode="flags"] .sec-art,
+#view-edit[data-mode="flags"] .sec-song,
+#view-edit[data-mode="flags"] .sec-scene,
+#view-edit[data-mode="flags"] .sec-item { display: none; }
+#view-edit[data-mode="items"] .sec-game,
+#view-edit[data-mode="items"] .sec-art,
+#view-edit[data-mode="items"] .sec-song,
+#view-edit[data-mode="items"] .sec-scene,
+#view-edit[data-mode="items"] .sec-flag { display: none; }
+
+/* The Systems tab is settings-only: no entity lists or side panels. */
+#view-edit[data-mode="systems"] { grid-template-columns: 1fr; }
+#view-edit[data-mode="systems"] #side,
+#view-edit[data-mode="systems"] #right { display: none; }
+#view-edit[data-mode="systems"] #main { grid-column: 1; }
+
+/* Mobile-only entity picker; hidden on desktop. */
+#mobselwrap { display: none; }
+
+/* ------------------------------------------------------------- view tabs */
+#viewtabs {
+  grid-row: 2; display: flex; gap: 2px; padding: 8px 14px 0;
+  background: rgba(16, 19, 26, .72);
+  box-shadow: inset 0 -1px 0 var(--line);
+  overflow-x: auto; scrollbar-width: none;
+}
+#viewtabs::-webkit-scrollbar { display: none; }
+.viewtab {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid transparent; border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent; color: var(--dim); padding: 8px 14px 9px;
+  white-space: nowrap; flex: 0 0 auto; font-weight: 500; font-size: 12.5px;
+  transition: color .15s var(--ease), background .15s var(--ease),
+              border-color .15s var(--ease), box-shadow .15s var(--ease);
+}
+.viewtab::before {
+  content: ""; width: 14px; height: 14px; flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+.viewtab:hover {
+  color: var(--fg); background: var(--surface-2);
+  border-color: var(--line-soft);
+}
+.viewtab.active {
+  color: var(--fg);
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+/* per-tab mask icons (kept inline so there are no external assets) */
+.viewtab[data-view="settings"] { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h9M19 7h1M4 17h1M11 17h9'/%3E%3Ccircle cx='15.5' cy='7' r='2.4'/%3E%3Ccircle cx='8.5' cy='17' r='2.4'/%3E%3C/svg%3E"); }
+.viewtab[data-view="art"]      { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Crect x='3.5' y='4.5' width='17' height='15' rx='2'/%3E%3Ccircle cx='9' cy='10' r='1.6'/%3E%3Cpath d='M5 18l5-5 3 3 3-4 4 5'/%3E%3C/svg%3E"); }
+.viewtab[data-view="scenes"]   { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6h16M4 12h16M4 18h16'/%3E%3Ccircle cx='8' cy='6' r='1.6' fill='%23000'/%3E%3Ccircle cx='8' cy='12' r='1.6' fill='%23000'/%3E%3Ccircle cx='8' cy='18' r='1.6' fill='%23000'/%3E%3C/svg%3E"); }
+.viewtab[data-view="flags"]    { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3v18M6 4h11l-2.2 3.5L17 11H6'/%3E%3C/svg%3E"); }
+.viewtab[data-view="items"]    { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M4 8l8-4 8 4v8l-8 4-8-4z'/%3E%3Cpath d='M4 8l8 4 8-4M12 12v8'/%3E%3C/svg%3E"); }
+.viewtab[data-view="graph"]    { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='5.5' cy='6' r='2.6'/%3E%3Ccircle cx='18.5' cy='6' r='2.6'/%3E%3Ccircle cx='12' cy='18' r='2.6'/%3E%3Cpath d='M7.6 7.5l3.2 8.2M16.4 7.5l-3.2 8.2'/%3E%3C/svg%3E"); }
+.viewtab[data-view="raw"]      { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6l-4 6 4 6M16 6l4 6-4 6'/%3E%3C/svg%3E"); }
+.viewtab[data-view="build"]    { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'/%3E%3C/svg%3E"); }
+.viewtab[data-view="emu"]      { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='4' width='18' height='13' rx='2'/%3E%3Cpath d='M8.5 20.5h7M12 17v3.5'/%3E%3Cpath d='M10.3 8.2l4 2.3-4 2.3z' fill='%23000' stroke='none'/%3E%3C/svg%3E"); }
+.viewtab[data-view="web"]      { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.8 3.2 2.8 14.8 0 18M12 3c-2.8 3.2-2.8 14.8 0 18'/%3E%3C/svg%3E"); }
+
+.view { grid-row: 3; min-height: 0; overflow: hidden; }
+#view-emu, #view-graph, #view-raw, #view-build, #view-web { display: none; }
+#view-emu.active, #view-graph.active, #view-raw.active,
+#view-build.active, #view-web.active { display: flex; flex-direction: column; }
+

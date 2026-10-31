@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1d1830" />
+      <stop offset="1" stop-color="#0d0b16" />
+    </linearGradient>
+    <linearGradient id="bubble" x1="176" y1="208" x2="848" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22d3ee" />
+      <stop offset="1" stop-color="#5b9dff" />
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded tile: legible against both light and dark desktops. -->
+  <rect width="1024" height="1024" rx="224" fill="url(#tile)" />
+  <rect x="6" y="6" width="1012" height="1012" rx="218" fill="none" stroke="#3b3159" stroke-width="12" />
+
+  <!-- Pixel dialogue bubble with a stepped tail and three square dots. -->
+  <rect x="176" y="208" width="672" height="424" rx="88" fill="url(#bubble)" />
+  <path d="M 272 616 L 272 768 L 304 768 L 304 736 L 336 736 L 336 704 L 368 704 L 368 672 L 400 672 L 400 640 Z" fill="url(#bubble)" />
+  <rect x="320" y="384" width="80" height="80" rx="12" fill="#0a0c11" />
+  <rect x="472" y="384" width="80" height="80" rx="12" fill="#0a0c11" />
+  <rect x="624" y="384" width="80" height="80" rx="12" fill="#0a0c11" />
+
+  <!-- Four Spectrum colour stripes. -->
+  <path d="M156 800 L316 800 L284 912 L124 912 Z" fill="#d12e2e" />
+  <path d="M340 800 L500 800 L468 912 L308 912 Z" fill="#f5c84b" />
+  <path d="M524 800 L684 800 L652 912 L492 912 Z" fill="#3ddc84" />
+  <path d="M708 800 L868 800 L836 912 L676 912 Z" fill="#22d3ee" />
+</svg>

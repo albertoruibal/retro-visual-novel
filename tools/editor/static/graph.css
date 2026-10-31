@@ -1,0 +1,71 @@
+/* ----------------------------------------------------------- scene graph */
+#view-graph { background: var(--bg); }
+#graphbar {
+  display: flex; align-items: center; gap: 16px; padding: 12px 18px;
+  background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+#graphbar .spacer { flex: 1; }
+#graphbar .legend {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--fg-dim); font-size: 11px;
+}
+.legend .sw { width: 12px; height: 12px; border-radius: 4px; display: inline-block; border: 1px solid var(--line); }
+.legend .sw.end { background: #3a2f14; border-color: #6d5c1e; }
+.legend .sw.sel { background: #1d3a5a; border-color: var(--accent); }
+#graphwrap {
+  flex: 1; min-height: 0; overflow: auto; padding: 20px;
+  background-image: radial-gradient(rgba(255, 255, 255, .045) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+#scenegraph { display: block; }
+#scenegraph .edge { stroke: #46506a; stroke-width: 1.5; fill: none; }
+#scenegraph .edge-label { fill: var(--fg); font: 13px system-ui, sans-serif; pointer-events: none; }
+#scenegraph .edge-label-bg {
+  fill: var(--surface-2); stroke: var(--line); stroke-width: 1.5; pointer-events: none;
+}
+@media (hover: hover) {
+  #scenegraph .edge-group .edge-label,
+  #scenegraph .edge-group .edge-label-bg { display: none; }
+}
+#scenegraph .edge-ghost { pointer-events: none; }
+#scenegraph .node rect {
+  fill: var(--surface-2); stroke: var(--edge, var(--line)); stroke-width: 1.5;
+  cursor: pointer; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .55));
+  transition: stroke .12s var(--ease);
+}
+#scenegraph .node:hover rect { stroke: var(--accent); }
+#scenegraph .node.ending rect { fill: #2a2415; stroke: #6d5c1e; }
+#scenegraph .node.sel rect { fill: #1d3a5a; stroke: var(--accent); stroke-width: 2.5; }
+#scenegraph .node text { font: 14px system-ui, sans-serif; fill: var(--fg); pointer-events: none; }
+#scenegraph .node .ntitle { font-weight: 600; }
+#scenegraph .node .nid { fill: var(--dim); font-size: 11.5px; }
+#scenegraph .node .nending { fill: var(--yellow); font-size: 9px; }
+
+/* ------------------------------------------------------------ raw game.md */
+#view-raw { background: var(--bg); }
+#rawbar {
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+  background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+#rawbar .spacer { flex: 1; }
+#rawbar .hint { margin: 0; }
+#rawbody { flex: 1; min-height: 0; display: flex; padding: 14px 18px; }
+/* The Source tab is a vendored Monaco editor (see raw.js ensureMonaco).
+ * Monaco paints its own background; give it a hairline frame that turns red
+ * while the buffer differs from game.md on disk. */
+#raweditor {
+  flex: 1; min-height: 0; width: 100%; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  transition: border-color .15s var(--ease);
+}
+#rawbody.raw-dirty #raweditor { border-color: rgba(255, 107, 107, .5); }
+#rawstatus.ok { color: var(--green); }
+/* Error lines inside Monaco (decorations set by paintRawMarkers): a red wash
+ * over the row plus a solid gutter bar, so a bad line is visible without
+ * hovering the squiggle. */
+#raweditor .raw-err-line { background: rgba(255, 107, 107, .11); }
+#raweditor .raw-err-gutter {
+  background: var(--red); width: 3px !important; margin-left: 3px;
+  border-radius: 2px;
+}
+

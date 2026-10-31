@@ -1,0 +1,12 @@
+# Editor/build Python dependencies (the server itself is stdlib-only).
+#
+# The editor Docker image installs these via apk/pip; the desktop app stages
+# them into a local virtualenv with `node electron/scripts/prepare-python.js`
+# (or `npm run venv`), which the app then uses as its interpreter.
+#
+# Pillow + numpy drive tools/zxart.py (PNG -> Spectrum btiles; numpy is the
+# fast dither path, with a pure-Python fallback if it is absent).
+# spectrumizer is the MIDI <-> PT3 converter/player the Music tab spawns.
+Pillow>=10
+numpy>=1.24
+spectrumizer==0.2.2

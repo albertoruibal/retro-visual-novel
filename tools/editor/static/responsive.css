@@ -1,0 +1,53 @@
+/* --------------------------------------------------------------- motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; scroll-behavior: auto !important;
+  }
+  .bar > i { animation: none; left: 0; width: 100%; opacity: .7; }
+}
+
+/* --- Mobile / narrow screens: single column, dropdown sidebar --- */
+@media (max-width: 860px) {
+  #top { flex-wrap: wrap; row-gap: 8px; padding: 10px 12px; }
+  #top .spacer { flex: 1 0 100%; }
+  #title { flex: 1 1 auto; min-width: 0; }
+  .gamebar { flex: 1 1 100%; flex-wrap: wrap; }
+  .gamelabel { max-width: none; }
+
+  #view-edit.active { display: block; overflow-y: auto; }
+  #side {
+    display: block; border-right: none; border-bottom: 1px solid var(--line);
+    max-height: 34vh; overflow-y: auto; padding-bottom: 6px;
+  }
+  #mobselwrap {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    color: var(--dim); font-size: 12px; position: sticky; top: 0;
+    background: var(--surface); z-index: 5; border-bottom: 1px solid var(--line-soft);
+  }
+  #mobselwrap select { flex: 1; }
+  #main { padding: 16px; }
+  #right { border-left: none; border-top: 1px solid var(--line); }
+
+  .grid4, .grid5 { grid-template-columns: repeat(2, 1fr); }
+  .opt, .opt.iopt { grid-template-columns: 1fr 1fr; }
+  .opt .oconds { grid-column: 1 / -1; }
+  .opt .oactions { grid-column: 2; justify-content: flex-end; }
+  .txtline { grid-template-columns: 1fr auto; }
+  .txtline .ttext { grid-column: 1; grid-row: 1; }
+  .txtline .larrow { display: none; }
+  .txtline .oactions { grid-column: 2; grid-row: 1; }
+  .txtline .oconds { grid-column: 1 / -1; grid-row: 2; }
+  .opthead { display: none; }
+  .artview img, .artview canvas { width: 100% !important; height: auto !important; max-width: 100%; }
+  .artview .artgrid { grid-template-columns: 1fr; }
+  #graphwrap { padding: 12px; }
+  #emuhost { padding: 12px; }
+  #emubar { flex-wrap: wrap; gap: 8px; }
+
+  /* Let the verbose hint text take its own row so the controls beside it
+   * get full width instead of being squeezed into a narrow column. */
+  #artbar, #graphbar, #rawbar { flex-wrap: wrap; row-gap: 8px; }
+  #artbar .hint, #graphbar .hint, #rawbar .hint { flex: 1 1 100%; margin: 0; }
+  #artbar .spacer, #graphbar .spacer, #rawbar .spacer { display: none; }
+}

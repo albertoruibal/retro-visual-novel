@@ -1,0 +1,625 @@
+# AGENTS.md
+
+Guidance for coding agents working in this repository.
+
+## What this is
+
+Retro Visual Novel is an 8-bit visual novel authoring + build system for the **ZX Spectrum 128K** and four portable
+targets. The story engine is shared by every target (`src/portable/core/`); each platform supplies a thin layer
+(`src/zx/plat_zx.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`). NIRVANA+ is vendored under `vendor/`. A game
+is a self-contained folder whose story lives in `game.md`; this repository ships a single demo game in `demo-game/`.
+A stdlib-only Python editor (`tools/editor/server.py`) serves a browser UI to author games, generate art with local
+models, and run the build.
+
+Read `README.md` first for the overview, authoring format, editor and model setup; the ZX memory map and NIRVANA+
+constraints live in `docs/systems/zx.md`.
+
+## Layout
+
+    src/zx/                  ZX platform layer (plat_zx.c, engine.h)
+                             + paging/loader asm
+    src/portable/core/       shared story engine + AY music player for every target
+    src/portable/plat.h      platform surface implemented by each src/<target>/
+    src/z80/zx0_wrap.asm     shared Z80 C wrapper for the vendored ZX0 decoder
+    src/sms/ src/cpc/        platform layers and paging/vram asm
+    src/msx2/ src/gb/
+    vendor/zx0/              pinned ZX0 decoder (69-byte standard, BSD-3)
+    vendor/pixeloperator8/   pinned CC0 8x8 font for GBC/SMS/MSX2 text
+    demo-game/assets/music/  per-game PT3 modules (assets/music/<id>.pt3)
+    demo-game/assets/art/<id>/ per-art candidate images (image: picks one)
+    demo-game/assets/refs/<id>/ per-reference images (## <id> under # References; refs: picks them)
+    NIRVANAP_ENGINE.asm      built/generated engine listing (ignored by git)
+    vendor/nirvanap/         pinned NIRVANA+ engine (TOTAL_ROWS=art_rows, @0xDC03)
+    tools/scenefile.py       the ONE parser/serializer for game.md (shared)
+    tools/gamestore.py       open/create/duplicate/rename game folders (demo-game/)
+    tools/gen_scenes.py      game.md -> build/scene_data.h + port_data.h
+                             + bankN.bin + *.asm
+    tools/targets/           pluggable build targets (zx, sms, cpc, msx2, gb)
+    tools/smsart.py          SMS art preview/build conversion
+    tools/cpcart.py          CPC Mode 0/1/2 art preview/build conversion
+    tools/msx2art.py         MSX2 V9938 Screen 7 art preview/build conversion
+    tools/gbart.py           Game Boy Color art preview/build conversion
+    tools/gen_images.py      game.md art sections -> PNG via Qwen/SD server
+    tools/zxart.py           PNG -> 48-byte Spectrum btiles (needs Pillow)
+    tools/build.py           build/run driver (z88dk + appmake), sh-free/portable
+    tools/z88dkpath.py       z88dk location helper (Snap detection) shared by server/build
+    tools/adventure.sh       compatibility wrapper -> tools/build.py
+    tools/requirements.txt   editor/build Python deps (Pillow, numpy, spectrumizer)
+    docs/systems/            one page per target (particularities, memory, emulator)
+    tools/make_tap.py        append raw bank blocks to the appmake TAP
+    tools/make_sna.py        pack a 128K SNA with every bank resident
+    tools/editor/server.py   entry/state + HTTP API + static SPA
+    tools/editor/editor_*.py feature modules (games, validation, images, music,
+                             build, static)
+    tools/editor/static/     index.html + topic-split JS/CSS (the SPA)
+    tools/editor/static/monaco/  vendored Monaco 0.52.2 (Source tab editor)
+    electron/main.js         desktop shell: spawns server.py + BrowserWindow
+    electron/preload.js      the window.rvn native bridge (open folder, recents)
+    electron/build/icon.svg  icon source; icon.png (1024) + icons/ are rasterised
+    electron/scripts/prepare-python.js  stage .venv from tools/requirements.txt
+    electron/scripts/bundle.js          assemble dist-resources/ for packaging
+    demo-game/               the demo game (the only game in this repo)
+    demo-game/game.md        story (game / art / ref / scene sections)
+    demo-game/assets/        art/<id>/, refs/<id>/ and music/<id>.pt3 sources
+    demo-game/build/         generated intermediates/banks (gitignored)
+
+Generated per-game files live in `<game-folder>/build/` (`scene_data.h`, `scene_banks.asm`, `scene_bankN.asm`,
+`scene_flags.txt`, the `.bin`/`port_*` intermediates and `scene_banks/bankN.bin`) and are gitignored. Only the playable
+outputs (`<slug>.tap`, `.sna`, `.sms`, `.dsk`, `.rom`, `.gbc`) and the editor's `game.md.bak` stay at the game root
+(for the demo, `demo-game/`). Do not hand-edit generated files; edit `game.md` and rebuild.
+
+## Build / run
+
+Native build needs z88dk (`Z88DK`, default: a detected Snap install, else `/tmp/z88dk`) and Pillow for `zxart.py`. This
+dev box does **not** have zcc installed, so builds normally run inside the editor Docker image:
+
+    docker compose up -d --build          # editor on http://localhost:8765
+
+If the editor container is already up, the reliable build recipe is (zcc is at `/opt/z88dk`, the project is live-mounted
+at `/src`, and `PATH` does not include `zcc`, so pass `Z88DK` and `sh -lc`):
+
+    docker exec retro-visual-novel-editor-1 sh -lc \
+        'Z88DK=/opt/z88dk python3 tools/build.py build demo-game'
+
+Useful commands:
+
+    python3 tools/build.py list-targets
+    python3 tools/build.py build demo-game    # every system selected in game.md
+    python3 tools/build.py build demo-game sms cpc gb
+    python3 tools/build.py run   demo-game    # build then launch the ZX emulator
+    python3 tools/editor/server.py        # editor without Docker (port 8765)
+    python3 tools/gen_scenes.py demo-game     # regenerate tables/banks only
+    python3 tools/gen_images.py --game demo-game [art]   # needs the SD server
+
+Desktop app (Electron): `electron/main.js` spawns the same `server.py` on a free loopback port, waits for `/api/health`,
+and loads it in a `BrowserWindow`; `electron/preload.js` exposes `window.rvn` (native folder pickers + "remember last
+game" in `app.getPath("userData")`). The renderer/SPA is unchanged. The server's Python deps (Pillow/numpy/spectrumizer,
+listed in `tools/requirements.txt`) come from a local `.venv` staged by `electron/scripts/prepare-python.js`, so the app
+does not need them on system Python. Dev-run:
+
+    cd electron && npm install && npm run venv && npm start   # add RVN_NO_SANDBOX=1 on Linux if needed
+
+`prepare-python.js` uses `uv` when present (relocatable venv), else `python3 -m venv`; `--stage <dir>` copies the venv
+to `<dir>/python` for packaging. `pythonExe()` prefers `<resources>/python` (packaged) then `<root>/.venv` (dev) then
+system `python3`. z88dk is **not bundled**: `z88dkDir()` returns an explicit `Z88DK`/`RVN_Z88DK`, else the editor's
+saved `z88dk_path`, else a detected Snap install (`/snap/z88dk/current`), else `""`, and the build then reports the
+missing toolchain. Users point the Settings **Build
+toolchain (z88dk)** card at a tree built for the **target OS/CPU** (a nightly download from `http://nightly.z88dk.org`,
+the Docker image, or a source build) — the editor Docker image's `/opt/z88dk` is musl/Alpine and will not run on a glibc
+host. `npm run bundle` assembles `electron/dist-resources/{engine,python}` into the `extraResources` layout
+electron-builder copies to `<resources>`. `RVN_SMOKE=1` opens the window, prints `window.rvn` keys and quits (headless
+CI check). Set `RVN_GAME` to open a folder at startup.
+
+Packaging: `npm run pack` builds an unpacked app to `electron/dist/linux-unpacked`; `npm run dist` builds the per-OS
+artifacts (Linux AppImage + deb, Windows nsis, macOS dmg) into `electron/dist/`. The output is **gitignored and not
+committed** — it is regenerated on demand, so there is nothing to fetch. A full Linux build is:
+
+    cd electron && npm install && npm run venv && npm run dist
+    # -> electron/dist/Retro Visual Novel-<version>-linux-x86_64.AppImage  (+ .deb)
+
+(The AppImage is ~120 MB and is simply deleted by any `rm -rf electron/dist` cleanup.) z88dk is no longer staged or
+bundled, so a packaged app always needs a toolchain chosen at runtime (Settings, `$Z88DK`/`$RVN_Z88DK`, or a detected
+Snap install on Linux). Only the
+Linux targets build off-Linux (Windows/macOS need wine/a mac). Artifacts are unsigned by default; signing/notarization
+use the usual electron-builder env (`CSC_LINK`/`CSC_KEY_PASSWORD` for win/mac,
+`APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` for notarization). A packaged run resolves `engineRoot()` and
+`pythonExe()` under `<resources>` and `z88dkDir()` from the environment/settings (verified by launching the built
+AppImage with `RVN_SMOKE`).
+
+The icon source is `electron/build/icon.svg`; `icon.png` (1024) and `build/icons/` (16..512) are rasterised from it.
+`electron/main.js` sets the window icon (resized to 192 px so X11 accepts it), calls `app.setDesktopName()`, and
+registers a Wayland `.desktop` entry for dev and AppImage runs. Windows/macOS derive their ICO/ICNS from `icon.png`;
+there is no committed `.ico`.
+
+Env (editor): `EDITOR_HOST`, `EDITOR_PORT`, `STABLE_DIFFUSION_URL`, `Z88DK`, `RVN_SETTINGS`.
+`STABLE_DIFFUSION_URL` points at the image server on the **host** (use
+`http://host.docker.internal:<port>`; compose maps it via `extra_hosts`). An unset variable disables image generation
+and the UI hides its controls. The endpoint can instead be set at runtime in the top-bar **Settings** modal's
+**Image server** card: `GET/POST /api/settings` read/validate/persist it to `RVN_SETTINGS` (a JSON file; Electron
+passes its userData `settings.json`) and `apply_settings()` mutates the `STABLE_DIFFUSION_URL` + `IMAGE_ENABLED` globals
+in place — a stored value wins over the env var, a blank value disables the feature. The old `ZXAD_*` environment names
+and the old `zx-novel`/`zxadventure` config directories are still accepted as fallbacks, and the settings file is
+migrated to `retro-visual-novel` on first run.
+
+The same modal's **Build toolchain (z88dk)** card sets `z88dk_path` (a directory; blank falls back to `$Z88DK`, then a
+detected Snap install (`/snap/z88dk/current`), then `/tmp/z88dk`). `settings_payload()` also reports `z88dk_valid` (a
+`bin/zcc[.exe]` hint; an invalid path is still saved),
+`z88dk_default`, and `z88dk_effective`/`z88dk_available`/`z88dk_missing` (the host tools the build needs: `zcc`,
+`z88dk-z80asm`, `z88dk-appmake`, `z88dk-zx0`). A folder picked with **Browse…** is saved immediately. Clicking **Build**
+with an incomplete toolchain opens the toolchain card instead of starting; `POST /api/build` and `tools/build.py` also
+refuse with the missing tool names. `_run_build()` injects `env["Z88DK"]` from the effective path before spawning
+`tools/build.py` (which derives `ZCCCFG` + the `bin/` `PATH` entry), and `tools/build.py` reads the same settings file
+when `$Z88DK` is unset, so CLI builds honour the UI choice. Shared detection lives in `tools/z88dkpath.py`
+(`SNAP_ROOTS` + `detected()`/`default_root()`); `z88dk_valid` still only decides whether a configured tree looks usable.
+In Electron `electron/main.js:z88dkDir()` prefers
+`$Z88DK`/`$RVN_Z88DK`, then the stored `z88dk_path`, then a detected Snap install (nothing is bundled; the card's hint
+explains that nightly tarballs are source-only and lists the Linux routes: build the tarball, the Snap, or the
+musl/Alpine Docker image). The folder picker is the generic `window.rvn.pickDir()` bridge (`rvn:pick-dir`).
+
+## Verifying changes
+
+There is no test suite and no configured linter. Verify by:
+
+1. `python3 -m py_compile tools/*.py tools/editor/server.py` for Python edits.
+2. A full build (`python3 tools/build.py build demo-game` or the editor **Build** button) for anything touching
+   `game.md` format, `gen_scenes.py`, the engine, or the editor's save path. The Game Boy Color target needs
+   `z88dk-zsdcc`, so build it in the editor container
+   (`Z88DK=/opt/z88dk python3 tools/build.py build demo-game gb`) and check the `.gbc` header/ROM banks.
+3. For editor UI edits, start the server and exercise the affected tab; the UI is plain ES modules-free JS split by
+   topic under `tools/editor/static/` (classic `<script src="/static/<topic>.js">` tags sharing one global scope), no
+   bundler.
+4. **Headless screen check** for engine/art changes: `tools/spectrum.py` drives ZEsarUX-13.0 (in the repo) over ZRCP, no
+   X server. On a fresh box it needs `libsdl1.2-compat` (provides `libSDL-1.2.so.0`) and `libncurses6`, or it dies with
+   `fuse did not start`:
+
+       sudo apt-get install -y libsdl1.2-compat libncurses6
+       python3 tools/spectrum.py run <game-folder>/<slug>.tap    # start on 10001+
+       python3 tools/spectrum.py cli "smartload /abs/path/<slug>.tap"
+       python3 tools/spectrum.py shot NAME                      # tools/out/NAME.scr
+       docker exec retro-visual-novel-editor-1 sh -lc \
+           'python3 tools/render_zx_screen.py tools/out/NAME.scr tools/out/NAME.png'
+       python3 tools/spectrum.py off
+
+   `shot` also wants Pillow (absent on the host), so render inside the container as above. `smartload` needs an
+   **absolute** `.tap` path; the harness only finds running instances on ports 10001–10019.
+
+## Invariants and gotchas
+
+- **`game.md` has exactly one reader/writer: `tools/scenefile.py`.** The build (`gen_scenes.py`) and the editor both
+  import it. Any format change goes there first; never parse the format ad hoc elsewhere.
+- Every save re-serialises canonically via `scenefile.serialize()`, which re-emits the single `# game.md — ...` banner
+  (`scenefile.HEADER`) at the top; the author-facing format documentation lives in `docs/authoring.md` (so
+  `bundle.js` copies `docs/` into the packaged app). Raw text edits do not pass through the serializer; the banner is
+  optional on read (prose is ignored).
+- **NIRVANA+ never touches rows 0 and 23** and races attribute rows `1..art_rows` (the art band). Row 0 sits above the
+  art and carries the scene title (`show_scene` clears it with `clr_row(0, 0x00)` and draws `title_off` there); row 23
+  is the single-line inventory band. The title uses the `## zx title_ink` system option (`text` inherits `text_ink`,
+  emitted as `TITLE_INK`/`TITLE_BRIGHT` in `port_data.h`; it also colours the item screen and boot-screen title).
+  `clr_inventory_bg` clears only row 23 so the title survives band redraws while the
+  cursor is on the band (the item/Drop screen also clears it while its details show; the scene redraw on return restores
+  it). **`## zx art_rows` (even 8..16, default 10) sets the band height in character rows**: the engine is built with
+  `TOTAL_ROWS = art_rows`, `TEXT_TOP = 1 + ART_LINES`, `TEXT_BOT = 22`, so the text band is rows `art_rows+1..22` and
+  the budget is `22 - art_rows`. Scene text and item descriptions may be any length and word-wrap at 62 columns;
+  options/labels are <= 62 columns. Keep <= 8 logical text lines and <= 6 options. On the pinned layout the server
+  validates the worst-case wrapped text rows + options over all flag/item combinations against `22 - art_rows`
+  (and the item screen's description + entries against `21 - art_rows`); with `## zx menu: popup` the text and item
+  descriptions scroll and there is no fit limit. Scene text is top-aligned and the options are pinned to the
+  bottom of the band (last option on `TEXT_BOT`); the item/drop (`ITEM_DESC_TOP`/`ITEM_DESC_ROWS`/`TEXT_BOT`) and
+  boot-password screens are band-relative so they fit any height, and on the pinned layouts the item screen's
+  options/Drop/Back entries are pinned to the bottom the same way. The description is clamped so the entries fit
+  (`21 - art_rows - entries` description lines). On the dialog layouts (`PORT_OVERLAY_MENU`) the entries instead start
+  immediately below the description, which is clamped to the rows the entries leave free. On pinned ZX item-entry
+  labels are truncated rather than wrapped (`PORT_NO_ENTRY_WRAP`), and scroll markers use `PORT_SCROLL_COL` 61:
+  printing the last cell makes the ZX ROM scroll the whole screen and shift the NIRVANA+ band.
+- **The NIRVANA+ engine is rebuilt per game** with `TOTAL_ROWS = art_rows`: `tools/build.py` writes a temp
+  `config_private.inc` (patching the `defc` and the m4 `define` line) and passes `-m4=-I<tmpdir>` **before** the
+  vendored include, so only bytes inside the engine's padded hole change — `org_nirvanap` stays `0xDC03`.
+  `tools/build.py` also regenerates `build/adventure_NIRVANAP.bin` from that same linked engine on every build (9064 B, or
+  9073 B when the password screen adds the fillT wrapper) and checks it against the link map, so the TAP/SNA can never
+  merge the previous TOTAL_ROWS. `adventure.c` derives `ART_ROWS = ART_LINES/2` and `TEXT_TOP`.
+- **Art tile row `r` uses `lin = r*16 + 16`** (`ART_LIN` in `adventure.c`). NIRVANA+ maps `lin` to pixel row `lin-8`, so
+  image row `r` covers pixel rows `16r+8..16r+23` = raced attribute rows `2r+1..2r+2`; image row 0 lands in row 1 and
+  the last row in `art_rows-1`. The band is 16 x `art_rows/2` tiles (map `8*art_rows` bytes). `drawT` and `fillT`
+  must share this mapping. An off-by-8 here shifts the whole picture up one row (row 0 lost, the bottom row blank) — see
+  commit `c27452a`.
+- **Art source crop is per art.** `crop: <x> <y> <w> <h>` on an art (`scenefile.art_crop`, mirroring `zxart.crop_rect`)
+  is the source rectangle, in percent of the source, that maps to the art band (256x(8*art_rows); aspect
+  `32/art_rows`). Absent (the default) is the centred band-aspect window: the whole frame for a source that already
+  matches, else a full-width or full-height strip. `zxart._fit_band` (plus `nirvana_band`, `classic_band`,
+  `bifrost_band`, `band_to_art`, `render_band_png` — all take an optional `rows` of 16px tile rows) crops that rectangle
+  and scales it to the band once at conversion (the build and the editor previews share it), so the engine carries no
+  crop state. The non-ZX targets use `zxart.band_crop_rect`: an explicit crop keeps its full width and re-centres its
+  vertical window to the target band aspect (clamped to the source), so it is never stretched or cropped sideways.
+  The Art tab overlays a box on the Original image that is dragged to move and whose corners are dragged to
+  resize (the aspect stays the band's, so nothing distorts); only the box moves during the drag, and the Spectrum
+  previews (`?crop=x,y,w,h` on `/api/preview`) plus the saved value refresh on pointer release. A stored crop whose
+  aspect no longer matches the band (after `## zx art_rows` changes) is re-fitted to the band aspect and re-saved when
+  the art is shown, and the previews carry the current band height as `?lines=` so they track the unsaved control. The
+  value is persisted while `PARAM_KEYS` overrides are still dropped by `_drop_art_overrides`.
+- Every scene's `art:` must reference an existing `## <art-id>` under `# Art`; every scene must be reachable from the
+  first. `save_project`/`_write_game_md` reject writes that fail validation and return the problems.
+- **Scene order is the story order and scene 0 is the start.** The editor sidebar reorders scenes and arts by drag or
+  the per-row up/down buttons; this rewrites the `## <id>` entry order under `# Scenes`/`# Art` in `game.md`, and the
+  first scene row carries a `start` badge. Reordering scenes renumbers generated scene ids and flag first-appearance ids
+  but all references are by name, so behaviour is unchanged; art order only affects list/default-art order.
+- **The home bank is nearly full: the main image must fit below `0xDC03`** (the NIRVANA+ engine's `ORG`), or
+  `adventure.bin` overlaps the engine and the game will not boot — the linker does not know about the reservation. Check
+  `<game-folder>/build/adventure.bin` size (must be < `0xDC03 - 0x8000` = 23555 bytes). To keep room,
+  `gen_scenes.py` emits exact-length `art_bank`/`art_off`/`scene_bank`/`scene_off`/`item_name_off` arrays (the engine
+  only indexes them with ids it bounds against `N_ART`/`N_SCENES`/`N_ITEMS`), sizes `_scene_ws` per game
+  (`SCENE_WS_SIZE`, the largest raw scene blob) and, when the game uses an accented letter, ships only the accent
+  slot offsets/glyphs and patches the CRT's own `CRT_FONT_64` table in place at startup (`NEED_ACCENT_FONT`); an
+  ASCII game does nothing.
+- **The paging routines must be linked below `0xC000`.** `paged_unpack`/`load_banks` page data banks in at `0xC000`, and
+  the ZX0 decoder and `_scene_bank_list` execute from there, so if the fixed region overflows and the linker places any
+  of them in bank 0 the game pages over its own running code and crashes before `main`. `tools/build.py` links
+  `src/zx/loader.asm`, `vendor/zx0/zx0.asm` and `build/scene_banks.asm` **first** so they stay low, and verifies their map
+  addresses are `< 0xC000` after the build (the `.bin`-size check cannot see this — these routines are in the fixed
+  region, not bank 0). The `_scene_ws`/`_art_ws` workspaces may spill into bank 0, but must not reach the NIRVANA+
+  engine at `0xDC03`; the main-image size check covers that because they are part of `adventure.bin`.
+- **Selectable words** (`{{word}}` / `{{word|flag}}` in a `text:` line) are parsed only by `tools/scenefile.py`
+  (`word_segments`/`parse_words`/`word_flag`); the generator emits a per-scene word table (`WordHdr`: line, col, len,
+  flag) after the scene strings and sets `HAVE_WORDS`. The engine highlights each word, folds it into the option cursor
+  above the menu (`word_nvis` + `mark_sel`) — the cursor does not wrap, so UP off the first word (or the first option in
+  a word-less scene) stays put — and on ENTER `flag_set`s its flag then re-renders the scene in place. It is
+  **one-shot** (a set word renders as plain text and leaves the cursor) and up to `WORD_MAX` (8) per scene. Word flags
+  are ordinary flags; `assign_flags` notes them. `text_ink`/`highlight_ink` colour the body and every selection;
+  selectable words always use `highlight_ink`, while inventory items use `text_ink` until selected; the cursor-selected
+  word or item also gets a `>` marker. `text_ink`/`highlight_ink`/`text_bg` resolve via `scenefile.text_colours` to the
+  engine's `TEXT_`/`HIGHLIGHT_`/`TEXT_BG` + bright macros; the legacy `word_sel_ink` writes into `highlight_ink`.
+  `item_ink` is no longer used: a legacy line is parsed and dropped on save. The whole word feature compiles out for a
+  game with no markers, so word-less games are unchanged.
+- **A `prompt:` value keeps the line breaks the author types.** `_prompt_lines` writes the first line after `prompt:`
+  and every later line with `_PROMPT_BREAK_INDENT` (4 spaces; an empty line is the bare indent), which `parse` reads
+  back as `\n`; a 2-space-indented continuation is a soft wrap that rejoins with a space (a save uses those at
+  `PROMPT_WRAP`=120 columns), so layout wrapping never changes the value sent to the image model.
+- **Image quality settings are generation-only.** `# Game` may set `negative_prompt:` (sent as the SD API negative
+  prompt), `hires: off|2x|3x|4x` with `hires_steps:`/`hires_denoise:` (a second txt2img pass; the saved PNG is
+  `width*scale` x `height*scale`), and `refine_denoise:`. The Art/Reference panes' **Refine 2x** (`POST /api/refine_art`
+  / `/api/refine_ref`, or `gen_images.py --refine`/`--refine-refs`) runs img2img on the selected image at 2x, preserving
+  its composition. Both paths send the game's negative prompt and use the shared seed/steps/cfg. The current game uses a
+  bright detailed pixel-art prompt, `hires: 2x`, and `dither: off`; keep dark gradients out of the prompt because the
+  NIRVANA+ band only has two colours per 8x2 cell.
+- **Reference images are separate `# References` entries, not art.** Each `## <ref-id>` has its own `prompt:` (and
+  optional `image:`/`seed`/`steps`/`cfg`/`width`/`height`) and renders into `<game>/assets/refs/<id>/` exactly like art
+  candidates. An `# Art` entry names them in `refs: <id>...`; the generator sends their selected images to the SD API as
+  `extra_images` (stable-diffusion.cpp `ref_images`), which is what keeps a boat/van/character consistent across scenes.
+  References are generation-only: `gen_scenes.py` ignores them and they are never packed into the game. Regenerating an
+  art (single art or `gen_images.py`) re-renders its `refs:` first, then conditions the art on the fresh images. A full
+  **Regenerate images** / **Generate missing** run (and `gen_images.py` with no art ids) re-renders every declared
+  reference first, then the arts, so each reference is rendered once per run and the art conditions on the fresh images.
+  The editor's Art sidebar has a **References** list (above the Art list; prompt, regenerate, upload, candidate picker)
+  and each art has a toggle row; `scenefile.parse`/`serialize` own the format. `_validate` reports unknown refs or refs
+  with no image. The candidate picker's confirmed × deletes a reference image; deleting the selected file repoints
+  `image:` to the newest remaining candidate, or clears it when none remain (`server.delete_ref_image`). A renamed
+  reference moves its folder and repoints every art (`_migrate_ref_files`).
+- **Art source images are per-art folders with a chosen candidate.** Each `## <art-id>` under `# Art` owns
+  `<game-folder>/assets/art/<id>/` holding one PNG per generation/upload, named `<action>-<epoch>.png`
+  (`gen-`/`up-`); nothing is overwritten, and the per-art `image:` line (basename, validated by
+  `scenefile.valid_art_image`) picks the one the build and previews use. Absent `image:` uses the newest PNG in the
+  folder; a flat legacy `assets/gen/art_<id>.png` / `<id>.png` is still read as a fallback
+  (`scenefile.resolve_art_image`, used by `gen_scenes.load_art_blob`, `server._art_image_path` and `art_preview_bytes`).
+  `server._set_art_image` persists the pointer after a generate/upload (the SPA is forced clean before a job, so it
+  cannot clobber edits); the Art tab's thumbnail picker (`drawArtPicker`/`selectArtImage`) sets `P.arts[i].image` and
+  the ordinary save writes it; its confirmed × deletes a candidate, repointing `image:` to the newest remaining file or
+  clearing it when none remain (`server.delete_art_image`). `gen_images.py` writes `gen-<epoch>.png` and updates game.md
+  too. `assets/gen` still holds the songs' `song_<id>.wav` previews, so the two roots are distinct.
+- **NIRVANA+ art conversion is dithered** (`zxart.nirvana_band`, used by both the build and the editor preview): after
+  each 8x2 cell's ink/paper are chosen, pixels are assigned to them by a dither scheme, not a hard nearest test. The
+  `dither:` setting (a `# Game` default any art may override; `scenefile.conversion_options`) selects it: `off` (hard
+  snap), the pointwise `bayer2`/`bayer4`/`bayer8`/`noise` (threshold schemes in `zxart.DITHER_MODES`) or an
+  error-diffusion kernel listed in `zxart._DIFFUSE` — `floyd`, `atkinson`, `jarvis`, `stucki`, `sierra` (floyd keeps its
+  original tap order, so existing art is unchanged). `bayer2` is the coarsest/roughest; `bayer8` the finest. Measured to
+  keep the unique-tile count at or near the 64-tile cap, so the paged-bank budget is unaffected. Keep the numpy and
+  pure-Python paths (`_nirvana_band_numpy`, `_nirvana_band_python`) byte-for-byte identical for every mode — the
+  pointwise modes share `zxart._threshold_grid`, and error diffusion runs the shared `_DIFFUSE` tap order in the fixed
+  raster order in both.
+- **More source-conversion options keep colour** (all baked at conversion time, so the engine carries no state):
+  `match:` (`rgb` or the `perceptual` redmean distance, `zxart._dist_py`/`_dist_rgb`), `palette:` (`none`/`spectrum`/
+  `adaptive`, `zxart._apply_palette`) and the `saturation`/`contrast`/`brightness`/`gamma` source adjustments
+  (`zxart.preprocess`), applied after `_fit_band` and before quantisation. They resolve per art over the `# Game`
+  default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
+  live `?dither=...` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
+- **`system_zx`/`system_sms`/`system_cpc`/`system_msx2`/`system_gb` are reserved build-time pseudo-flags**
+  (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and as
+  all-false by the web export), never assigned a flag id or runtime state. Using one as a declaration, `start:`,
+  `ending:`, effect or selectable-word flag is an error.
+- Flags are ids 0..127; inventory items are ids 128..191 and are also flags, so `if` tests either. Use `set`/`unset` for
+  flags, `pick`/`leave` for items. Scene and item options may carry up to 8 `if`/`unless` tokens; every condition must
+  hold (AND) and they may be mixed. A condition only tests a name: it must be declared (`flags:`/`items:`/`## <item-id>`
+  under `# Items`) or assigned elsewhere (`set`/`unset`/`pick`/`leave`/`start:`/`ending:`/selectable word).
+  `scenefile.assign_flags` does not create names from conditions, so a condition-only name is a build error and
+  `server._validate` reports it as an error. Each option stores an absolute `cond_off` to a table of `(flag id,
+  negated)` pairs (`OptHdr`/`ItemOptHdr` also carry `ncond`); `OptHdr.clear` bit0 is the `clear` reset. An option may
+  end with `msg <text>` (`scenefile.split_option_msg`), stored as a `u16 msg_off` (0 = none) in both headers; choosing it
+  shows the text in a modal text-pane popup (`show_message`, gated by `HAVE_MESSAGES`) before its effects and target run.
+  `msg` consumes the rest of the line, so conditions/effects must precede it. The popup's dismiss line comes from
+  `# Game popup_hint:` (`scenefile.popup_hint`, default "Press a key"), emitted as `port_game_popup_hint`.
+  `# Game carry: <n>` caps held items; a full pack hides `pick` options, and the global **inventory** screen clears an
+  item's flag, so the cap can never soft-lock. Both are parsed/serialized by `scenefile.py`, emitted by `gen_scenes.py`,
+  validated by `server.py`.
+- `## <item-id>` blocks under `# Items` (optional, `name:` display name <= 58 cols, `desc:` up to 4 logical lines
+  that word-wrap at 62 on ZX, and up to 6 `opt:` lines) give inventory items a display name, description
+  and options. The `id` is an ASCII token (its `pick`/`leave` name); the `name` defaults to the id and may be
+  multi-word. Both are parsed/serialized by
+  `scenefile.py` (`item_display_names`), emitted by `gen_scenes.py` into the home-bank `item_names[]` table, and
+  validated by `server.py`. An id joins the item list like a `pick`/`leave` name (`scenefile.declared_items`). A `desc:`
+  line may append postfix conditions (`text -> if <flag> unless <flag>`, up to 8, all must hold); an item option is
+  `label -> <target> [if/unless.../inscene <scene>/set/unset/pick/leave/clear] [msg <text>]` — choosing it applies its effects then
+  goes to `<target>` (`-` redraws the current scene, a scene id navigates there), and `inscene` gates it on the
+  scene the item screen was opened from. Descriptions, options and
+  the screen's own UI strings are one ZX0-compressed paged blob (`inv_blob_bank/off`) decoded on demand into `_art_ws`
+  by `load_inv_blob()` — never resident, so the tight home bank is unaffected; the picture already drawn stays in the
+  bitmap (its tiles in `_art_ws` are overwritten, so `drop_screen()` invalidates `cur_art` and the art is reloaded on
+  return). Blob layout is `u16 ui_off[2]` (drop/back) then `u16 item_desc_off[N_ITEMS]` + `u8 item_nlines[N_ITEMS]` (+
+  `u16 item_opt_off[N_ITEMS]` + `u8 item_nopt[N_ITEMS]` when any item has options) + strings + 14-byte `ItemOptHdr[]` +
+  the item options' `(flag id, negated)` condition pairs; each stored description line is `[u8 ncond][(flag id,
+  negated) * ncond]text\0` and each option header is `{label_off, cond_off, msg_off, scene, target, ncond, set, unset,
+  pick, leave, clear}`. Scene text lines use the same `[u8 ncond][(flag id, negated) * ncond]text\0` prefix in `text_off[]`. The
+  `inventory_drop:`/`inventory_back:` `# Game` settings are resolved by `scenefile.inventory_strings()` (blank =
+  built-in default, which reflects `carry:`); the blob is bounded by `_art_ws` sizing / `_stage_ws`. The screen compiles
+  when `HAVE_INV_BLOB` (`GAME_CARRY > 0`, any item desc or any item option); the description code is gated on
+  `HAVE_ITEM_DESC`, the option code on `HAVE_ITEM_OPTS`.
+- **A scene option may target `-` to re-enter its own scene.** `gen_scenes.py` resolves the sentinel to the scene's own
+  index, so choosing it applies the option's effects and redraws the scene (no navigation). The editor's target picker
+  offers `— same scene —`, the Story graph treats it as a self-transition (no edge), and Ctrl/Cmd+click in the Source
+  tab jumps to the scene heading.
+- **The inventory is the interactive band, not a key or a menu option.** `draw_inventory` renders the held items white
+  on black on row 23 (the selected one green) into a single scroll window: `inv_vis[]` is every held item in display
+  name order (`scenefile.assign_flags` sorts items by `item_names`), `inv_first`/`inv_win` are the visible slice (sized
+  by `inv_fit`), with `<` in the first column when earlier items are hidden and `>` at the right edge when later ones
+  are. `inv_cur` is the selected index into `inv_vis[]` (0xFF when the cursor is on the options). `choose_option` keeps
+  a focus flag: DOWN off the last option enters the band (with no items held it stays put, since the cursor does not
+  wrap); when a scene has no visible options but the player holds items, the band starts focused so the item screen is
+  still reachable. Then DOWN/UP (`CURSOR_DOWN`/`CURSOR_UP` = 6/7, or S/W) step `inv_cur` with wraparound and LEFT/RIGHT
+  (`CURSOR_LEFT`/`CURSOR_RIGHT` = 5/8, or A/D) are aliases; `inv_step` recolours only the two changed names (no
+  full-line clear, so the band does not blink) and redraws row 23 only when the scroll window shifts so the `<`/`>`
+  markers follow the selection. UP off the first item returns to the options; ENTER calls
+  `drop_screen(inv_vis[inv_cur])`. `drop_screen(id)` draws its static text once, repaints only the old and new entry as
+  the cursor moves, and shows the item's name/description plus a **Drop** entry (only with `GAME_CARRY > 0`) and a
+  **Back** entry; there is no SPACE shortcut. Dropping
+  `flag_set`s the item off, then the scene is redrawn. `opt_idx`/`opt_row`/`NOPT_MAX`/`SceneHdr.opts` stay 6 (items are
+  not options).
+- Music: `# Game songs:` declares song ids backed by `<game-folder>/assets/music/<id>.pt3`. `music: <id>|off|on` on `#
+  Game` (default) and a scene's `music:` (override) is resolved by `scenefile.resolve_song()` into generated
+  `scene_song[]` (index or 255). The shared player `src/portable/core/music.c` is linked by every target and uses
+  z88dk's VT2/PT3 player; `gen_scenes.song_setup()`/`scene_song_array()` are shared with `gen_port.py`, so the AY
+  targets validate and resolve music identically. Songs are ZX0-compressed paged blobs and share the art/scene bank
+  budget. The workspace is platform-owned via `plat_song_ws()`: ZX uses lower RAM at `0x6000 + STAGE_WS_SIZE`
+  (directly after `_stage_ws`, sized per game to the largest module after decompression, capped at 4158 B; the two
+  buffers must fit the 8K window to 0x8000); CPC uses a fixed
+  base-RAM workspace at 0x9600 (music builds keep art out of `BANK_2` and cap the CRT heap at 0x9600); MSX2 uses a
+  `SONG_WS_SIZE` BSS buffer and packs songs into ROM banks after the art banks. `music_apply()` decompresses into that
+  workspace (the VT2 player is stopped first) and starts playback; it is driven by `set_music()`/`music_on`, the **P**
+  toggle handled in `plat_read_key()` (music is not a movement key; `plat_wait_release()` includes P).
+  `plat_music_hook()` attaches/detaches the `NIRVANAP_ISR_HOOK` on ZX and is a no-op on CPC/MSX2, whose frame ISR
+  is installed once in `plat_init()`; SMS/Game Boy Color set `N_SONGS=0`, so the shared module compiles
+  out. Playback uses z88dk's VT2/PT3 player (NIRVANA+ hook on ZX, firmware frame flyback on CPC, VDP IM1 on
+  MSX2); the ZX song buffer now lives in lower RAM, so only the player code remains in home bank 0. The Music tab's
+  **Convert MIDI → PT3** posts to
+  `/api/convert_song`, which spawns the `spectrumizer` CLI (pinned in `tools/editor/Dockerfile`, not imported) on a
+  temp `.mid` and validates the result with `_validate_song_module`; the source is kept as `assets/music/<id>.mid`.
+  `_convert_opts()` allowlists the editor's options onto spectrumizer flags (style, bass, transpose, rows/beat, author,
+  speed, loop position, `--no-dynamics`, and the mutually exclusive
+  channel-C voices `--arps`+`--arp-speed` / `--echo`), omitting anything left at spectrumizer's
+  default so a malformed request cannot smuggle arguments. Because spectrumizer has no trim option, long MIDIs can be
+  cut to a `trim_start`/`trim_end` (seconds) window in the Music tab: the pure-stdlib `slice_midi()` rewrites the
+  timeline (re-triggering notes held across the cut and re-emitting the tempo/time-sig at the cut point) in memory, and
+  the stored `.mid` stays the full original. `POST /api/reconvert_song` re-runs the converter on that stored source
+  (with a new cut/style) without re-uploading; `GET /api/songsource/<slug>/<id>` reports the source length. The inline
+  player streams `/api/songpreview/<slug>/<id>`, which renders the module to `assets/gen/song_<id>.wav` (gitignored) via
+  `spectrumizer.play`, caching by the `.pt3` mtime. `server.py` stays stdlib-only.
+- **Art, scene and song blobs are ZX0-compressed** at build time (`gen_scenes.py` spawns the z88dk host tool
+  `z88dk-zx0`; it must be on `$Z88DK/bin` or `PATH`). Each blob in a bank is `[u16 compressed length][zx0 stream]`. The
+  69-byte standard decoder is vendored in `vendor/zx0/zx0.asm` (`_zx0_unpack`, BSD-3) and linked into the fixed region.
+  `paged_unpack(bank, src, dst)` (its one paging primitive) `halt`s to sync to the frame interrupt, then copies the
+  compressed bytes into the always-resident lower-RAM `_stage_ws` (0x6000) at most `STAGE_CHUNK` (1024) bytes per `di`,
+  `ei`ing between chunks, and finally runs the decoder with interrupts enabled from `_stage_ws` into the workspace. The
+  copy is chunked and frame-aligned because the NIRVANA+ ISR rewrites each bicolor attribute 4x per frame; a copy that
+  held `di` across a frame boundary would miss a race frame and flash the band for one frame. The NIRVANA+ ISR preserves
+  all registers and SP, so an interrupt mid-decode is safe. **`_art_ws` is a single per-game-sized buffer**
+  (`ART_WS_SIZE` = the largest art or inventory blob, emitted by `gen_scenes.py` and reserved by
+  `src/zx/paging.asm`): once drawn the picture lives in the screen bitmap/raced attributes, so the ZX
+  `plat_draw_art()` decodes the next one straight over it and draws over the old picture, with deliberately **no
+  `clear_art()`/black flash** between scenes. The only live reader is the ISR's 8 sprite slots via
+  `NIRVANAP_TILE_IMAGES`, so `plat_load()` (inventory) and `plat_draw_art()` point that at `blank_tile` while a decode
+  is in flight.
+  Keep the `draw_art()` halt batch at 6 tiles (fits even at `art_rows=16`) — a wider batch overruns the frame on
+  real hardware. `_stage_ws` (0x6000, lower RAM up to 0x8000) must hold the largest compressed blob; `gen_scenes.py`
+  checks it (`STAGE_WS_MAX`). The `u16` prefix is what lets the runtime copy the exact compressed length, so **no
+  `*_len` arrays exist** (`art_len`/`scene_len`/ `song_len` are gone). A compressed
+  blob must fit `_stage_ws` (4096 B); `gen_scenes.py` asserts it. Compression roughly doubles art capacity (raw blobs
+  shrink to 50-68%); the bank budget is unchanged, so packing is over compressed sizes.
+- `clear` on an option wipes all state then re-grants `# Game start:` names. The engine does **not** auto-clear on
+  entering the first scene.
+- **`# Game password:`** (`scenefile.parse`/`serialize`, `gen_scenes.py` emits `game_title`/`game_password` into
+  `build/scene_data.h`) makes the engine show a boot screen once before the first scene: `src/zx/plat_zx.c:password_screen()`
+  fills the raced art band black (`fill_art_band_black`, same 6-tile `NIRVANAP_halt` batching as `draw_art`), prints the
+  centered `title:`, and reads a line with `in_Inkey()`/`in_WaitForNoKey()` (one char per press, ENTER submits, DELETE
+  backspaces). Correct entry runs scene 0; wrong entry prints an error and loops. Matching is case-insensitive and
+  length must be equal. Password is ASCII, <= 16 chars, no spaces (enforced by `_validate`); `_validate` also warns when
+  a password is set without a title. `password_label:` overrides the prompt line (`game_password_label`, emitted only
+  when a password is set and guarded by `NEED_PASSWORD`; default "Enter the password:"). It is a `# Game` (Game tab)
+  field, not per-scene.
+- Banks are raw data loaded at runtime (TAP via `loader.asm`, SNA already resident); they are not linked in.
+  `CRT_DISABLELOADER=1` prevents the CRT's own loader from running.
+- Editor API is selected per game via `?game=<slug>`; request bodies may legitimately contain a `game` key (the `# Game`
+  settings), so the server only reads the query string (`_game_arg`, `server.py`). Keep it that way.
+- **Games open as folders, several at once.** `gamestore.open_folder(path)` appends a game folder anywhere on disk to
+  the open set (`set_opened` replaces it, and `RVN_GAMES`/`RVN_GAME` envs seed it at import); `close_folder` removes
+  one. `resolve`/`game_dir`/`list_games` refer to those folders, addressed by slug (a folder's basename) or by path;
+  with nothing open they fall back to the legacy `games/<slug>/` workspace; the repo's demo game is not there, so
+  open `demo-game/` explicitly (e.g. `RVN_GAME=demo-game` or the top-bar folder picker). The top-bar game label is a
+  dropdown listing every open game (switch / close), and the desktop app remembers the whole set
+  (`openGames`/`activeGame` in settings.json, passed as `RVN_GAMES`; the SPA's `rememberGames()` bridge). Two folders
+  with the same basename cannot both be open — the basename is the slug (and names the build outputs).
+  `POST /api/open {"path"}` adds (empty clears), `POST /api/close {"game"}` removes, and
+  `POST /api/new {"parent","name","title"}` creates + adds; `duplicate`/`rename` are
+  workspace-only. The engine/tools live at the app/repo root, so a game folder is just `game.md` + `assets/`. The build
+  passes each game's `RVN_GAME` down so `build.py`, `gen_scenes.py`, `make_tap.py` and `make_sna.py` all resolve the
+  same folder; `resolve` also accepts a directory path. Folder names are arbitrary (spaces/unicode are common on
+  Windows/macOS): the server `unquote`s the request path and the game-scoped routes match `[^/\\]+` segments (no
+  traversal — `/`/`\` are excluded and containment is re-checked).
+- **Cross-platform build.** `build.py` normalises path separators to forward slashes for the z88dk tools (they accept
+  them on Windows) and `gen_scenes._zx0_tool` finds `z88dk-zx0.exe` via `$Z88DK/bin` or `PATHEXT`. The desktop shell
+  kills the server process tree with `taskkill /T` on Windows and picks `python`/`Scripts/python.exe`/`zcc.exe` there.
+  For the desktop app the user supplies a z88dk built for the target OS/CPU (see the desktop notes).
+- **Build systems live in a `# Systems` section.** Each `## <id>` block selects that system and holds its options
+  (`zx`/`sms`/`cpc`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); ZX builds first when selected,
+  then the others in block order, and each system's log is separated by a `==== name [id] ====` banner; the legacy
+  `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
+  tab edits the selection; the Game tab keeps the shared settings (including Text colours).
+- Editor writes are atomic and keep `game.md.bak`; art files are migrated when an art id is renamed
+  (`_migrate_art_files`).
+- `compose.yml` live-mounts an **absolute daemon-host path**, not `./`; update it if the checkout moves.
+- UI is vanilla JS/CSS in `tools/editor/static/`; match the existing dark theme, inline-SVG mask icons per tab, and the
+  `VIEWS` / `EDIT_MODES` split in `core.js`. Structured tabs share the `#view-edit` shell; `graph`/`emu` are their
+  own flex views. The SPA is split **by topic, not bundled**: `index.html` loads `core.js`, `load.js`, `sidebar.js`,
+  `flags.js`, `panes.js`, `pane-glue.js`, `art.js`, `refs.js`, `jobs.js`, `graph.js`, `actions.js`,
+  `emulator.js`, `web.js`, `raw.js`, then `app.js` (the entry: event wiring + `load()`), all classic scripts
+  sharing one global scope,
+  so top-level `let`/`const`/`function` names must stay **unique across files** and each file needs its own `"use
+  strict";`. CSS is likewise split (`base.css`…`responsive.css`, linked in that order; the cascade is the same as one
+  file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
+- **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX; local
+  iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS), CPC (`emulator/cpc`,
+  CPCJS/Caprice32) and Game Boy Color (`emulator/gb`, EmulatorJS Gambatte). The SMS and GBC pages share the pinned
+  EmulatorJS data in `emulator/emulatorjs/data`. Built artifacts are served by `/api/artifact/<slug>/<file>`;
+  `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
+  via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name.
+- **Web runtime:** the runtime is **frontend-only**. `tools/webgame_runtime/` is a plain classic-script SPA
+  (`index.html` + `game.js` + `app.js` + `style.css`); its data is assigned to `window.RVN_GAME`, **not fetched**, so an
+  exported folder works from `file://`. `tools/webgame.py` is only the export/build step: it parses `game.md` (through
+  `scenefile.py` only), writes the data file and copies source art. `POST /api/web_export` writes
+  `<game-folder>/web/` (original source PNGs, no music, no palette conversion), `GET /play/<slug>/...` serves that
+  exported folder statically, and `GET /api/webzip/<slug>` re-exports then streams `<slug>/...`; the folder is
+  gitignored. The editor's Web tab saves pending edits, exports the saved game and previews the folder, reloading the
+  iframe only when the export revision (story, runtime or art files) changes; **Reload** forces it. The runtime
+  persists progress (current scene + flags) in `localStorage` under `rvn.web.<slug>.state`, so a live reload, browser
+  refresh or reopening the exported folder resumes where the player left off; **Restart** clears it. It must never grow
+  request-time story generation or rendering. It is **not** a `# Systems` target: the art band aspect follows the first
+  selected target's `art_rows` (ZX first, default 10). Keep the runtime **mobile-first** (fluid single column, 44px
+  taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and
+  update `docs/web-runtime.md` with any data/route/export change.
+- **CPC runtime:** `tools/gen_port.py --cpc` converts each art band to CPC screen bytes (`[u8 ninks][u8 hardware inks][8
+  scanline chunks]`) and packs the ZX0-compressed blobs into `BANK_4..BANK_7`, with `BANK_2` (0x8000, capped at 8K so it
+  cannot reach the stack) holding overflow. A music build packs art+song blobs into the four extra banks only (no
+  `BANK_2`), because the AY VT2 workspace is fixed at 0x9600; the target caps `CRT_MAX_HEAP_ADDRESS` at 0x9600 and
+  guards `__BSS_END_tail < 0x9600` plus the music code below 0x8000. Songs load through `cpc_unpack_banked()` (`off+2`,
+  skipping the packed length prefix) into that workspace and play from the firmware frame-flyback ISR. `plat_cpc.c`
+  renders text directly into screen memory (8x8 doubled glyphs, or 4x8 for 62 columns) and `cpc_paging.asm` pages a
+  bank through port 0x7F with interrupts off, decodes to 0xC000, restores the base mapping, then scatters the band to
+  rows 1..`cpc_art_rows`. The paging routine and ZX0 decoder must stay below 0x4000; they are assembled into `code_l`
+  (the paging/ink asm directly, the vendored decoder via `-Ca-DZX0_LOW`), which links before the compiler code, so the
+  game's C size cannot push them into the paged window.
+  CPC also builds with `PORT_KEEP_ART=1`: the portable `show_scene` caches the art id and only decodes when it changes,
+  so same-art scene changes, word clicks and item screens clear just the title/text pane
+  (`plat_clear_text`/`plat_clear_pane`, one memset per scanline block) instead of the whole screen. Because the decoder
+  writes into visible video RAM, `plat_draw_art` first sets every pen black, scatters the band, clears the title/text
+  pane, and only then restores the picture palette; the transient blob bytes are never visible. Mode 1 is
+  monochrome: its four pens are a dithered black/grey/white luminance ramp shared by the picture and text, and
+  `text_bg:`/`highlight_ink:`/`text_ink:` do not apply. In Modes 0/2 palette entry 0 is the game's `text_bg:` and the
+  top two the `highlight_ink:`/`text_ink:` (`cpcart.text_colours`), forced in before quantising so cleared rows and
+  text keep the author's colours while the picture still uses every ink (Mode 0: 13 image + background + 2 text); the
+  editor's CPC target preview receives the same game colours. Changing them rebakes every Mode 0/2 art blob, so
+  rebuild.
+  `tools/targets/cpc.py`
+  checks the link map, and checks `__BSS_END_tail < 0x8000` only when `port_art.asm` actually emits `SECTION BANK_2` (a
+  stale `port_art_bank2.bin` from an earlier build must not trip the guard). Mode 0 builds with
+  `PORT_OVERLAY_MENU=1`: the text uses every row below the art, the `SPACE` key opens/closes an options/items
+  dialog over that pane, and the old pinned-option/inventory paths compile out. `cpc_mode`, `cpc_columns` and
+  `cpc_art_rows` are emitted into `port_data.h`.
+- **MSX2 runtime:** `tools/gen_port.py --msx2` converts each band with `tools/msx2art.py` and stores the
+  scenes/inventory blob in ASCII16 ROM bank 1; each art gets one 16K bank from 2 up and `port_art.asm` maps them with
+  `SECTION BANK_NN`. `plat_msx2.c` uses V9938 Screen 7 (512x212, 4bpp): the full-width 512-pixel art band starts at x=0,
+  title row 0, art rows 1..`msx2_art_rows`, text rows `1+msx2_art_rows`..22 and the inventory on row 23. Screen 7 pixels
+  are half-width, so `msx2art._fit` fits the source to the `256 x 8*msx2_art_rows` physical aspect before scaling it
+  into the 512-pixel grid. An explicit `crop:` keeps its full width and re-centres its vertical window to that aspect
+  (clamped to the source), so it is neither stretched nor cropped sideways; the editor preview doubles the height to
+  match. `columns` is 64 (default) or 80. 64 columns use 8x8 glyphs at 8 pixels per cell, filling the full 512-pixel
+  width; 80 columns use 6-pixel cells (4-pixel glyphs from the generated `port_font4.h` plus a 2-pixel gap) starting at
+  x=16. The 64-column 8x8 glyphs are the shared CC0 Pixel Operator Mono 8 (`vendor/pixeloperator8/`); the 80-column
+  cells use the 4x8 CRT font. `plat_msx2.c` expands the raw 768-byte font into the Screen 7 cell table in RAM at
+  startup (the old pre-expanded table was 3 KB of the 16 KB fixed ROM bank). Palette entry 0 is the game's
+  `text_bg:` and entries 14/15 its `highlight_ink:`/`text_ink:` (snapped to RGB333), so cleared rows and selection use
+  the chosen colours; `msx2art.text_colours` bakes them into every art palette and the editor preview, so changing them
+  rebakes the art. The MSX2 text pane is fixed (`PORT_NO_TEXT_SCROLL`), so scene text and options must fit the rows
+  below the art band. An art blob is
+  `[u8 palette[16*2]][u16 comp_len][ZX0 strip] * art_rows`, where each strip is
+  2048 bytes (8 full-width lines); the runtime decodes a strip into a 2K RAM buffer and writes it to VRAM, so a 24K
+  full-width bitmap fits one 16K bank. Palette bytes are `red:3 << 4 | blue:3` then `green:3`. The target builds with
+  `+msx -subtype=rom2`, passes `-pragma-define:MAPPER_ASCII16`, uses `plat_set_bank()` for the 0x8000 window, and guards
+  the link map so resident code stays below 0x8000. Songs are packed into ROM banks after the art banks
+  (`build/port_song.asm`); `plat_load(PLAT_LOAD_SONG)` maps the song bank, decodes `0x8000+off+2` into the BSS
+  workspace, restores bank 1, and the VDP IM1 ISR drives the VT2 player. Screen 7 and the V9938 palette are set through
+  the BIOS/CHGMOD path; `plat_msx2.c` writes VRAM with R#14 page handling.
+- **Game Boy Color runtime:** `tools/gen_port.py --gb` stores scene/inventory blobs raw (no SM83 ZX0 decoder) in MBC1
+  banks: `port_data.c` metadata stays in bank 0, scenes/inventory start at bank 1 and art follows. `plat_gb.c` draws a
+  20x18 screen (title row 0, art rows 1..`gb_art_rows`, text from `1+art_rows` through row 17). The CGB background has
+  eight four-colour palettes selected per tile by an attribute byte in VRAM bank 1: palettes 6/7 are the body and
+  highlight text palettes (`gb_text_palette` in `port_data.c`) and the picture uses 0..5. It builds with
+  `PORT_OVERLAY_MENU=1`, so B/Start selects highlighted words and dialog entries while A opens/closes the
+  options/items dialog; `plat_clear_pane` clears only the rows below the art. `gb_copy.asm` copies a banked blob from
+  0x4000 and `gb_vram.asm` waits for a safe LCD mode before each VRAM write. Text uses the shared CC0 Pixel Operator
+  Mono 8 (`vendor/pixeloperator8/`), expanded to 2bpp tiles by `gbart.font_tiles`. The target uses SDCC
+  (`-compiler=sdcc`) and guards the link map: fixed-bank code must stay below 0x4000 and BSS below the stack at 0xE000.
+  The cartridge is CGB-enhanced (`0x143 = 0x80`, with the header and global checksums recomputed after appmake), so
+  the same `.gbc` also boots on a DMG; there the palette/attribute writes are skipped and `BGP=0xE4` shows four
+  shades. Art conversion is `tools/gbart.py`: 160 x `8*art_rows` 2bpp tiles, at most 158 art tiles, map entries offset
+  by 96, and an art blob of `[u8 ntiles][u8 npalettes][u16 palettes[npalettes][4]][tiles][map][attrs]`. Each tile is
+  quantised to four colours and the tile palettes are clustered into at most six shared palettes, ordered light-to-
+  dark for the DMG fallback; `art_rows` is 4/6/8 (default 6). Selection uses the configured highlight palette on CGB
+  and keeps the `>` marker so it also works on a monochrome Game Boy.
+- **SMS runtime:** `tools/gen_port.py --sms` converts each art band to planar 4bpp tiles and writes one uncompressed
+  blob per `BANK_02`.. ROM bank plus `port_banks.asm` (both gitignored). The 96 converted font tiles occupy VRAM
+  patterns 0..95; they are the shared CC0 Pixel Operator Mono 8, emitted as `port_font8.h` by `gen_port.py`, and art
+  starts at 96 and is capped at 352 unique tiles (extra cells reuse the nearest tile). The display is 24 rows: title
+  row 0, art rows 1..`# Systems` `## sms art_rows:`, and the text on every row below through 23.
+  `PORT_OVERLAY_MENU=1` makes button 1 open/close the options/items dialog and button 2 confirm; `plat_clear_pane`
+  clears only the rows below the art. Background palette entry 0 is the game's `text_bg:` and entry 1 its `text_ink:`;
+  sprite-palette entry 0 is the same background and entry 1 its `highlight_ink:` (all snapped to CRAM);
+  `smsart.text_colours` bakes them into every art palette and the editor preview, so changing them rebakes the art.
+  The text layer uses z88dk's newlib `arch/sms.h` helpers, not SMSlib.
+- **Portable under-art dialog:** `PORT_OVERLAY_MENU` makes `show_scene` give the text every row from `PORT_TEXT_TOP`
+  to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color and CPC
+  mode 0;
+  ZX, MSX2 and CPC modes 1/2 opt in with the system's `menu: popup` target option (ZX/CPC `SPACE`, MSX2 `SPACE` or
+  joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text` also clears row 23 when it
+  is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane: visible
+  scene options first, then held items prefixed `*`, labels wrapped, `>` marker on the selection and `^`/`v` when the
+  list scrolls. Moving the cursor repaints only the old and new entry, falling back to a full pane redraw when the
+  scroll window shifts. `B`/Enter/button 2 (CPC: Enter/Space/fire) activates an entry (or sets a highlighted word when
+  the dialog is closed); selecting an item opens `drop_screen`, where A also closes. On these targets a long scene body
+  scrolls with UP/DOWN (LEFT/RIGHT moves between highlighted words, or scrolls when the scene has none), and
+  `drop_screen` scrolls an overlong item description with UP/DOWN while the cursor is on the first entry.
+  `collect_options`/`collect_items` rebuild the list on each open, so item effects and flag changes are reflected; the
+  old pinned-option/inventory code is compiled out on these targets. `PORT_SIMPLE_OPTIONS` now only affects CPC modes
+  1/2. On ZX the inventory blob shares `_art_ws`, so returning from `drop_screen` with `cur_art == 0xFF` returns to
+  `main` for a full `show_scene` redraw; `menu_entry_rows` is one row per entry under `PORT_NO_WRAP` (no `count_rows`).
+- The Source tab is a **vendored Monaco 0.52.2** (offline; `static/monaco/`, classic AMD `min/vs`), served through
+  `/monaco/<file>` like JSSpeccy's `/emulator/`. Only `editor.main.js/.css`, `loader.js`, the markdown language and the
+  worker/font are committed; `raw.js` loads it lazily on first opening the tab, so no other tab pays for it. Keep the
+  editor wired to `saveRaw`/`loadRaw`/`rawDirty`, not a textarea.
+- Source-tab validation: `_validate` issues carry a 1-based `line` (added by `_annotate_lines`, which maps a scene/art
+  issue to its `art:`/`prompt:` field, an option/text issue to its own line via the internal `need` locator, and a
+  flag/item/song issue to its declaration). `PUT /api/raw` returns those issues in the 400 body; `POST /api/validate`
+  lints without writing. The client draws them as Monaco markers plus `raw-err-line` decorations. Keep the two paths
+  (parse-time and `/api/validate`) going through the same `_validate`/`_annotate_lines`.
+- Ctrl/Cmd+click a reference in the Source tab to jump to its definition: `POST /api/validate` also returns
+  `{"outline"}`, `scenefile.outline_links(text)` — 1-based source/destination ranges for scene option targets (`-> id`),
+  `art:`/`music:`/`ending:` values, `pick`/`leave`/`set`/`unset`/`if`/`unless`/text-conditional/`{{word|flag}}` tokens,
+  and `flags:`/`items:`/`songs:`/`start:` list entries. `raw.js` registers one Monaco
+  `registerDefinitionProvider("markdown")` that hit-tests the cached `rawOutline` (refreshed by the same debounce as the
+  lint, and on tab load) and returns the definition `Range`. Definitions prefer the `## <id>`/legacy `# scene`/`#
+  art`/`# song`/`# item` heading, then the `flags:`/`items:`/`songs:`/`start:` entry, else the first use; a name is an
+  item vs flag via `declared_items`/`assign_flags`, so a scene and a flag may share a name without mislinking.
+
+## Conventions
+
+- Python: stdlib-only in `tools/editor/` (minimal image; Pillow only in `zxart.py`/build tooling), 4-space indent, 120
+  col soft limit, module docstrings that list endpoints/behavior. No added comments unless they explain non-obvious
+  intent. All Markdown docs (`README.md`, `AGENTS.md`, `docs/**/*.md`) wrap at 120 columns.
+- JS: `"use strict"`, 2-space indent, 120 col soft limit, `const`/`let`, arrow callbacks; keep the `$("id")` helper
+  and `api(method, path, body)` fetch wrapper.
+- Do not commit build outputs, models, or `.bak` files (see `.gitignore`).
+- Only commit when the user explicitly asks.

@@ -1,0 +1,39 @@
+name: retro-visual-novel
+
+services:
+  editor:
+    build:
+      # Only the editor folder is sent to the daemon; the live-mounted project
+      # supplies the engine/tools at runtime, so the repo's models/ and games/
+      # never enter the build context.
+      context: tools/editor
+    command: python3 tools/editor/server.py
+    working_dir: /src
+    # Run as the host user (agent, uid 1000) so editor saves keep host
+    # ownership instead of leaving root-owned files behind.
+    user: "1000:1000"
+    environment:
+      # Bind on all interfaces so the published port is reachable.
+      EDITOR_HOST: 0.0.0.0
+      EDITOR_PORT: "8765"
+      # Point the editor at the image server on the host. Use
+      # http://host.docker.internal:<port> (the extra_hosts entry below maps it
+      # to the gateway) or any URL you like. When it is unset, image generation
+      # is hidden from the interface.
+      STABLE_DIFFUSION_URL: ${STABLE_DIFFUSION_URL:-}
+      # Persist the Settings tab's image-server endpoint in the live-mounted
+      # project so they survive `docker compose down`/recreate.
+      RVN_SETTINGS: /src/tools/editor/.settings.json
+      Z88DK: /opt/z88dk
+    extra_hosts:
+      # Let STABLE_DIFFUSION_URL reach a server running on the host
+      # (host.docker.internal -> the Docker host gateway).
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8765:8765"
+    volumes:
+      # Live-mount the project so the editor reads and writes the real
+      # demo-game/ tree (game.md, generated art, build outputs) on the
+      # host. This uses the checkout's absolute path on the daemon host, so a
+      # daemon that does not share the checkout cannot resolve `- .:/src`.
+      - .:/src

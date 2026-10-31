@@ -1,0 +1,5 @@
+Amstrad CPC emulation uses CPCJS (https://github.com/smichea/cpcjs), a
+WebAssembly port of Caprice32 (https://github.com/ColinPitrat/caprice32).
+CPCJS and Caprice32 are distributed under GPL-2.0. The cpcjs build packages
+Caprice32's CPC ROM images; retain the upstream copyright and license notices
+when redistributing this vendored runtime.

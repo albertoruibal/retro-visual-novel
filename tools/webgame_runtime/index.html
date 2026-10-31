@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Visual Novel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" hidden>
+  <header class="topbar">
+    <span id="gametitle" class="gametitle"></span>
+    <button id="restart" class="ghost" type="button">Restart</button>
+  </header>
+  <main class="stage">
+    <div class="artframe" id="artframe">
+      <img id="artimg" alt="" hidden>
+      <div id="artplaceholder" class="artplaceholder">No image</div>
+    </div>
+    <div class="story">
+      <h1 id="scenetitle" class="scenetitle"></h1>
+      <div id="scenetext" class="scenetext"></div>
+      <div id="options" class="options"></div>
+    </div>
+    <nav id="inventory" class="inventory" aria-label="Inventory" hidden></nav>
+  </main>
+</div>
+<div id="itemsheet" class="sheet" hidden>
+  <section class="sheetpanel" role="dialog" aria-modal="true"
+           aria-labelledby="itemtitle">
+    <button id="itemclose" class="close" type="button" aria-label="Close">×</button>
+    <h2 id="itemtitle" class="itemtitle"></h2>
+    <div id="itemdesc" class="itemdesc"></div>
+    <div id="itemopts" class="options"></div>
+  </section>
+</div>
+<div id="messagepopup" class="messagepopup" hidden>
+  <section class="messagepanel" role="dialog" aria-modal="true"
+           aria-labelledby="messagetext">
+    <p id="messagetext" class="messagetext"></p>
+    <button id="messageclose" class="primary" type="button">Continue</button>
+  </section>
+</div>
+<div id="password" class="password" hidden>
+  <form id="passwordform" class="passwordpanel">
+    <h1 id="passwordtitle" class="passwordtitle"></h1>
+    <p id="passwordlabel" class="passwordlabel"></p>
+    <input id="passwordinput" type="password" autocomplete="off"
+           autocapitalize="none" spellcheck="false" aria-label="Password">
+    <p id="passworderror" class="error" role="alert" hidden></p>
+    <button type="submit" class="primary">Enter</button>
+  </form>
+</div>
+<div id="fatal" class="fatal" hidden></div>
+<noscript>This visual novel needs JavaScript.</noscript>
+<script src="game.js"></script>
+<script src="app.js" defer></script>
+</body>
+</html>
