@@ -753,6 +753,76 @@ def _zx0_tool():
              "it to PATH; it ships with z88dk" % z88dk)
 
 
+def zx0_decompress(data):
+    """Decode a standard ZX0 stream (the format ``z88dk-zx0`` emits).
+
+    Mirrors the vendored Z80 decoder byte-for-byte. Used only to round-trip
+    every blob at build time: a compressor that silently emits corrupt data
+    would otherwise produce a TAP that loads but crashes before the first
+    scene, which is very hard to diagnose.
+    """
+    data = bytes(data)
+    ip = 0
+    bit_mask = 0
+    bit_value = 0
+    backtrack = False
+    last_byte = 0
+    out = bytearray()
+    last_offset = 1
+
+    def read_byte():
+        nonlocal ip, last_byte
+        if ip >= len(data):
+            raise ValueError("truncated input")
+        last_byte = data[ip]
+        ip += 1
+        return last_byte
+
+    def read_bit():
+        nonlocal backtrack, bit_mask, bit_value
+        if backtrack:
+            backtrack = False
+            return last_byte & 1
+        bit_mask >>= 1
+        if bit_mask == 0:
+            bit_mask = 128
+            bit_value = read_byte()
+        return 1 if bit_value & bit_mask else 0
+
+    def elias():
+        value = 1
+        while not read_bit():
+            value = (value << 1) | read_bit()
+        return value
+
+    def copy(offset, length):
+        if offset > len(out):
+            raise ValueError("back-reference before output start")
+        while length:
+            out.append(out[-offset])
+            length -= 1
+
+    state = "literals"
+    while True:
+        if state == "literals":
+            for _ in range(elias()):
+                out.append(read_byte())
+            state = "new" if read_bit() else "last"
+        elif state == "last":
+            copy(last_offset, elias())
+            state = "new" if read_bit() else "literals"
+        else:
+            last_offset = elias()
+            if last_offset == 256:
+                if ip != len(data):
+                    raise ValueError("trailing bytes after end marker")
+                return bytes(out)
+            last_offset = ((last_offset - 1) << 7) + 128 - (read_byte() >> 1)
+            backtrack = True
+            copy(last_offset, elias() + 1)
+            state = "new" if read_bit() else "literals"
+
+
 def zx0_compress(blob, tmpdir=None):
     """Compress one blob with ZX0; returns the compressed bytes.
 
@@ -768,7 +838,17 @@ def zx0_compress(blob, tmpdir=None):
             f.write(blob)
         subprocess.run([tool, "-f", "-q", src, dst], check=True,
                        capture_output=True)
-        return open(dst, "rb").read()
+        compressed = open(dst, "rb").read()
+    try:
+        restored = zx0_decompress(compressed)
+    except ValueError as err:
+        sys.exit("z88dk-zx0 produced an invalid stream (%s); check the "
+                 "compressor at %s" % (err, tool))
+    if restored != blob:
+        sys.exit("z88dk-zx0 round-trip mismatch (%d decoded, %d expected); "
+                 "check the compressor at %s"
+                 % (len(restored), len(blob), tool))
+    return compressed
 
 
 def pack_blob(compressed):
