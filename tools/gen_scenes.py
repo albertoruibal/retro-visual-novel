@@ -823,31 +823,223 @@ def zx0_decompress(data):
             state = "new" if read_bit() else "literals"
 
 
+class _ZX0Writer:
+    """Bit/byte writer for the standard (non-backwards) ZX0 format."""
+
+    def __init__(self):
+        self.out = bytearray()
+        self.bit_mask = 0
+        self.bit_index = 0
+        self.backtrack = False
+
+    def byte(self, value):
+        self.out.append(value & 0xFF)
+
+    def bit(self, value):
+        if self.backtrack:
+            if value:
+                self.out[-1] |= 1
+            self.backtrack = False
+            return
+        if not self.bit_mask:
+            self.bit_mask = 0x80
+            self.bit_index = len(self.out)
+            self.out.append(0)
+        if value:
+            self.out[self.bit_index] |= self.bit_mask
+        self.bit_mask >>= 1
+
+    def elias(self, value):
+        i = 2
+        while i <= value:
+            i <<= 1
+        i >>= 1
+        while True:
+            i >>= 1
+            if i <= 0:
+                break
+            self.bit(0)
+            self.bit(1 if value & i else 0)
+        self.bit(1)
+
+
+def _elias_bits(value):
+    bits = 1
+    while value > 1:
+        bits += 2
+        value >>= 1
+    return bits
+
+
+def zx0_compress_py(data):
+    """Greedy ZX0 encoder used when the host compressor is unusable.
+
+    It is deliberately simple (longest recent match, one-byte lazy matching)
+    and usually a few percent larger than ``z88dk-zx0 -q``. The output is a
+    valid standard ZX0 stream, so the vendored runtime decoder can read it.
+    """
+    from collections import defaultdict
+
+    data = bytes(data)
+    n = len(data)
+    if not n:
+        raise ValueError("empty input")
+    out = _ZX0Writer()
+    pos = 0
+    pending = bytearray()
+    last_offset = 1
+    first_block = True
+    after_match = False
+    chains = defaultdict(list)
+    max_offset = 32640
+
+    def add_positions(start, end):
+        for p in range(start, min(end, n - 1)):
+            key = data[p:p + 2]
+            chain = chains[key]
+            chain.append(p)
+            if len(chain) > 96:
+                del chain[:-96]
+
+    add_positions(0, 0)
+
+    def find(index):
+        if index >= n:
+            return 0, 0, 0
+        best = (0, 0, 0)             # bits saved, offset, length
+        if not after_match:
+            off = last_offset
+            if 0 < off <= index:
+                length = 0
+                while (index + length < n
+                       and data[index + length] == data[index + length - off]):
+                    length += 1
+                if length >= 2:
+                    saved = 8 * length - (1 + _elias_bits(length))
+                    if saved > best[0]:
+                        best = (saved, off, length)
+        key = data[index:index + 2]
+        for p in reversed(chains.get(key, ())):
+            off = index - p
+            if off <= 0 or off > max_offset:
+                continue
+            length = 0
+            while (index + length < n
+                   and data[p + length] == data[index + length]):
+                length += 1
+            if length >= 3:
+                cost = (1 + _elias_bits((off - 1) // 128 + 1) + 8
+                        + _elias_bits(length - 1))
+                saved = 8 * length - cost
+                if saved > best[0] or (saved == best[0] and length > best[2]):
+                    best = (saved, off, length)
+        return best
+
+    def flush_literals():
+        nonlocal pending, first_block, after_match
+        if not pending:
+            return
+        if not first_block:
+            out.bit(0)              # after a match: switch to literals
+        out.elias(len(pending))
+        for value in pending:
+            out.byte(value)
+        pending.clear()
+        first_block = False
+        after_match = False
+
+    while pos < n:
+        saved, off, length = find(pos)
+        if first_block and not pending and saved > 0:
+            pending.append(data[pos])
+            add_positions(pos, pos + 1)
+            pos += 1
+            continue
+        if saved > 0 and pos + 1 < n:
+            saved2, _off2, length2 = find(pos + 1)
+            if length2 > length + 1 and saved2 > saved:
+                pending.append(data[pos])
+                add_positions(pos, pos + 1)
+                pos += 1
+                continue
+        if saved > 0:
+            flush_literals()
+            if off == last_offset and not after_match:
+                out.bit(0)          # copy from last offset
+                out.elias(length)
+            else:
+                out.bit(1)          # copy from a new offset
+                out.elias((off - 1) // 128 + 1)
+                out.byte((255 - ((off - 1) % 128)) << 1)
+                out.backtrack = True
+                out.elias(length - 1)
+                last_offset = off
+            add_positions(pos, pos + length)
+            pos += length
+            after_match = True
+        else:
+            pending.append(data[pos])
+            add_positions(pos, pos + 1)
+            pos += 1
+    flush_literals()
+    out.bit(1)
+    out.elias(256)
+    return bytes(out.out)
+
+
+def _zx0_roundtrip(compressed, blob):
+    try:
+        return zx0_decompress(compressed) == blob
+    except ValueError:
+        return False
+
+
+_ZX0_QUICK_WARNED = False
+_ZX0_BUILTIN_WARNED = False
+
+
 def zx0_compress(blob, tmpdir=None):
     """Compress one blob with ZX0; returns the compressed bytes.
 
     The compressor is a host tool; the decoder is vendored (vendor/zx0). The
     packed on-disk form adds a u16 length prefix (see ``pack_blob``) because the
     runtime copies a fixed count into the staging buffer before decoding.
+
+    Some z88dk builds ship a broken ``z88dk-zx0`` (the Snap one has been seen
+    to emit invalid streams). Every result is round-tripped; a bad quick-mode
+    result falls back to optimal mode, then to the built-in greedy encoder, so
+    the build still produces a TAP that can boot instead of silently shipping
+    corrupt scene data.
     """
+    global _ZX0_QUICK_WARNED, _ZX0_BUILTIN_WARNED
     tool = _zx0_tool()
-    with tempfile.TemporaryDirectory(dir=tmpdir) as td:
-        src = os.path.join(td, "blob")
-        dst = src + ".zx0"
-        with open(src, "wb") as f:
-            f.write(blob)
-        subprocess.run([tool, "-f", "-q", src, dst], check=True,
-                       capture_output=True)
-        compressed = open(dst, "rb").read()
-    try:
-        restored = zx0_decompress(compressed)
-    except ValueError as err:
-        sys.exit("z88dk-zx0 produced an invalid stream (%s); check the "
-                 "compressor at %s" % (err, tool))
-    if restored != blob:
-        sys.exit("z88dk-zx0 round-trip mismatch (%d decoded, %d expected); "
-                 "check the compressor at %s"
-                 % (len(restored), len(blob), tool))
+    for options in (["-f", "-q"], ["-f"]):
+        try:
+            with tempfile.TemporaryDirectory(dir=tmpdir) as td:
+                src = os.path.join(td, "blob")
+                dst = src + ".zx0"
+                with open(src, "wb") as f:
+                    f.write(blob)
+                subprocess.run([tool, *options, src, dst], check=True,
+                               capture_output=True, timeout=120)
+                compressed = open(dst, "rb").read()
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if _zx0_roundtrip(compressed, blob):
+            return compressed
+        if not _ZX0_QUICK_WARNED:
+            sys.stderr.write(
+                "WARNING: z88dk-zx0 quick mode produced an invalid stream; "
+                "trying optimal mode\n")
+            _ZX0_QUICK_WARNED = True
+    if not _ZX0_BUILTIN_WARNED:
+        sys.stderr.write(
+            "WARNING: z88dk-zx0 output failed ZX0 validation; using the "
+            "built-in compressor (possibly larger output)\n")
+        _ZX0_BUILTIN_WARNED = True
+    compressed = zx0_compress_py(blob)
+    if not _zx0_roundtrip(compressed, blob):
+        sys.exit("the built-in ZX0 compressor produced invalid data")
     return compressed
 
 
