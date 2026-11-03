@@ -6,7 +6,7 @@ title: The Lantern Keeper
 prompt: 1980s game screen, high contrast, flat colours, no text, no letters
 negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, malformed, watermark, signature, text,
   letters
-flags: asked_mara, asked_elias, asked_father, mara_trusted, mara_knows, mara_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_lantern, exam_mercy, exam_mara, exam_journal, exam_cups, exam_chest, exam_log, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green
+flags: asked_mara, asked_elias, asked_father, mara_trusted, mara_knows, mara_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_lantern, exam_mercy, exam_mara, exam_journal, exam_cups, exam_chest, exam_log, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green, crowe_met, crowe_deal, crowe_defied
 items: key, oil_lantern, oil_can, matches, gear, flare
 songs: theme
 music: theme
@@ -301,8 +301,41 @@ text:
   The {{reservoir|exam_reservoir}} is dry.
   The wick is black and dry.
   Rain hammers the gallery glass. Far below, the sea is white.
+  A shape waits by the lens. A man in grey waits below.
 opt: Go down to the hall -> hall
+opt: Speak to the shape at the lens -> elias
+opt: Talk to the man in grey -> crowe unless crowe_defied
 opt: Wait for midnight -> the_hour
+
+## elias
+name: The Shape at the Lens
+art: workshop
+text:
+  A tall shape stands at the far side of the lens.
+  Its coat is white at the edges, as if salt has got in.
+  "Don't shout," it says. "The dead are shy."
+  The voice is Elias Vane's, or what the sea left of it.
+  You have spoken to him before. -> if asked_elias
+opt: "Elias?" -> elias_talk set asked_elias
+opt: "You're dead." -> elias_talk set asked_elias
+opt: "What happened on the fourteenth?" -> elias_talk set asked_elias
+opt: "How do I repair the lamp?" -> elias_talk set asked_elias
+opt: Step back from the lens -> lamp_room
+
+## elias_talk
+name: Elias Vane
+art: workshop
+text:
+  "I kept the light for twenty-two years," he says.
+  "Then a man in grey found out what I was afraid of."
+  "They paid me to keep it dark. I took the money."
+  "I tried to light it anyway. They were waiting."
+opt: "Why did you take the money?" -> - msg "Mara. They said they would take Mara."
+opt: "Who paid you?" -> - msg "A man in a grey coat. Dry boots. A silver cigarette case."
+opt: "Mara is still here." -> - msg "Then keep her away from the cove. Please."
+opt: "How do I repair the lens?" -> - msg "The gear is in the sea chest. Oil is in the pantry. The rest is nerve."
+opt: "I have your journal." -> - if know_truth msg "Then you know. Light her, keeper. Finish it."
+opt: Rest, Elias. -> lamp_room msg The shape inclines its head, and the cold goes out of the room.
 
 ## garden
 name: The Cliff Garden
@@ -376,20 +409,87 @@ text:
   The matches are in your pocket. -> if matches
   The flare is in your pack. -> if flare
 opt: Let the light die -> ending_dark msg You step back and let the darkness win.
+opt: Speak to the man in grey -> crowe unless crowe_defied
 opt: Go back down -> lamp_room
+
+## crowe
+name: Silas Crowe
+art: hall
+text:
+  He waits on the stairs, dry in a rain-soaked house.
+  A silver cigarette case clicks shut in his hand.
+  "Good evening," he says. "The lamp is not giving trouble?"
+  He does not look at the lamp. He looks at you.
+opt: "Who are you?" -> crowe_talk set crowe_met
+opt: "You paid Elias." -> crowe_talk if know_truth set crowe_met
+opt: "What do you want?" -> crowe_talk set crowe_met
+opt: "Get out of my lighthouse." -> crowe_defied set crowe_met set crowe_defied
+opt: Say nothing and go back -> lamp_room
+
+## crowe_talk
+name: The Man in Grey
+art: hall
+text:
+  "Silas Crowe," he says. "Revenue service."
+  He says it the way a man says a word he has practised.
+  "The Mercy Belle is due at midnight. Leave the light dark."
+  "Your predecessor understood that." -> if know_truth
+opt: "Why did Elias drown?" -> - msg "The sea is careless," Crowe says. "So am I."
+opt: "What is on the Mercy Belle?" -> - msg "Agricultural machinery," he says. "The crates are very heavy."
+opt: "What if I light the lamp?" -> - msg "Then a great many people will be inconvenienced," he says. "Some of them fatally."
+opt: "I know about the fourteenth." -> crowe_confront if know_truth
+opt: "I will keep it dark." -> crowe_deal
+opt: "I will not help you." -> crowe_defied set crowe_defied
+
+## crowe_confront
+name: The Fourteenth
+art: hall
+text:
+  You tell him what you know: the money, the dark light, the men in the water.
+  Crowe listens without moving.
+  "Elias made a choice," he says. "You are making one now."
+  "There is still time to choose the sensible one."
+opt: "I will keep the light dark." -> crowe_deal
+opt: "You will hang for this." -> crowe_defied set crowe_defied
+opt: "Get out." -> crowe_defied set crowe_defied
+opt: Say nothing and go back -> lamp_room
+
+## crowe_deal
+name: The Bargain
+art: hall
+text:
+  Crowe takes a folded envelope from his coat.
+  "For the keeper," he says. "For the silence."
+  "At dawn no one will remember what the light did."
+  He holds it out. Rain ticks on the glass.
+opt: Take the envelope -> the_hour set crowe_deal msg The paper is dry and heavy. You put it in your coat.
+opt: "I do not want your money." -> crowe_defied set crowe_defied
+opt: "What did you do to Elias?" -> crowe_talk
+
+## crowe_defied
+name: The Man in Grey
+art: hall
+text:
+  Crowe looks at you for a long moment.
+  "You are not the first keeper to mistake stubbornness for courage."
+  He puts on his hat.
+  The stairwell is empty before you can answer.
+opt: Go up to the lamp room -> the_hour
+opt: Go back down to the hall -> hall
 
 ## ending_light
 name: The Light
 art: ending
 ending: won
 text:
-  You strike a match. The wick catches.
-  The great lens turns; the beam sweeps the Needles.
-  The Mercy Belle answers with her horn and passes.
-  At dawn, the cutter comes too late. The ship is gone.
-  You post Elias's journal to the authorities. -> if know_truth
+  You fit the gear. The lens shudders, then turns.
+  The match flares; the wick catches; the lamp gathers the dark.
+  A white beam sweeps the Needles, steady as a heartbeat.
+  The Mercy Belle answers with her horn and turns away.
+  The cutter is too late; the village wakes to a normal dawn.
+  You keep Elias's journal. The truth can wait. -> if know_truth
   Mara stays until the weather clears. -> if mara_knows
-  You are alone with the light. -> unless mara_knows
+  You are alone with the light and the empty stairs. -> unless mara_knows
 opt: Start again -> start clear
 
 ## ending_truth
@@ -417,6 +517,8 @@ text:
   You take the rowboat. Behind you, the sea is loud.
   At dawn there is wreckage in the bay.
   And Elias's journal in your coat.
+  Crowe pays you in clean notes. -> if crowe_deal
+  The man in grey does not look at you. -> if crowe_defied
 opt: Start again -> start clear
 
 ## help
