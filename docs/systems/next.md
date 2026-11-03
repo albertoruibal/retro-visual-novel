@@ -19,6 +19,11 @@ Next's AY player. The output is a NextZXOS `.nex` executable.
   palettes are packed 32 per bank. The build fails if the data needs bank 112
   or more, or if the lower-RAM staging/song window at `0x6000` overflows.
 - **Sound:** the shared AY VT2/PT3 player, driven by a small IM1 handler.
+- **Controls:** cursor keys or `W`/`A`/`S`/`D`; the Next's dedicated arrow keys
+  (extended keys, NextReg `0xB0`); and the Kempston joystick, whose fire button
+  also confirms. ZEsarUX sends the PC arrow keys to the emulated Kempston
+  joystick rather than the ULA matrix, so the joystick path is what makes them
+  work there.
 - **Options:** `art_rows` (even 8..16, default 10), `menu: popup`, `title_ink`.
   The same `# Game` text colours, `carry`, password, songs and item settings
   apply.

@@ -10,6 +10,7 @@
 SECTION code_user
 
 PUBLIC _nextreg
+PUBLIC _nextreg_get
 PUBLIC _paged_next_unpack
 PUBLIC _crt_font64
 PUBLIC _next_isr_hook
@@ -29,6 +30,16 @@ _nextreg:
         inc     b
         ld      a,e
         out     (c),a
+        ret
+
+; unsigned char nextreg_get(unsigned char reg) __z88dk_fastcall; L=register.
+_nextreg_get:
+        ld      bc,$243b
+        ld      a,l
+        out     (c),a
+        ld      bc,$253b
+        in      a,(c)
+        ld      l,a
         ret
 
 ; unsigned char *crt_font64(void)

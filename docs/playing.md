@@ -14,7 +14,7 @@ and CPC Mode 0 always do this).
 | Target | Move / scroll | Confirm | Options & items |
 |---|---|---|---|
 | ZX Spectrum 128K | Cursor keys or W/A/S/D | Enter | Bottom inventory row, or `SPACE` dialog |
-| ZX Spectrum Next | Cursor keys or W/A/S/D | Enter | Bottom inventory row, or `SPACE` dialog |
+| ZX Spectrum Next | Cursor keys, W/A/S/D, arrow keys or joystick | Enter or fire | Bottom inventory row, or `SPACE` dialog |
 | Amstrad CPC (Mode 0) | Cursor/WASD/8/2/4/6/joystick | Enter/fire | `SPACE` opens/closes action dialog |
 | Amstrad CPC (Modes 1/2) | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned/inventory, or `SPACE` dialog |
 | MSX2 | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
@@ -54,10 +54,11 @@ and **Restart** resets the story. Music is not present in the web runtime. See
 
 ## ZX Spectrum Next
 
-The Next build uses the ZX layout and controls: cursor keys or `W`/`A`/`S`/`D`,
-`ENTER` to confirm, the row-23 inventory band (or the `SPACE` dialog with
-`menu: popup`), and `P` to pause/resume music. Layer 2 supplies the 256-colour
-picture band; the title, text and inventory remain on the ULA.
+The Next build uses the ZX layout and controls: cursor keys, `W`/`A`/`S`/`D`, the Next's own arrow keys or the joystick
+(its fire button also confirms), `ENTER` to confirm, the row-23 inventory band (or the `SPACE` dialog with
+`menu: popup`), and `P` to pause/resume music. In ZEsarUX the PC arrow keys are fed to the emulated Kempston joystick,
+which the Next build reads as well. Layer 2 supplies the 256-colour picture band; the title, text and inventory remain
+on the ULA.
 
 Without a bundled Next emulator, run it with ZEsarUX:
 

@@ -21,7 +21,14 @@
 #define ZX_KEY_LEFT IN_KEY_SCANCODE_5
 #define ZX_KEY_RIGHT IN_KEY_SCANCODE_8
 
+#define NEXT_EXT_KEYS_0 0xB0
+#define NEXT_EXT_UP 0x08
+#define NEXT_EXT_DOWN 0x04
+#define NEXT_EXT_LEFT 0x02
+#define NEXT_EXT_RIGHT 0x01
+
 extern void nextreg(unsigned int regval) __z88dk_fastcall;
+extern unsigned char nextreg_get(unsigned char reg) __z88dk_fastcall;
 extern void paged_next_unpack(unsigned int bank, unsigned int src,
                               unsigned int dst);
 extern void next_isr_install(void);
@@ -205,6 +212,20 @@ void plat_draw_art(unsigned char id)
 #endif
 }
 
+static unsigned char pad_dirs(void)
+{
+    unsigned char ext = nextreg_get(NEXT_EXT_KEYS_0);
+    unsigned int joy = in_JoyKempston();
+    unsigned char k = 0;
+
+    if ((ext & NEXT_EXT_UP) || (joy & in_UP)) k |= in_UP;
+    if ((ext & NEXT_EXT_DOWN) || (joy & in_DOWN)) k |= in_DOWN;
+    if ((ext & NEXT_EXT_LEFT) || (joy & in_LEFT)) k |= in_LEFT;
+    if ((ext & NEXT_EXT_RIGHT) || (joy & in_RIGHT)) k |= in_RIGHT;
+    if (joy & in_FIRE) k |= in_FIRE;
+    return k;
+}
+
 unsigned char plat_read_key(void)
 {
     for (;;) {
@@ -227,6 +248,14 @@ unsigned char plat_read_key(void)
             in_KeyPressed(IN_KEY_SCANCODE_a)) return 6;
         if (in_KeyPressed(ZX_KEY_RIGHT) ||
             in_KeyPressed(IN_KEY_SCANCODE_d)) return 7;
+        {
+            unsigned char pad = pad_dirs();
+            if (pad & in_UP) return 1;
+            if (pad & in_DOWN) return 2;
+            if (pad & in_LEFT) return 6;
+            if (pad & in_RIGHT) return 7;
+            if (pad & in_FIRE) return 3;
+        }
         #asm
         halt
         #endasm
@@ -244,6 +273,7 @@ void plat_wait_release(void)
            in_KeyPressed(IN_KEY_SCANCODE_s) ||
            in_KeyPressed(IN_KEY_SCANCODE_d) ||
            in_KeyPressed(IN_KEY_SCANCODE_p) ||
+           pad_dirs() ||
 #if PORT_OVERLAY_MENU
            in_KeyPressed(IN_KEY_SCANCODE_SPACE) ||
 #endif
