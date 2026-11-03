@@ -71,6 +71,7 @@ SYSTEM_FLAGS = {
     "system_cpc": "cpc",
     "system_msx2": "msx2",
     "system_gb": "gb",
+    "system_next": "next",
 }
 # Accepted values for `# Game dither:`, mirroring zxart.DITHER_MODES.
 DITHER_MODES = ("off", "bayer2", "bayer4", "bayer8", "noise", "floyd",

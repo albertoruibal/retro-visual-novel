@@ -153,7 +153,7 @@ def targets_json(doc: dict | None = None) -> dict:
     return {"targets": items, "selected": selected}
 
 
-DISPLAY_ORDER = ("zx", "cpc", "msx2", "sms", "gb")
+DISPLAY_ORDER = ("zx", "next", "cpc", "msx2", "sms", "gb")
 
 
 def _display_rank(target: Target) -> int:

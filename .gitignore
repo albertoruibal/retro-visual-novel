@@ -6,6 +6,7 @@
 /demo-game/web/
 /demo-game/*.tap
 /demo-game/*.sna
+/demo-game/*.nex
 /demo-game/*.sms
 /demo-game/*.dsk
 /demo-game/*.rom

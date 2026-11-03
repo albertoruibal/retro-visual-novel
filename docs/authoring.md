@@ -148,6 +148,10 @@ overrides the prompt line above the input ("Enter the password:" by default).
     art_rows: 10            # art band rows, even (default 10)
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour (default: text_ink)
+    ## next
+    art_rows: 10            # even 8..16 (default 10); Layer 2 256-colour band
+    menu: popup             # optional: options/items in a SPACE dialog
+    title_ink: text         # optional: scene/item title colour
     ## sms
     art_rows: 12            # default 12; always uses the action dialog
     ## cpc
@@ -164,7 +168,7 @@ overrides the prompt line above the input ("Enter the password:" by default).
 
 A build compiles ZX first when it is selected, then the other systems in block order; each system's log is separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
-(`<slug>.tap`, `.sna`, `.sms`, `.dsk`, `.rom`, `.gbc`). An absent `# Systems` means the legacy `targets:` list in
+(`<slug>.tap`, `.sna`, `.nex`, `.sms`, `.dsk`, `.rom`, `.gbc`). An absent `# Systems` means the legacy `targets:` list in
 `# Game`, or ZX only when that is absent too. Old hand-written `<target>_<option>` lines in `# Game` (and the old
 `## zx art_lines:` spelling) are still read and are rewritten into this section on save; the editor's **Systems** tab
 edits the selection.
@@ -252,7 +256,7 @@ Music is declared, not generated: `# Game songs:` lists the ids and each id is b
 modules are rejected). `music: <id>` on `# Game` names the default song, `off` stops it, `on` selects the game
 default, and a scene's `music:` overrides the game default for that scene — including `off` to stop music there. The
 player only restarts when the chosen song actually changes, so adjacent scenes with the same song play continuously.
-PT3 plays on the ZX, CPC 6128 and MSX2 (all AY-compatible); the SMS and Game Boy Color targets have no AY music.
+PT3 plays on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible); the SMS and Game Boy Color targets have no AY music.
 
 The Music tab converts into `assets/music/`: **Convert MIDI → PT3** keeps the uploaded source as `<id>.mid` next to
 the module, so a re-conversion with a different cut or style does not need a re-upload.
@@ -301,10 +305,10 @@ A condition (here and everywhere in the format) only *tests* a name; see
 
 #### Build-time system flags
 
-`system_zx`, `system_sms`, `system_cpc`, `system_msx2` and `system_gb` are reserved pseudo-flags that are true only
-while generating that target. They are folded at build time: on a matching build an `if system_zx` token disappears
-and the line/option is always shown, while on any other build the whole line/option is omitted. `unless` is the
-inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in `if`/`unless`
+`system_zx`, `system_next`, `system_sms`, `system_cpc`, `system_msx2` and `system_gb` are reserved pseudo-flags that
+are true only while generating that target. They are folded at build time: on a matching build an `if system_zx` token
+disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
+`unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in `if`/`unless`
 conditions — declaring them, listing them in `start:`, using them with `set`/`unset`/`pick`/`leave`, as an `ending:`
 or as a selectable-word flag is an error.
 
@@ -315,8 +319,8 @@ This is how one source can give each system its own instructions or credits, for
       Press ENTER to choose. -> if system_zx
       Press SPACE to open the menu and ENTER or fire to choose. -> if system_cpc
 
-The generated scene data (and therefore the ZX/CPC/SMS/MSX2/GB builds) differs per target. The web export is not one
-of those systems, so all five flags are false there; keep a generic line for the web build.
+The generated scene data (and therefore the ZX/Next/CPC/SMS/MSX2/GB builds) differs per target. The web export is not one
+of those systems, so all native system flags are false there; keep a generic line for the web build.
 
 ### Options
 

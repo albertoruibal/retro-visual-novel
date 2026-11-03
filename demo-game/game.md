@@ -27,6 +27,9 @@ height: 256
 art_rows: 12
 title_ink: white
 
+## next
+art_rows: 12
+
 ## sms
 art_rows: 10
 

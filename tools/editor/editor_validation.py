@@ -169,14 +169,22 @@ def _validate(doc, slug):
     # Art band height in character rows (even 8..16); it drives the scene row
     # budget and how many item-description lines fit (see below).
     band_lines = scenefile.art_lines(g)
-    # The row budget below is the ZX layout, so fold build-time system flags as
-    # the ZX build sees them (CPC-only lines must not inflate the ZX worst case).
+    # The row budget below is the ZX layout. Next uses the same layout with its
+    # own art_rows/menu options, so validate the tighter of the selected ZX
+    # systems (and fold the matching system_* conditions).
+    selected_systems = targets.selected_targets(doc)
     fit_system = "zx"
-    # The optional ZX pop-up dialog gives the text rows art_rows+1..23 (no
-    # pinned options or inventory band) and pins the item entries one row lower.
     zx_target = targets.get_target("zx")
-    zx_popup = bool(zx_target and "zx" in targets.selected_targets(doc)
+    next_target = targets.get_target("next")
+    zx_popup = bool(zx_target and "zx" in selected_systems
                     and targets.target_options(doc, zx_target).get("menu"))
+    if next_target is not None and "next" in selected_systems:
+        next_opts = targets.target_options(doc, next_target)
+        next_rows = int(next_opts.get("art_rows") or 10)
+        if "zx" not in selected_systems or next_rows > band_lines:
+            band_lines = next_rows
+            fit_system = "next"
+            zx_popup = bool(next_opts.get("menu"))
 
     for dup in {x for x in art_ids if art_ids.count(x) > 1}:
         issues.append({"level": "error", "section": "art", "id": dup,
@@ -560,13 +568,15 @@ def _validate(doc, slug):
     # The ZX `## zx title_ink:` option takes the same colour tokens plus the
     # `text` default (inherit the body colour). An unknown token silently
     # falls back to the text colour, so report it.
-    if zx_target is not None and "zx" in targets.selected_targets(doc):
-        raw_title = (g.get("extras") or {}).get("zx_title_ink")
+    for tgt in (zx_target, next_target):
+        if tgt is None or tgt.id not in selected_systems:
+            continue
+        raw_title = (g.get("extras") or {}).get(f"{tgt.id}_title_ink")
         val = str(raw_title or "").strip().lower()
         if val and val != scenefile.TITLE_INK_INHERIT \
                 and val not in scenefile.WORD_INKS:
             issues.append({"level": "warn", "section": "game",
-                           "id": "title_ink", "target": "zx",
+                           "id": "title_ink", "target": tgt.id,
                            "msg": f"unknown title colour '{val}'; using the "
                                   "text colour"})
 

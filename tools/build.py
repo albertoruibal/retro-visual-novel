@@ -482,6 +482,120 @@ def _build_zx(slug):
     ]
 
 
+def _port_define(gdir, key):
+    """Read an integer ``#define key N`` from the generated port_data.h."""
+    path = os.path.join(gdir, gamestore.BUILD_NAME, "port_data.h")
+    try:
+        txt = open(path).read()
+    except OSError:
+        return None
+    m = re.search(r"^#define\s+%s\s+(\d+)" % re.escape(key), txt, re.M)
+    return int(m.group(1)) if m else None
+
+
+def _guard_next_map(path):
+    """The Next main image must stay below the banked 0xC000 window."""
+    if not os.path.exists(path):
+        return
+    txt = open(path, encoding="utf-8", errors="replace").read()
+    bad = []
+    for sym in ("_main", "_plat_draw_art", "_plat_load",
+                "_paged_next_unpack", "_zx0_unpack", "_set_music",
+                "_music_apply", "_ay_vt2_play", "_next_isr"):
+        m = re.search(rf"^{re.escape(sym)}\s*=\s*\$([0-9A-Fa-f]+)", txt,
+                      re.M)
+        if m and int(m.group(1), 16) >= 0xC000:
+            bad.append(sym)
+    if bad:
+        raise SystemExit(
+            "ZX Next home-region overflow: %s linked at or above 0xC000; "
+            "the Next MMU window would replace the running code. Shorten "
+            "the game or move data into banks." % ", ".join(bad))
+    m = re.search(r"^__CODE_END_tail\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    if m and int(m.group(1), 16) >= 0xC000:
+        raise SystemExit(
+            "ZX Next main code/data reaches 0x%s; the resident image must "
+            "stay below 0xC000." % m.group(1))
+    head = re.search(r"^__BANK_0_H_head\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    size = re.search(r"^__BANK_0_H_size\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    if head and size:
+        end = int(head.group(1), 16) + int(size.group(1), 16)
+        if end > 0x10000:
+            raise SystemExit(
+                "ZX Next bank 0 workspaces reach 0x%04X; the upper 8K bank "
+                "is full. Shorten a scene or the inventory text." % end)
+
+
+def _build_next(slug):
+    """Build the native ZX Next .nex with Layer 2 art and AY music."""
+    game = gamestore.resolve(slug)
+    if game is None:
+        raise SystemExit("no such game: %r (see 'games/')" % (slug,))
+    gdir = game["dir"]
+    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+    os.makedirs(bdir, exist_ok=True)
+    env = build_env()
+    env["RVN_GAME"] = gdir
+    py = _py()
+
+    run([py, os.path.join(ROOT, "tools", "gen_port.py"), gdir, "--next"], env)
+    stage = _port_define(gdir, "STAGE_WS_SIZE") or 0
+    song = _port_define(gdir, "SONG_WS_SIZE") or 0
+    if stage + song > 0x2000:
+        raise SystemExit(
+            "ZX Next staging + song workspace is %d bytes; the lower-RAM "
+            "window at 0x6000 is only 8192 bytes. Shorten a blob or song."
+            % (stage + song))
+
+    td = tempfile.mkdtemp(prefix=".next-", dir=bdir)
+    try:
+        sources = [
+            os.path.join(ROOT, "src", "next", "paging_next.asm"),
+            os.path.join(ROOT, "vendor", "zx0", "zx0.asm"),
+            os.path.join(ROOT, "src", "next", "next_isr.asm"),
+            os.path.join(bdir, "port_next_font.asm"),
+            *portable_sources(ROOT),
+            os.path.join(ROOT, "src", "next", "plat_next.c"),
+            os.path.join(ROOT, "src", "portable", "plat.h"),
+            os.path.join(bdir, "port_data.c"),
+            os.path.join(bdir, "port_data.h"),
+            os.path.join(bdir, "port_next_data.asm"),
+        ]
+        names = stage_inputs(td, sources)
+        names = [n for n in names if n.endswith((".c", ".asm"))]
+        cmd = ["zcc", "+zxn", "-clib=classic", "-compiler=sccz80",
+               "-create-app", "-subtype=nex", "-m", "-DPLAT_ROWS=24",
+               "-pragma-define:REGISTER_SP=0xc000",
+               "-Cz--nex-2mb", "-I."]
+        for key in ("PORT_SCENE_WS", "PORT_INV_WS"):
+            val = _port_define(gdir, key)
+            if val is not None:
+                cmd.append("-Ca-D%s=%d" % (
+                    "SCENE_WS_SIZE" if key == "PORT_SCENE_WS" else "INV_WS_SIZE",
+                    val))
+        cmd += [*names, "-o", slug]
+        run(cmd, env, cwd=td)
+        produced = os.path.join(td, slug + ".nex")
+        if not os.path.exists(produced):
+            raise SystemExit("ZX Next build produced no .nex file")
+        _guard_next_map(os.path.join(td, slug + ".map"))
+        data = open(produced, "rb").read()
+        if not data.startswith(b"Next"):
+            raise SystemExit("ZX Next build produced an invalid .nex header")
+        if len(data) < 512 or data[9] > 112:
+            raise SystemExit("ZX Next .nex has an invalid bank count")
+        if sum(1 for i in range(112) if data[18 + i]) != data[9]:
+            raise SystemExit("ZX Next .nex bank map is inconsistent")
+        path = os.path.join(gdir, slug + ".nex")
+        shutil.copyfile(produced, path)
+    finally:
+        shutil.rmtree(td, ignore_errors=True)
+
+    print("OK: %s (%d bytes)" % (path, os.path.getsize(path)))
+    return [{"path": path, "kind": "zx-next-nex",
+             "size": os.path.getsize(path)}]
+
+
 Z88DK_TOOLS = ("zcc", "z88dk-z80asm", "z88dk-appmake", "z88dk-zx0")
 
 
@@ -582,16 +696,17 @@ def run_game(slug, target_id=None):
     if failures:
         raise SystemExit("build failed; not starting the emulator")
     target_id = target_id or (summary[0]["target"] if summary else "zx")
-    if target_id != "zx":
+    if target_id not in ("zx", "next"):
         print(f"{target_id}: build complete; use an external emulator "
               f"(outputs above)")
         return
     game, _ = _game_doc(slug)
-    tap = os.path.join(game["dir"], game["slug"] + ".tap")
+    ext = ".nex" if target_id == "next" else ".tap"
+    image = os.path.join(game["dir"], game["slug"] + ext)
     env = build_env()
     run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "off"], env)
     time.sleep(1)
-    run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "run", tap], env)
+    run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "run", image], env)
 
 
 def list_targets():

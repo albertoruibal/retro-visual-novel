@@ -15,6 +15,8 @@ offline.
   (`https://github.com/smichea/cpcjs`, `https://github.com/ColinPitrat/caprice32`); GPL-2.0; Caprice32 ROM packaging
   notices in `cpc/NOTICE`.
 - **ZX Spectrum 128K:** JSSpeccy 3 (`jsspeccy/jsspeccy.js.LICENSE.txt`); GPL-3.0 / upstream notices.
+- **ZX Spectrum Next:** no web emulator is bundled. Run the `.nex` with an external ZEsarUX (TBBlue); the editor's
+  Emulator tab intentionally does not list Next.
 
 The EmulatorJS data (`emulatorjs/data`), including the smsplus and gambatte cores, is shared by the SMS and
 Game Boy Color pages. The editor's server serves these files through `/emulator/<path>`; the game artifacts are

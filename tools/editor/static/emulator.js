@@ -42,7 +42,7 @@ function emuTargets() {
 }
 function emuArtifact(meta) {
   const ext = EMU_EXT[meta.emulator] ||
-    (meta.outputs || []).find((e) => [".tap", ".sna", ".sms", ".rom", ".dsk", ".gb", ".gbc"].includes(e));
+    (meta.outputs || []).find((e) => [".tap", ".sna", ".sms", ".rom", ".dsk", ".gb", ".gbc", ".nex"].includes(e));
   if (!ext) return null;
   return `/api/artifact/${encodeURIComponent(game)}/${encodeURIComponent(game)}${ext}`;
 }
@@ -178,7 +178,10 @@ async function refreshEmuSystems() {
     sel.append(o);
     sel.disabled = true;
     const hint = $("emuhint");
-    if (hint) hint.textContent = "Select a system in the Systems tab.";
+    if (hint) hint.innerHTML = gameTargets().includes("next")
+      ? "ZX Next builds a <code>.nex</code>; run it with ZEsarUX via " +
+        "<code>python3 tools/build.py run &lt;game&gt; next</code> (no bundled web emulator)."
+      : "Select a system in the Systems tab.";
     const run = $("run");
     if (run) run.disabled = true;
     return;
@@ -207,6 +210,9 @@ function updateEmuHint() {
   hint.innerHTML =
     `Plays the built <code>${esc(game || "")}${esc(ext)}</code> in ${esc(meta.label)} — ` +
     "run <b>Build</b> first.";
+  if (gameTargets().includes("next"))
+    hint.innerHTML += "<br>ZX Next builds a <code>.nex</code>; run it with ZEsarUX " +
+      "(<code>python3 tools/build.py run &lt;game&gt; next</code>).";
 }
 
 async function refreshRunButton() {

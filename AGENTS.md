@@ -4,9 +4,10 @@ Guidance for coding agents working in this repository.
 
 ## What this is
 
-Retro Visual Novel is an 8-bit visual novel authoring + build system for the **ZX Spectrum 128K** and four portable
-targets. The story engine is shared by every target (`src/portable/core/`); each platform supplies a thin layer
-(`src/zx/plat_zx.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`). NIRVANA+ is vendored under `vendor/`. A game
+Retro Visual Novel is an 8-bit visual novel authoring + build system for the **ZX Spectrum 128K**, **ZX Spectrum
+Next** and four portable targets. The story engine is shared by every target (`src/portable/core/`); each platform
+supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`).
+NIRVANA+ is vendored under `vendor/`. A game
 is a self-contained folder whose story lives in `game.md`; this repository ships a single demo game in `demo-game/`.
 A stdlib-only Python editor (`tools/editor/server.py`) serves a browser UI to author games, generate art with local
 models, and run the build.
@@ -18,6 +19,7 @@ constraints live in `docs/systems/zx.md`.
 
     src/zx/                  ZX platform layer (plat_zx.c, engine.h)
                              + paging/loader asm
+    src/next/                ZX Next platform layer (Layer 2, Next MMU paging, IM1 AY)
     src/portable/core/       shared story engine + AY music player for every target
     src/portable/plat.h      platform surface implemented by each src/<target>/
     src/z80/zx0_wrap.asm     shared Z80 C wrapper for the vendored ZX0 decoder
@@ -501,6 +503,20 @@ There is no test suite and no configured linter. Verify by:
   selected target's `art_rows` (ZX first, default 10). Keep the runtime **mobile-first** (fluid single column, 44px
   taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and
   update `docs/web-runtime.md` with any data/route/export change.
+- **ZX Next runtime:** `tools/targets/next.py` builds a native `+zxn` `.nex` with `tools/gen_port.py --next`.
+  The shared portable core draws text/title/inventory on the ULA and the picture on a Layer 2 256-colour band clipped
+  to rows 1..`## next art_rows` (even 8..16, default 10). `tools/nextart.py` converts art (median-cut 256 colours or a
+  fixed 16-colour palette) to pixels plus a 256-entry RGB333 palette. Each art occupies three 16K banks (the band starts
+  at Layer 2 row 8); palettes live in banks 8..15 and scene/inventory/song blobs are ZX0-compressed in banks after the
+  art. `src/next/paging_next.asm` maps a source bank over `0xC000`, copies the length-prefixed stream to `_stage_ws`
+  at `0x6000`, restores bank 0, then decodes into `scene_ws`/`inv_ws` in `BANK_0_H` at `0xE000` (the lower half of bank
+  0 is used by the CRT and AY player). `src/next/next_isr.asm` installs an IM1 handler that calls `ay_vt2_play`
+  through a switchable hook. The target uses `REGISTER_SP=0xc000`, a `__CODE_END_tail < 0xC000` guard, and requires
+  `_stage_ws` + the song workspace to fit the 8K window at `0x6000`. ZEsarUX is **not bundled**: `tools/build.py run
+  <game> next` and `tools/spectrum.py run <game>.nex` use an installed ZEsarUX (`$ZESARUX`/`$RVN_ZESARUX`, the
+  checkout symlink, or `PATH`) with the TBBlue machine. The editor Emulator tab does not list Next; the `.nex` is still
+  served by `/api/artifact/...`. `system_next` is a build-time pseudo-flag, and `## next` supports `art_rows`, `menu`,
+  and `title_ink`.
 - **CPC runtime:** `tools/gen_port.py --cpc` converts each art band to CPC screen bytes (`[u8 ninks][u8 hardware inks][8
   scanline chunks]`) and packs the ZX0-compressed blobs into `BANK_4..BANK_7`, with `BANK_2` (0x8000, capped at 8K so it
   cannot reach the stack) holding overflow. A music build packs art+song blobs into the four extra banks only (no

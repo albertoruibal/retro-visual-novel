@@ -46,13 +46,28 @@ Gameplay driving recipe (what the game's read_input polls):
 """
 import glob
 import os
+import shutil
 import socket
 import subprocess
 import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))      # project root
-ZESARUX = os.path.join(ROOT, "ZEsarUX-13.0", "zesarux")
+
+
+def _zesarux():
+    """Locate ZEsarUX without bundling it: env, checkout, then PATH."""
+    for value in (os.environ.get("RVN_ZESARUX"), os.environ.get("ZESARUX")):
+        if value:
+            return value if os.path.isfile(value) else shutil.which(value) or value
+    local = os.path.join(ROOT, "ZEsarUX-13.0", "zesarux")
+    if os.path.exists(local):
+        return local
+    found = shutil.which("zesarux")
+    return found or local
+
+
+ZESARUX = _zesarux()
 OUTDIR = os.path.join(ROOT, "tools", "out")
 FUSE_CONFIG = "/tmp/harness_zesaruxrc"
 BASE_PORT = 10001
@@ -156,19 +171,26 @@ def wait_prompt(z, sec=10.0):
     return False
 
 
-def start_fuse(tape):
+def start_fuse(source):
+    if not os.path.isfile(ZESARUX):
+        sys.exit("ZEsarUX not found (%s); set ZESARUX/RVN_ZESARUX or install "
+                 "ZEsarUX 13.0; the emulator is not bundled." % ZESARUX)
     port = free_port()
+    ext = os.path.splitext(str(source))[1].lower()
     cmd = [
         ZESARUX,
         "--configfile", FUSE_CONFIG,
         "--vo", "null", "--ao", "null",
         "--stats-send-already-asked",
         "--enable-remoteprotocol", "--remoteprotocol-port", str(port),
-        "--machine", "128k",
-        tape,
     ]
+    if ext in (".nex", ".snx", ".sna", ".z80"):
+        cmd += ["--machine", "TBBlue", "--tbblue-fast-boot-mode",
+                "--snap", os.path.abspath(str(source))]
+    else:
+        cmd += ["--machine", "128k", str(source)]
     log = open(os.path.join(OUTDIR, f"fuse_{port}.log"), "w")
-    subprocess.Popen(cmd, cwd=os.path.join(ROOT, "ZEsarUX-13.0"),
+    subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(ZESARUX)),
                      stdout=log, stderr=log)
     log.close()
     # wait for ZRCP
@@ -182,8 +204,10 @@ def start_fuse(tape):
 def ensure_client():
     port = active_port()
     if port is None:
-        tape_arg = [a for a in sys.argv[2:] if a.endswith(".tap")]
-        port = start_fuse(tape_arg[0] if tape_arg else os.path.join(ROOT, "the-arousa-job.tap"))
+        image_arg = [a for a in sys.argv[2:]
+                     if a.lower().endswith((".tap", ".nex", ".snx", ".sna", ".z80"))]
+        port = start_fuse(image_arg[0]
+                          if image_arg else os.path.join(ROOT, "the-arousa-job.tap"))
         print(f"fuse started on port {port}")
     return ZRCP(port), port
 
@@ -193,12 +217,22 @@ def shot(z, name):
     os.makedirs(OUTDIR, exist_ok=True)
     bmp = os.path.join(OUTDIR, name + ".bmp")
     scr = os.path.join(OUTDIR, name + ".scr")
+    machine = z.cmd("get-current-machine\r", 0.6).lower()
+    next_machine = "tbblue" in machine or "next" in machine
     z.cmd(f"save-screen {bmp}\r", wait=1.3)
-    z.cmd(f"save-screen {scr}\r", wait=0.9)
+    if not next_machine:
+        z.cmd(f"save-screen {scr}\r", wait=0.9)
     try:
         if os.path.getsize(bmp) > 0:
             print(bmp)
-        if os.path.getsize(scr) == 6912:
+        if next_machine:
+            try:
+                from PIL import Image
+                Image.open(bmp).save(os.path.join(OUTDIR, name + ".png"))
+                print(os.path.join(OUTDIR, name + ".png"))
+            except Exception:
+                pass
+        elif os.path.getsize(scr) == 6912:
             from PIL import Image
             sys.path.insert(0, os.path.join(ROOT, "tools"))
             import render_zx_screen
@@ -355,6 +389,12 @@ def main():
         tape = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "the-arousa-job.tap")
         print("no fuse running: starting on port", start_fuse(tape))
         return
+    if cmd == "off":
+        if os.name != "nt":
+            subprocess.run(["pkill", "-x", "zesarux"])
+        print("all fuse instances stopped")
+        return
+
     z, port = ensure_client()
 
     if cmd == "cli":
@@ -381,11 +421,6 @@ def main():
         z.close()
         tape = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "the-arousa-job.tap")
         print("starting on port", start_fuse(tape))
-        return
-    elif cmd == "off":
-        z.close()
-        subprocess.run(["pkill", "-x", "zesarux"])
-        print("all fuse instances stopped")
         return
     elif cmd == "pause":
         print(z.cmd("enter-cpu-step\r", 0.8))

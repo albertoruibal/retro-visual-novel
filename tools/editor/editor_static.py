@@ -34,7 +34,7 @@ def artifact_file(slug, name):
     ``<slug>.<ext>`` and the extension must be a known build output.
     """
     game = _game_or_error(slug)
-    allowed = (".tap", ".sna", ".sms", ".rom", ".dsk", ".gb", ".gbc")
+    allowed = (".tap", ".sna", ".sms", ".rom", ".dsk", ".gb", ".gbc", ".nex")
     if not name.endswith(allowed):
         raise ValueError(f"unsupported artifact: {name}")
     if name.rsplit(".", 1)[0] != game["slug"]:

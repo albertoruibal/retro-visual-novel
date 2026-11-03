@@ -6,6 +6,7 @@ and other 8-bit targets, with a shared engine and authoring UI.
 ## Supported targets
 
 - [ZX Spectrum 128K](docs/systems/zx.md)
+- [ZX Spectrum Next](docs/systems/next.md)
 - [Amstrad CPC 6128](docs/systems/cpc.md) (alpha)
 - [MSX2](docs/systems/msx2.md) (alpha)
 - [Sega Master System](docs/systems/sms.md)  (alpha)
@@ -46,7 +47,7 @@ It has tabs to edit the game sections:
   `games/<slug>/web/` folder, or download that folder as a zip.
 * Emulator: The Emulator tab plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
   EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for CPC and EmulatorJS/Gambatte for
-  Game Boy Color.
+  Game Boy Color. ZX Next is not bundled; use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
 
@@ -92,7 +93,7 @@ python3 tools/build.py build <game> zx sms       # explicit
 python3 tools/build.py build <game> --all
 ```
 
-Outputs: `<slug>.tap` / `.sna` (ZX), `.sms`, `.dsk` (CPC), `.rom` (MSX2), `.gbc` (Game Boy Color).
+Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC), `.rom` (MSX2), `.gbc` (Game Boy Color).
 
 The web runtime is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
 `games/<slug>/web/` folder (and the editor's Web tab does the same plus a zip download). See
