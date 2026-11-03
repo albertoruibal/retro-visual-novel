@@ -30,7 +30,8 @@ void show_message(const char *text)
             text++;
         row++;
     }
-    plat_text_at(last_row, 0, port_game_popup_hint, PLAT_COLOR_BODY);
+    plat_text_at(last_row, 0, ">", PLAT_COLOR_SEL);
+    plat_text_at(last_row, 2, port_game_popup_hint, PLAT_COLOR_SEL);
     {
         unsigned char k;
         do {
