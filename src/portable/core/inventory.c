@@ -12,6 +12,20 @@ void collect_items(void)
 
 
 #if !PORT_OVERLAY_MENU
+/* Two 4x8 console columns share one 8x8 attribute cell on the ZX/Next.  A
+   selection marker placed just before an item can therefore share its cell
+   with the previous item's last character; keep it in the body colour so the
+   highlight does not leak into that character. */
+static unsigned char inv_marker_color(unsigned char on)
+{
+#if PORT_MARKER_MATCH_CELL
+    (void)on;
+    return 0;
+#else
+    return on ? 1 : 0;
+#endif
+}
+
 static unsigned char inv_fit(unsigned char from)
 {
     unsigned char k, col = 2, n = 0;
@@ -59,11 +73,18 @@ void draw_inventory(void)
         {
             unsigned char sel = ((inv_first + k) == inv_cur);
             if (col > 1)
-                plat_text_at(row, col - 1, sel ? ">" : " ", sel ? 1 : 0);
+                plat_text_at(row, col - 1, sel ? ">" : " ",
+                             inv_marker_color(sel));
             plat_text_at(row, col, buf, sel ? 1 : 0);
         }
         col += len + 1;
     }
+#if PORT_MARKER_MATCH_CELL
+    /* A later item's normal marker can share the selected name's last cell;
+       repaint the selection so its highlight survives the full redraw. */
+    if (inv_cur != 0xFF)
+        inv_mark(inv_cur, 1);
+#endif
 }
 
 /* Column where visible slot ``idx`` was drawn: walk the one-line layout from
@@ -98,7 +119,7 @@ void inv_mark(unsigned char idx, unsigned char on)
         buf[i] = name[i];
     buf[i] = 0;
     if (col > 1)
-        plat_text_at(row, col - 1, on ? ">" : " ", on ? 1 : 0);
+        plat_text_at(row, col - 1, on ? ">" : " ", inv_marker_color(on));
     plat_text_at(row, col, buf, on ? 1 : 0);
 }
 
