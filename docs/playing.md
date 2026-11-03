@@ -116,7 +116,8 @@ Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
 - On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
   permanent inventory row. On a CGB the configured `highlight_ink:` colours the selection; the `>` marker remains so
   the same cartridge is still usable on a monochrome Game Boy.
-- The Game Boy Color build has no AY music or boot-password screen.
+- **Music:** `Select` pauses/resumes the converted Game Boy APU soundtrack.
+- The Game Boy Color build has no boot-password screen.
 
 ## Other notes
 

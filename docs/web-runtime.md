@@ -195,7 +195,7 @@ python3 tools/webgame.py <slug> --json    # inspect the generated data
 
 ## Limits and notes
 
-- There is **no music** in the web runtime or the export, even when the game declares AY songs for the 8-bit builds.
+- There is **no music** in the web runtime or the export, even when the game declares PT3 songs for the 8-bit builds.
 - There are no save slots; progress (current scene + flags) is saved automatically in `localStorage` under
   `rvn.web.<slug>.state` and restored on reload, so **Restart** is the only state reset.
 - The password is checked in the browser; the value is present in `game.js`.

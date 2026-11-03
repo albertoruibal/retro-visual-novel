@@ -20,44 +20,19 @@ import is lazy so non-SMS builds keep working when it is absent.
 """
 from __future__ import annotations
 
-AY_CLOCK = 1773400
+import pt3frames
+
+AY_CLOCK = pt3frames.AY_CLOCK
 SMS_PSG_CLOCK = 3579545
-FRAME_HZ = 50
+FRAME_HZ = pt3frames.FRAME_HZ
 PSG_WS_MAX = 5888
 
 # AY amplitude (0..15) -> SN76489 attenuation (0 = loudest, 15 = silent).
 SN_ATT = (15, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1, 0)
 
 
-class SmsMusicError(Exception):
+class SmsMusicError(pt3frames.Pt3MusicError):
     """A PT3 module cannot be converted to an SMS PSG stream."""
-
-
-def _spectrumizer():
-    try:
-        from spectrumizer.pt3 import player
-        from spectrumizer import audio
-    except ImportError as err:  # pragma: no cover - depends on the install
-        raise SmsMusicError(
-            "SMS music needs the pinned spectrumizer package; install "
-            "tools/requirements.txt or use the editor Docker image") from err
-    return player, audio
-
-
-def _env_levels(shape):
-    """An AY envelope shape (R13) as a list of 0..15 levels + a loop index."""
-    cont, att, alt, hold = shape & 8, shape & 4, shape & 2, shape & 1
-    ramp = list(range(16)) if att else list(range(15, -1, -1))
-    if not cont:
-        return ramp + [0], len(ramp)
-    if hold:
-        return ramp + [15 - ramp[-1] if alt else ramp[-1]], len(ramp)
-    if alt:
-        return ramp + ramp[::-1], 0
-    return ramp, 0
-
-
-_ENV_SHAPES = [_env_levels(s) for s in range(16)]
 
 
 def _sn_period(periods, note, tone_ofs):
@@ -87,7 +62,7 @@ def _emit_frame(frame, r6, env, periods, prev):
     env_period, env_shape, env_retrig = env
     use_env = any(c[4] for c in frame)
     if use_env:
-        levels, loop = _ENV_SHAPES[env_shape & 0x0F]
+        levels, loop = pt3frames.ENV_SHAPES[env_shape & 0x0F]
         if env_retrig:
             prev["env_pos"], prev["env_acc"] = 0, 0.0
         if prev["env_pos"] >= len(levels):
@@ -229,16 +204,10 @@ def _verify(comp, plain):
 
 def pt3_to_psg(data, *, name=""):
     """Return a PSGlib-compatible SN76489 stream for a PT3 module."""
-    player, audio = _spectrumizer()
     try:
-        module = player.parse_module(data)
-    except ValueError as err:
-        raise SmsMusicError(f"{name or 'PT3'}: {err}") from err
-    warnings = player.foreign_warnings(module)
-    if warnings:
-        raise SmsMusicError(
-            f"{name or 'PT3'}: unsupported PT3 feature(s): " + "; ".join(warnings))
-    periods = audio.build_pt3_table()
+        periods, frames_iter = pt3frames.replay(data, name=name)
+    except pt3frames.Pt3MusicError as err:
+        raise SmsMusicError(str(err)) from err
 
     frames = []
     prev = {
@@ -249,7 +218,7 @@ def pt3_to_psg(data, *, name=""):
         "env_pos": 0,
         "env_acc": 0.0,
     }
-    for frame, r6, env in player.iter_frames(module):
+    for frame, r6, env in frames_iter:
         frames.append(_emit_frame(frame, r6, env, periods, prev))
 
     plain = bytearray()

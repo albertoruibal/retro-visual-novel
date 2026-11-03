@@ -38,6 +38,9 @@ static unsigned short text_pal[8];
 
 extern void gb_vram_copy(unsigned char *dst, const unsigned char *src,
                          unsigned int n) __smallc;
+#if N_SONGS > 0
+extern void gb_music_vbl(void) NONBANKED;
+#endif
 
 unsigned char port_bank_reg;
 
@@ -88,6 +91,11 @@ void plat_init(void)
     for (row = 0; row < GB_MAP_ROWS; row++)
         gb_clear_row(row);
     LCDC_REG = 0x91;              /* LCD + background on */
+#if N_SONGS > 0
+    disable_interrupts();
+    add_VBL(gb_music_vbl);
+    enable_interrupts();
+#endif
 }
 
 void plat_clear(void)
@@ -202,6 +210,13 @@ void plat_draw_art(unsigned char id)
 unsigned char plat_read_key(void)
 {
     unsigned char k = joypad();
+#if N_SONGS > 0
+    if (k & J_SELECT) {
+        toggle_music();
+        plat_wait_release();
+        return 0;
+    }
+#endif
     if (k & J_UP) return 1;
     if (k & J_DOWN) return 2;
     if (k & J_LEFT) return 6;
@@ -214,7 +229,7 @@ unsigned char plat_read_key(void)
 void plat_wait_release(void)
 {
     while (joypad() & (J_UP | J_DOWN | J_LEFT | J_RIGHT |
-                       J_A | J_B | J_START)) {
+                       J_A | J_B | J_START | J_SELECT)) {
         #asm
         nop
         #endasm
@@ -232,8 +247,19 @@ void plat_boot(void)
 
 void plat_scene_entered(unsigned char id)
 {
+#if N_SONGS > 0
+    set_music(scene_song[id]);
+#else
     (void)id;
+#endif
 }
+
+#if N_SONGS > 0
+void plat_music_hook(unsigned char on)
+{
+    (void)on;
+}
+#endif
 
 extern void port_unpack(const void *src, void *dst) __smallc;
 

@@ -1,12 +1,14 @@
 """Nintendo Game Boy Color (CGB) target.
 
 ``tools/gen_port.py --gb`` writes the portable scene/inventory blobs raw into
-MBC1 banks (metadata stays in bank 0, scenes start at bank 1) and converts art
-to palette-aware 2bpp tile/map/attribute blobs in the banks above.
-``plat_gb.c`` renders the 20x18 text screen with the CGB colour palettes and
-draws the band; ``gb_copy.asm`` copies a selected bank's blob without a ZX0
-decoder.  The cartridge header is patched to CGB-enhanced (0x80) so the same
-``.gbc`` also boots on an original monochrome Game Boy.
+MBC1 banks (metadata stays in bank 0, scenes start at bank 1), converts art to
+palette-aware 2bpp tile/map/attribute blobs in the banks above and packs the
+converted PT3/APU song streams into the following banks.  ``plat_gb.c`` renders
+the 20x18 text screen with the CGB colour palettes and draws the band;
+``gb_copy.asm`` copies a selected bank's blob without a ZX0 decoder and
+``gb_music.c`` streams the song from banked ROM.  The cartridge header is
+patched to CGB-enhanced (0x80) so the same ``.gbc`` also boots on an original
+monochrome Game Boy.
 """
 from __future__ import annotations
 
@@ -55,7 +57,9 @@ def _guard_map(path):
     txt = open(path, encoding="utf-8", errors="replace").read()
     bad = []
     for sym in ("_main", "_plat_set_bank", "_port_unpack", "_gb_vram_copy",
-                "_plat_draw_art"):
+                "_plat_draw_art", "_gb_music_vbl", "_gb_music_tick",
+                "_gb_music_play", "_gb_music_stop", "_gb_music_byte",
+                "_gb_music_write"):
         m = re.search(rf"^{re.escape(sym)}\s*=\s*\$([0-9A-Fa-f]+)", txt,
                       re.M)
         if m and int(m.group(1), 16) >= 0x4000:
@@ -84,12 +88,14 @@ def _build(ctx):
             os.path.join(ctx.root, "src", "gb", "gb_vram.asm"),
             *portable_sources(ctx.root),
             os.path.join(ctx.root, "src", "gb", "plat_gb.c"),
+            os.path.join(ctx.root, "src", "gb", "gb_music.c"),
             os.path.join(ctx.root, "src", "portable", "plat.h"),
             os.path.join(ctx.bdir, "port_data.c"),
             os.path.join(ctx.bdir, "port_data.h"),
             os.path.join(ctx.bdir, "port_font2.h"),
             os.path.join(ctx.bdir, "port_gb_scene.asm"),
             os.path.join(ctx.bdir, "port_gb_art.asm"),
+            os.path.join(ctx.bdir, "port_gb_song.asm"),
         ]
         names = build.stage_inputs(td, sources)
         names = [n for n in names if n.endswith((".c", ".asm"))]

@@ -26,16 +26,24 @@ The `# Systems` id remains `gb` for compatibility with existing games.
 - **Text colours:** `text_ink:`, `highlight_ink:` and `text_bg:` are resolved to GBC RGB555 values and loaded into
   palettes 6/7. The art converter reserves those two palettes, so the authored text colours never depend on the
   picture's colours.
+- **Sound:** PT3 songs are converted at build time by `tools/gbmusic.py` to a Game Boy APU register stream. AY tone
+  channels A/B/C map to pulse 1, pulse 2 and the wave channel; AY noise uses the noise channel; the AY hardware
+  envelope is approximated per frame and low notes are folded up to fit the 11-bit divider. Each stream starts at a
+  bank boundary after the art and is read directly from banked ROM by `src/gb/gb_music.c`, so it uses no work RAM. The
+  vblank handler divides the ~59.7 Hz frame rate down to the stream's 50 Hz. `Select` toggles music. The converter uses
+  the pinned spectrumizer PT3 decoder, so a module with unsupported PT3 commands fails the build with a clear message
+  instead of playing incorrectly.
 - **Storage:** the CGB has no SM83 ZX0 decoder, so blobs are **uncompressed**. `build/port_data.c` (names, start flags,
   tables and the text palettes) stays in bank 0. Scene and inventory blobs are packed with `[u16 length]` prefixes into
-  MBC1 banks from bank 1; art follows in the next banks. `plat_set_bank` writes the MBC1 bank register at 0x2000,
-  `gb_copy.asm` copies a blob from 0x4000, and `gb_vram.asm` writes VRAM while waiting for a safe LCD mode.
+  MBC1 banks from bank 1; art follows in the next banks, then the converted song streams. `plat_set_bank` writes the
+  MBC1 bank register at 0x2000, `gb_copy.asm` copies a blob from 0x4000, and `gb_vram.asm` writes VRAM while waiting
+  for a safe LCD mode. appmake supplies banks through `0x1F`, so the whole cartridge is capped at 32 banks (512K).
 - **Build:** `zcc +gb -compiler=sdcc -create-app` with `PLAT_ROWS=18`; appmake emits an MBC1 cartridge. The target
   then patches byte `0x143` to `0x80` and recomputes the header complement and global checksums. Output `<slug>.gbc`.
 - **Emulator:** EmulatorJS with the Gambatte core (`emulator/gb`).
 
-Limitations: no AY music or boot-password screen on the Game Boy Color (the AY targets are ZX, CPC and MSX2). Keep the
-fixed-bank code below 0x4000 and BSS below the stack at 0xE000; the target checks the link map.
+Limitations: no boot-password screen on the Game Boy Color. Keep the fixed-bank code below 0x4000 and BSS below the
+stack at 0xE000; the target checks the link map.
 
-Key files: `tools/gbart.py`, `src/gb/plat_gb.c`, `src/gb/gb_copy.asm`, `src/gb/gb_vram.asm`,
-`tools/targets/gb.py`.
+Key files: `tools/gbart.py`, `tools/gbmusic.py`, `src/gb/plat_gb.c`, `src/gb/gb_music.c`, `src/gb/gb_copy.asm`,
+`src/gb/gb_vram.asm`, `tools/targets/gb.py`.

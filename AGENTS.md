@@ -20,11 +20,11 @@ constraints live in `docs/systems/zx.md`.
     src/zx/                  ZX platform layer (plat_zx.c, engine.h)
                              + paging/loader asm
     src/next/                ZX Next platform layer (Layer 2, Next MMU paging, IM1 AY)
-    src/portable/core/       shared story engine + AY music player for every target
+    src/portable/core/       shared story engine + music player for every target
     src/portable/plat.h      platform surface implemented by each src/<target>/
     src/z80/zx0_wrap.asm     shared Z80 C wrapper for the vendored ZX0 decoder
     src/sms/ src/cpc/        platform layers and paging/vram asm
-    src/msx2/ src/gb/
+    src/msx2/ src/gb/        platform layers (GB APU player in src/gb/gb_music.c)
     vendor/zx0/              pinned ZX0 decoder (69-byte standard, BSD-3)
     vendor/pixeloperator8/   pinned CC0 8x8 font for GBC/SMS/MSX2 text
     demo-game/assets/music/  per-game PT3 modules (assets/music/<id>.pt3)
@@ -38,7 +38,9 @@ constraints live in `docs/systems/zx.md`.
                              + bankN.bin + *.asm
     tools/targets/           pluggable build targets (zx, sms, cpc, msx2, gb)
     tools/smsart.py          SMS art preview/build conversion
+    tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
+    tools/gbmusic.py         PT3 -> Game Boy APU register stream for the GBC runtime
     tools/cpcart.py          CPC Mode 0/1/2 art preview/build conversion
     tools/msx2art.py         MSX2 V9938 Screen 7 art preview/build conversion
     tools/gbart.py           Game Boy Color art preview/build conversion
@@ -385,10 +387,11 @@ There is no test suite and no configured linter. Verify by:
   not options).
 - Music: `# Game songs:` declares song ids backed by `<game-folder>/assets/music/<id>.pt3`. `music: <id>|off|on` on `#
   Game` (default) and a scene's `music:` (override) is resolved by `scenefile.resolve_song()` into generated
-  `scene_song[]` (index or 255). The shared player `src/portable/core/music.c` is linked by every target and uses
-  z88dk's VT2/PT3 player; `gen_scenes.song_setup()`/`scene_song_array()` are shared with `gen_port.py`, so the AY
-  targets validate and resolve music identically. Songs are ZX0-compressed paged blobs and share the art/scene bank
-  budget. The workspace is platform-owned via `plat_song_ws()`: ZX uses lower RAM at `0x6000 + STAGE_WS_SIZE`
+  `scene_song[]` (index or 255). The shared player `src/portable/core/music.c` is linked by every target and
+  dispatches to the VT2, PSGlib or APU player; `gen_scenes.song_setup()`/`scene_song_array()` are shared with
+  `gen_port.py`, so the targets validate and resolve music identically. Songs are ZX0-compressed paged blobs on the AY, SMS and Next
+  targets and share the art/scene bank budget; the Game Boy Color stream is raw in banked ROM. The workspace is
+  platform-owned via `plat_song_ws()`: ZX uses lower RAM at `0x6000 + STAGE_WS_SIZE`
   (directly after `_stage_ws`, sized per game to the largest module after decompression, capped at 4158 B; the two
   buffers must fit the 8K window to 0x8000); CPC uses a fixed
   base-RAM workspace at 0x9600 (music builds keep art out of `BANK_2` and cap the CRT heap at 0x9600); MSX2 uses a
@@ -396,11 +399,14 @@ There is no test suite and no configured linter. Verify by:
   workspace (the VT2 player is stopped first) and starts playback; it is driven by `set_music()`/`music_on`, the **P**
   toggle handled in `plat_read_key()` (music is not a movement key; `plat_wait_release()` includes P).
   `plat_music_hook()` attaches/detaches the `NIRVANAP_ISR_HOOK` on ZX and is a no-op on CPC/MSX2, whose frame ISR
-  is installed once in `plat_init()`; Game Boy Color sets `N_SONGS=0`. SMS converts each PT3 to an SN76489 PSG stream
-  at build time (`tools/smsmusic.py`) and plays it with z88dk's PSGlib from a replaced IM1 vector
-  (`src/sms/sms_music.asm`), paced to 50 Hz on NTSC (5 of 6 vblanks) and every vblank on PAL; its `SONG_WS_SIZE`
-  buffer holds the decompressed PSG stream. The converter uses the pinned spectrumizer PT3 decoder and rejects
-  modules with unsupported commands. Playback on the AY targets uses z88dk's VT2/PT3 player (NIRVANA+ hook on
+  is installed once in `plat_init()`. SMS converts each PT3 to an SN76489 PSG stream at build time (`tools/smsmusic.py`)
+  and plays it with z88dk's PSGlib from a replaced IM1 vector (`src/sms/sms_music.asm`), paced to 50 Hz on NTSC (5 of 6
+  vblanks) and every vblank on PAL; its `SONG_WS_SIZE` buffer holds the decompressed PSG stream. Game Boy Color
+  converts each PT3 to an APU register stream (`tools/gbmusic.py`) and reads it directly from banked ROM with
+  `src/gb/gb_music.c`; each stream starts at a bank boundary after the art, so no song workspace is used, and the
+  vblank handler divides 59.7 Hz down to the stream's 50 Hz. Both converters share `tools/pt3frames.py` and use the
+  pinned spectrumizer PT3 decoder, rejecting modules with unsupported commands. Playback on the AY targets uses
+  z88dk's VT2/PT3 player (NIRVANA+ hook on
   ZX, firmware frame flyback on CPC, VDP IM1 on MSX2); the ZX song buffer now lives in lower RAM, so only the player
   code remains in home bank 0. The Music tab's
   **Convert MIDI → PT3** posts to

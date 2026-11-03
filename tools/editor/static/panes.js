@@ -873,9 +873,9 @@ function paneSong(id) {
       <input id="songuploadfile" type="file" accept=".pt3,application/octet-stream" style="display:none">
     </div>
     <div class="hint" style="margin-top:6px">A PT3 module, at most 4158 bytes
-      (the resident player buffer). Uploading replaces the current file.
-      Plays on ZX, CPC 6128 and MSX2; the Master System build converts it to SN76489 PSG audio.
-      Game Boy Color has no music.</div>
+      (the AY player buffer). Uploading replaces the current file.
+      Plays on ZX, CPC 6128 and MSX2; the Master System build converts it to SN76489 PSG audio,
+      and the Game Boy Color build to Game Boy APU audio.</div>
   </div>
   <div class="card">
     <h3>Convert from MIDI</h3>

@@ -4,7 +4,7 @@ The authoring format for a game's art, scenes, items and songs.
 
 A game is a single folder. `game.md` at its root holds the whole game — settings, art, items and the story — and the
 folder's `assets/` tree holds the binary side: art images under `assets/art/<id>/`, reference images under
-`assets/refs/<id>/`, AY music under `assets/music/<id>.pt3`. The editor edits `game.md` (structured tabs plus a raw
+`assets/refs/<id>/`, PT3 music under `assets/music/<id>.pt3`. The editor edits `game.md` (structured tabs plus a raw
 Source tab) and the build reads it; both go through the same parser, `tools/scenefile.py`, so they can never disagree
 about the format. Every save re-serialises the file canonically and keeps a `game.md.bak` beside it.
 
@@ -40,7 +40,7 @@ inherits sit here so you write each art's own settings only when it differs.
     start: <item, ...>               # inventory held before the first scene
     flags: <flag, ...>               # names that exist before any use
     items: <item, ...>               # items that exist before any use
-    songs: <id, ...>                 # AY songs; each needs assets/music/<id>.pt3
+    songs: <id, ...>                 # PT3 songs; each needs assets/music/<id>.pt3
     music: off|<song-id>|on          # default song (off if absent)
     dither: off|bayer2|bayer4|bayer8|noise|floyd|atkinson|jarvis|stucki|sierra
     match: rgb|perceptual            # colour-distance metric
@@ -71,7 +71,7 @@ before the first scene (they are marked set from the beginning). `flags:` and `i
 `items:`/`start:`) is an inventory item, a name used with `set`/`unset` (or listed in `flags:`) is a flag. Names are
 unique across both kinds. A condition never *creates* a name — see [Flags and inventory](#flags-and-inventory).
 
-`songs:` declares the game's AY songs; each id needs a module at `assets/music/<id>.pt3` (at most 4158 bytes; the
+`songs:` declares the game's PT3 songs; each id needs a module at `assets/music/<id>.pt3` (at most 4158 bytes; the
 editor and the build reject larger modules). See [Songs](#songs).
 
 ### The image prompt
@@ -252,12 +252,12 @@ the arts.
 ## Songs
 
 Music is declared, not generated: `# Game songs:` lists the ids and each id is backed by a PT3 module at
-`assets/music/<id>.pt3` (at most 4158 bytes; the largest module is reserved in a resident player buffer, so oversized
-modules are rejected). `music: <id>` on `# Game` names the default song, `off` stops it, `on` selects the game
-default, and a scene's `music:` overrides the game default for that scene — including `off` to stop music there. The
-player only restarts when the chosen song actually changes, so adjacent scenes with the same song play continuously.
-PT3 plays on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible). The Master System build converts it to an
-SN76489 PSG stream at build time; Game Boy Color has no music.
+`assets/music/<id>.pt3` (at most 4158 bytes; the AY targets reserve the largest module in a resident player buffer, so
+oversized modules are rejected). `music: <id>` on `# Game` names the default song, `off` stops it, `on` selects the
+game default, and a scene's `music:` overrides the game default for that scene — including `off` to stop music there.
+The player only restarts when the chosen song actually changes, so adjacent scenes with the same song play
+continuously. PT3 plays directly on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible). The Master System build
+converts it to an SN76489 PSG stream and the Game Boy Color build to a Game Boy APU register stream at build time.
 
 The Music tab converts into `assets/music/`: **Convert MIDI → PT3** keeps the uploaded source as `<id>.mid` next to
 the module, so a re-conversion with a different cut or style does not need a re-upload.
@@ -424,7 +424,8 @@ On the ZX, all art, scene and inventory blobs — and song modules — share the
 ZX0-compressed at build time (raw sizes shrink to roughly half, in effect doubling what fits). On the CPC the art and
 song blobs share the four extra 16K banks; a music build leaves `BANK_2` free for the AY workspace, so art + music must
 fit 64K. On the MSX2 the scene data is in bank 1, each art takes a bank from 2 up, and songs are packed into the
-following ROM banks. The ZX raw figures to size against:
+following ROM banks. On the Game Boy Color the scenes, art and converted APU streams are uncompressed in MBC1 banks;
+each song starts at a bank boundary and may span several banks. The ZX raw figures to size against:
 
 - a scene is about 175 bytes;
 - an art is `8*art_rows` bytes plus 48 per unique tile, at most `392*art_rows` (3920 bytes at the default 10).

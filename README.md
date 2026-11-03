@@ -35,7 +35,8 @@ It has tabs to edit the game sections:
 * Systems: Chooses the systems to build the game for and their specific options.
 * Art: Allows to generate and upload images and previews them for every selected system.
 * Music: Imports PT3, converts from MIDI with spectrumizer, and plays on the AY targets (ZX Spectrum, CPC 6128 and
-  MSX2); the Master System build converts PT3 to SN76489 PSG data so songs play there too.
+  MSX2); the Master System build converts PT3 to SN76489 PSG data and the Game Boy Color build to Game Boy APU
+  register data, so songs play there too.
 * Scenes: Defines the text and logic for each scene.
 * Flags: Flags are game-wide and can be enabled/disabled, some scene lines and options ara available when a certain flag is set.
 * Items: Carried by the player, each item can be selected, and it has options that can be enabled only for certain scenes. 
