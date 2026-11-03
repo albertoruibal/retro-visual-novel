@@ -7,6 +7,15 @@
 
 static unsigned int text_row[PORT_COLS];
 
+#if N_SONGS > 0
+static unsigned char song_buf[SONG_WS_SIZE];
+volatile unsigned char sms_music_enabled = 1;
+volatile unsigned char sms_music_region = 0x40;
+volatile unsigned char sms_music_acc = 0;
+extern unsigned char sms_detect_region(void) __smallc;
+extern volatile unsigned char _SMSlib_PauseRequested;
+#endif
+
 /* Two extra 1bpp glyphs uploaded after the font: up/down scroll arrows. */
 static const unsigned char scroll_arrows[16] = {
     0x18, 0x3C, 0x7E, 0xFF, 0x18, 0x18, 0x18, 0x00,
@@ -39,6 +48,11 @@ void plat_init(void)
     sms_vdp_set_write_address((SMS_FONT_TILES - 2) * 32);
     sms_copy_font_8x8_to_vram((void *)scroll_arrows, 2, 0, 1);
     sms_display_on();
+#if N_SONGS > 0
+    sms_music_region = sms_detect_region();
+    sms_music_enabled = 1;
+    sms_vdp_feature_enable(VDP_FEATURE_VBLANK_INTERRUPT);
+#endif
     plat_clear();
 }
 
@@ -120,7 +134,15 @@ void plat_draw_art(unsigned char id)
 
 unsigned char plat_read_key(void)
 {
-    unsigned int k = in_stick_1();
+    unsigned int k;
+#if N_SONGS > 0
+    if (_SMSlib_PauseRequested) {
+        _SMSlib_PauseRequested = 0;
+        toggle_music();
+        return 0;
+    }
+#endif
+    k = in_stick_1();
     if (k & 0x01) return 1;
     if (k & 0x02) return 2;
     if (k & 0x04) return 6;
@@ -149,15 +171,42 @@ void plat_boot(void)
 
 void plat_scene_entered(unsigned char id)
 {
+#if N_SONGS > 0
+    set_music(scene_song[id]);
+#else
     (void)id;
+#endif
 }
+
+#if N_SONGS > 0
+unsigned char *plat_song_ws(void)
+{
+    return song_buf;
+}
+
+void plat_music_hook(unsigned char on)
+{
+    sms_music_enabled = on;
+}
+#endif
 
 extern void port_unpack(const void *src, void *dst) __smallc;
 
 void plat_load(unsigned char bank, unsigned short off, void *dst,
                unsigned char kind)
 {
-    (void)bank;
+    if (kind == PLAT_LOAD_SONG) {
+#if N_SONGS > 0
+        MM_FFFF = bank;
+        port_unpack((const void *)(0x8000 + (unsigned int)off + 2), dst);
+        MM_FFFF = 0;
+#else
+        (void)bank;
+        (void)off;
+        (void)dst;
+#endif
+        return;
+    }
     if (kind == PLAT_LOAD_INV)
         port_unpack(port_inv_data, dst);
     else

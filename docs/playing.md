@@ -103,6 +103,7 @@ Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
   `*`); the D-pad moves and scrolls the list, button 2 confirms and button 1 closes it.
 - On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
   permanent inventory row.
+- **Music:** the console's `PAUSE` button pauses/resumes the converted SN76489 soundtrack.
 
 ## Nintendo Game Boy Color
 

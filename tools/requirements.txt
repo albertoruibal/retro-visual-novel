@@ -6,7 +6,8 @@
 #
 # Pillow + numpy drive tools/zxart.py (PNG -> Spectrum btiles; numpy is the
 # fast dither path, with a pure-Python fallback if it is absent).
-# spectrumizer is the MIDI <-> PT3 converter/player the Music tab spawns.
+# spectrumizer is the MIDI <-> PT3 converter/player the Music tab spawns, and
+# its PT3 decoder drives the SMS build-time SN76489 conversion.
 Pillow>=10
 numpy>=1.24
 spectrumizer==0.2.2

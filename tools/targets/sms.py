@@ -7,6 +7,8 @@ uncompressed in its own Sega-mapper ROM bank.
 from __future__ import annotations
 
 import importlib.util
+import os
+import re
 
 from .base import BuildResult, Target, TargetOption, portable_sources
 
@@ -15,6 +17,41 @@ def _available():
     if importlib.util.find_spec("PIL") is None:
         return False, "Pillow is required for SMS art conversion"
     return True, ""
+
+
+def _n_songs(bdir):
+    path = os.path.join(bdir, "port_data.h")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            head = f.read()
+    except OSError:
+        return 0
+    m = re.search(r"^#define N_SONGS (\d+)", head, re.M)
+    return int(m.group(1)) if m else 0
+
+
+def _guard_map(path):
+    """Keep resident code below the data-bank window and BSS off the stack."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8", errors="replace") as f:
+        txt = f.read()
+    bad = []
+    for sym in ("_z80_rst_38h", "_sms_psg_play", "_sms_psg_stop",
+                "_sms_detect_region", "_port_unpack", "_zx0_unpack",
+                "asm_PSGlib_Frame", "asm_PSGlib_Play", "asm_PSGlib_Stop"):
+        m = re.search(rf"^{re.escape(sym)}\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+        if m and int(m.group(1), 16) >= 0x8000:
+            bad.append(sym)
+    if bad:
+        raise SystemExit(
+            "SMS resident overflow: %s linked at or above 0x8000; the "
+            "switchable ROM bank would cover it." % ", ".join(bad))
+    m = re.search(r"^__BSS_END_tail\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    if m and int(m.group(1), 16) >= 0xDF00:
+        raise SystemExit(
+            "SMS RAM overflow: BSS reaches 0x%s (stack at 0xDFF0). "
+            "Shorten the game or the song." % m.group(1))
 
 
 def _preview(path, conv, options, game=None):
@@ -32,6 +69,7 @@ def _build(ctx):
     slug = ctx.slug
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
                ctx.gdir, "--sms"], ctx.env)
+    n_songs = _n_songs(ctx.bdir)
     td = tempfile.mkdtemp(prefix=f".sms-{slug}-", dir=ctx.bdir)
     try:
         sources = [
@@ -44,12 +82,20 @@ def _build(ctx):
             os.path.join(ctx.bdir, "port_data.c"),
             os.path.join(ctx.bdir, "port_data.h"),
             os.path.join(ctx.bdir, "port_banks.asm"),
+            os.path.join(ctx.bdir, "port_song.asm"),
         ]
+        if n_songs:
+            sources.append(os.path.join(ctx.root, "src", "sms",
+                                        "sms_music.asm"))
         names = build.stage_inputs(td, sources)
         names = [n for n in names if n.endswith((".c", ".asm"))]
-        build.run(["zcc", "+sms", "-startup=16", "-clib=new", "-create-app",
-                   "-DPLAT_ROWS=24", "-I.", *names, "-o", slug],
-                  ctx.env, cwd=td)
+        cmd = ["zcc", "+sms", "-startup=16", "-clib=new", "-create-app", "-m",
+               "-DPLAT_ROWS=24", "-I."]
+        if n_songs:
+            cmd.append("-pragma-define:CRT_ENABLE_RST=128")
+        cmd += [*names, "-o", slug]
+        build.run(cmd, ctx.env, cwd=td)
+        _guard_map(os.path.join(td, slug + ".map"))
         produced = os.path.join(td, slug + ".sms")
         if not os.path.exists(produced):
             raise SystemExit("SMS build produced no .sms file")

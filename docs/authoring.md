@@ -256,7 +256,8 @@ Music is declared, not generated: `# Game songs:` lists the ids and each id is b
 modules are rejected). `music: <id>` on `# Game` names the default song, `off` stops it, `on` selects the game
 default, and a scene's `music:` overrides the game default for that scene — including `off` to stop music there. The
 player only restarts when the chosen song actually changes, so adjacent scenes with the same song play continuously.
-PT3 plays on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible); the SMS and Game Boy Color targets have no AY music.
+PT3 plays on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible). The Master System build converts it to an
+SN76489 PSG stream at build time; Game Boy Color has no music.
 
 The Music tab converts into `assets/music/`: **Convert MIDI → PT3** keeps the uploaded source as `<id>.mid` next to
 the module, so a re-conversion with a different cut or style does not need a re-upload.

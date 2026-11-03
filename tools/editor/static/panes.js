@@ -874,7 +874,8 @@ function paneSong(id) {
     </div>
     <div class="hint" style="margin-top:6px">A PT3 module, at most 4158 bytes
       (the resident player buffer). Uploading replaces the current file.
-      Plays on ZX, CPC 6128 and MSX2; SMS and Game Boy Color have no AY music.</div>
+      Plays on ZX, CPC 6128 and MSX2; the Master System build converts it to SN76489 PSG audio.
+      Game Boy Color has no music.</div>
   </div>
   <div class="card">
     <h3>Convert from MIDI</h3>

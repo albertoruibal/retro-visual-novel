@@ -19,12 +19,19 @@
   `.sms`.
 - **Storage:** scene/inventory blobs are ZX0-compressed into the main ROM; art banks start at `BANK_02` and are selected
   through the mapper.
-- **Sound:** AY songs are not played on the SMS: the SN76489 is not an AY chip, so the shared music player compiles out
-  (`N_SONGS=0`).
+- **Sound:** PT3 songs are converted at build time to an SN76489 register stream by `tools/smsmusic.py` and played by
+  z88dk's PSGlib through a 50 Hz IM1 handler (`src/sms/sms_music.asm`). AY tone channels A/B/C map to the SN76489's
+  three tone channels; noise lands on channel 3; the AY hardware envelope and low notes are approximated. The NTSC
+  60 Hz vblank is divided down to 50 Hz, while a PAL console calls PSGlib every frame. The song stream is ZX0-packed
+  into a data bank after the art and decoded into `SONG_WS_SIZE` bytes of RAM; PAUSE toggles music. The converter
+  uses the pinned spectrumizer PT3 decoder, so a module with unsupported PT3 commands fails the build with a clear
+  message instead of playing incorrectly.
 - **Options:** `art_rows`. Text width is fixed at 30 columns; dialog labels wrap at 28.
 - **Controls:** D-pad up/down scrolls long text, or moves between highlighted words when it fits; left/right moves
   between highlighted words. Button 2 confirms and button 1 opens/closes the options/items dialog.
-- **Build:** `zcc +sms -clib=new` plus `build/port_banks.asm`; output `<slug>.sms`.
+- **Build:** `zcc +sms -clib=new` plus `build/port_banks.asm` (and `port_song.asm` + `-pragma-define:CRT_ENABLE_RST=128`
+  for music builds); output `<slug>.sms`.
 - **Emulator:** EmulatorJS with the smsplus core (`emulator/sms`).
 
-Key files: `tools/smsart.py`, `src/sms/plat_sms.c`, `src/portable/core/`, `vendor/pixeloperator8/`.
+Key files: `tools/smsart.py`, `tools/smsmusic.py`, `src/sms/plat_sms.c`, `src/sms/sms_music.asm`,
+`src/portable/core/`, `vendor/pixeloperator8/`.

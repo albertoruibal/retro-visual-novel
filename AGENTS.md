@@ -38,6 +38,7 @@ constraints live in `docs/systems/zx.md`.
                              + bankN.bin + *.asm
     tools/targets/           pluggable build targets (zx, sms, cpc, msx2, gb)
     tools/smsart.py          SMS art preview/build conversion
+    tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
     tools/cpcart.py          CPC Mode 0/1/2 art preview/build conversion
     tools/msx2art.py         MSX2 V9938 Screen 7 art preview/build conversion
     tools/gbart.py           Game Boy Color art preview/build conversion
@@ -395,9 +396,13 @@ There is no test suite and no configured linter. Verify by:
   workspace (the VT2 player is stopped first) and starts playback; it is driven by `set_music()`/`music_on`, the **P**
   toggle handled in `plat_read_key()` (music is not a movement key; `plat_wait_release()` includes P).
   `plat_music_hook()` attaches/detaches the `NIRVANAP_ISR_HOOK` on ZX and is a no-op on CPC/MSX2, whose frame ISR
-  is installed once in `plat_init()`; SMS/Game Boy Color set `N_SONGS=0`, so the shared module compiles
-  out. Playback uses z88dk's VT2/PT3 player (NIRVANA+ hook on ZX, firmware frame flyback on CPC, VDP IM1 on
-  MSX2); the ZX song buffer now lives in lower RAM, so only the player code remains in home bank 0. The Music tab's
+  is installed once in `plat_init()`; Game Boy Color sets `N_SONGS=0`. SMS converts each PT3 to an SN76489 PSG stream
+  at build time (`tools/smsmusic.py`) and plays it with z88dk's PSGlib from a replaced IM1 vector
+  (`src/sms/sms_music.asm`), paced to 50 Hz on NTSC (5 of 6 vblanks) and every vblank on PAL; its `SONG_WS_SIZE`
+  buffer holds the decompressed PSG stream. The converter uses the pinned spectrumizer PT3 decoder and rejects
+  modules with unsupported commands. Playback on the AY targets uses z88dk's VT2/PT3 player (NIRVANA+ hook on
+  ZX, firmware frame flyback on CPC, VDP IM1 on MSX2); the ZX song buffer now lives in lower RAM, so only the player
+  code remains in home bank 0. The Music tab's
   **Convert MIDI → PT3** posts to
   `/api/convert_song`, which spawns the `spectrumizer` CLI (pinned in `tools/editor/Dockerfile`, not imported) on a
   temp `.mid` and validates the result with `_validate_song_module`; the source is kept as `assets/music/<id>.mid`.
@@ -587,7 +592,10 @@ There is no test suite and no configured linter. Verify by:
   dark for the DMG fallback; `art_rows` is 4/6/8 (default 6). Selection uses the configured highlight palette on CGB
   and keeps the `>` marker so it also works on a monochrome Game Boy.
 - **SMS runtime:** `tools/gen_port.py --sms` converts each art band to planar 4bpp tiles and writes one uncompressed
-  blob per `BANK_02`.. ROM bank plus `port_banks.asm` (both gitignored). The 96 converted font tiles occupy VRAM
+  blob per `BANK_02`.. ROM bank plus `port_banks.asm` (both gitignored). Songs are converted to a compressed
+  SN76489 PSG stream and packed into the remaining data banks (`port_song.asm`); `plat_load(PLAT_LOAD_SONG)` maps the
+  bank, ZX0-decodes into the `SONG_WS_SIZE` BSS buffer, and restores the mapper. `src/sms/sms_music.asm` installs the
+  0x38 IM1 handler only for music builds (`CRT_ENABLE_RST=128`), enabling VDP frame interrupts in `plat_init()`. The 96 converted font tiles occupy VRAM
   patterns 0..95; they are the shared CC0 Pixel Operator Mono 8, emitted as `port_font8.h` by `gen_port.py`, and art
   starts at 96 and is capped at 352 unique tiles (extra cells reuse the nearest tile). The display is 24 rows: title
   row 0, art rows 1..`# Systems` `## sms art_rows:`, and the text on every row below through 23.
