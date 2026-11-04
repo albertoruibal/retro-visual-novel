@@ -6,7 +6,7 @@ title: The Lantern Keeper
 prompt: 1980s game screen, high contrast, flat colours, no text, no letters
 negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, malformed, watermark, signature, text,
   letters
-flags: asked_mara, asked_elias, asked_father, mara_trusted, mara_knows, mara_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_lantern, exam_mercy, exam_mara, exam_journal, exam_cups, exam_chest, exam_log, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green, crowe_met, crowe_deal, crowe_defied
+flags: asked_mara, asked_elias, asked_father, mara_trusted, mara_told, mara_knows, mara_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_lantern, exam_mercy, exam_mara, exam_journal, exam_cups, exam_chest, exam_log, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green, crowe_met, crowe_offered, crowe_deal, crowe_defied
 items: key, oil_lantern, oil_can, matches, gear, flare
 songs: theme
 music: theme
@@ -311,30 +311,15 @@ opt: Wait for midnight -> the_hour
 name: The Shape at the Lens
 art: workshop
 text:
-  A tall shape stands at the far side of the lens.
-  Its coat is white at the edges, as if salt has got in.
+  A tall shape stands at the lens, its coat white with salt.
   "Don't shout," it says. "The dead are shy."
   The voice is Elias Vane's, or what the sea left of it.
   You have spoken to him before. -> if asked_elias
-opt: "Elias?" -> elias_talk set asked_elias
-opt: "You're dead." -> elias_talk set asked_elias
-opt: "What happened on the fourteenth?" -> elias_talk set asked_elias
-opt: "How do I repair the lamp?" -> elias_talk set asked_elias
-opt: Step back from the lens -> lamp_room
-
-## elias_talk
-name: Elias Vane
-art: workshop
-text:
-  "I kept the light for twenty-two years," he says.
-  "Then a man in grey found out what I was afraid of."
-  "They paid me to keep it dark. I took the money."
-  "I tried to light it anyway. They were waiting."
-opt: "Why did you take the money?" -> - msg "Mara. They said they would take Mara."
-opt: "Who paid you?" -> - msg "A man in a grey coat. Dry boots. A silver cigarette case."
-opt: "Mara is still here." -> - msg "Then keep her away from the cove. Please."
-opt: "How do I repair the lens?" -> - msg "The gear is in the sea chest. Oil is in the pantry. The rest is nerve."
-opt: "I have your journal." -> - if know_truth msg "Then you know. Light her, keeper. Finish it."
+opt: "What happened on the fourteenth?" -> - set asked_elias msg "I kept the light twenty-two years. Then a man in grey found what I feared. They paid me to keep it dark. I tried to light it anyway. They were waiting."
+opt: "Why did you take the money?" -> - set asked_elias msg "Mara. They said they would take Mara."
+opt: "Who paid you?" -> - set asked_elias msg "A man in a grey coat. Dry boots. A silver cigarette case."
+opt: "How do I repair the lamp?" -> - set asked_elias msg "The gear is in the sea chest. Oil is in the pantry. The rest is nerve."
+opt: "I have your journal." -> - if know_truth set asked_elias msg "Then you know. Light her, keeper. Finish it."
 opt: Rest, Elias. -> lamp_room msg The shape inclines its head, and the cold goes out of the room.
 
 ## garden
@@ -357,45 +342,22 @@ text:
   "My father kept this light for twenty-two years," she says.
   "He would not have let it go dark."
   She keeps looking at the door. -> if exam_mara
-  "He sent me away last October. I never saw him again." -> if asked_father
-opt: Promise to light the lamp -> - unless mara_trusted set mara_trusted
-opt: Tell her what you found -> mara_confront if know_truth unless mara_knows
-opt: Ask about her father -> - set asked_father
+opt: Promise to light the lamp -> - unless mara_trusted set mara_trusted msg "Mara nods once. "Then we have a chance.""
+opt: Ask about her father -> - unless asked_father set asked_father msg "He sent me away last October. I never saw him again."
+opt: Tell her what you found -> - if know_truth unless mara_told set mara_told msg "You put the journal on the table. Mara reads it twice. Her face does not change. "He sent me away because of them," she says."
+opt: "I'm sorry. They threatened you." -> mara_after if mara_told unless mara_knows set mara_knows msg "Mara wipes her eyes. "If you mean to signal the cutter, you'll need this. He gave it to me last year.""
+opt: "You knew, didn't you?" -> kitchen if mara_told unless mara_left set mara_left msg ""You didn't know him," she says. "Don't pretend you do.""
 opt: Leave her -> kitchen
-
-## mara_confront
-name: The Truth
-art: cottage
-text:
-  You put the journal on the table.
-  Mara reads it twice. Her face does not change.
-  "He sent me away because of them," she says.
-  "And I thought the Mercy Belle was bringing coal."
-opt: "They threatened you. That's why he sent you away." -> mara_after if exam_daughter if know_truth set mara_knows
-opt: "I'm sorry. I had to tell you." -> mara_after if mara_trusted if know_truth set mara_knows
-opt: "You knew, didn't you?" -> mara_leaves set mara_left
-opt: Say nothing -> kitchen
 
 ## mara_after
 name: An Understanding
 art: cottage
 text:
-  Mara wipes her eyes with the back of her hand.
-  "If you mean to signal the cutter, you'll need this."
-  She takes a red flare from her coat. -> unless flare
+  Mara holds out a red flare. -> unless flare
   You already have the flare from the sea chest. -> if flare
-  "He gave it to me last year. I never knew what for."
-opt: Take the flare -> - unless flare pick flare
+  Rain ticks at the window.
+opt: Take the flare -> - unless flare pick flare msg The flare is warm from her coat.
 opt: Go up to the lamp room -> lamp_room
-
-## mara_leaves
-name: She Leaves
-art: cottage
-text:
-  Mara puts on her coat.
-  "You didn't know him," she says. "Don't pretend you do."
-  The kitchen door bangs shut behind her.
-opt: Let her go -> kitchen
 
 ## the_hour
 name: Midnight
@@ -420,62 +382,12 @@ text:
   A silver cigarette case clicks shut in his hand.
   "Good evening," he says. "The lamp is not giving trouble?"
   He does not look at the lamp. He looks at you.
-opt: "Who are you?" -> crowe_talk set crowe_met
-opt: "You paid Elias." -> crowe_talk if know_truth set crowe_met
-opt: "What do you want?" -> crowe_talk set crowe_met
-opt: "Get out of my lighthouse." -> crowe_defied set crowe_met set crowe_defied
+opt: "Who are you?" -> - set crowe_met msg "Silas Crowe," he says. "Revenue service." The Mercy Belle is due at midnight. Leave the light dark.
+opt: "You paid Elias." -> - if know_truth set crowe_met msg "Elias made a choice," he says. "You are making one now. There is still time to choose sensibly."
+opt: "I will keep it dark." -> - unless crowe_offered set crowe_met set crowe_offered msg "Crowe takes a folded envelope from his coat. "For the keeper," he says. "For the silence." He holds it out."
+opt: Take the envelope -> the_hour if crowe_offered set crowe_deal msg The paper is dry and heavy. You put it in your coat.
+opt: "I will not help you." -> lamp_room set crowe_met set crowe_defied msg "Crowe looks at you a long moment. "You are not the first keeper to mistake stubbornness for courage." He puts on his hat."
 opt: Say nothing and go back -> lamp_room
-
-## crowe_talk
-name: The Man in Grey
-art: hall
-text:
-  "Silas Crowe," he says. "Revenue service."
-  He says it the way a man says a word he has practised.
-  "The Mercy Belle is due at midnight. Leave the light dark."
-  "Your predecessor understood that." -> if know_truth
-opt: "Why did Elias drown?" -> - msg "The sea is careless," Crowe says. "So am I."
-opt: "What is on the Mercy Belle?" -> - msg "Agricultural machinery," he says. "The crates are very heavy."
-opt: "What if I light the lamp?" -> - msg "Then a great many people will be inconvenienced," he says. "Some of them fatally."
-opt: "I know about the fourteenth." -> crowe_confront if know_truth
-opt: "I will keep it dark." -> crowe_deal
-opt: "I will not help you." -> crowe_defied set crowe_defied
-
-## crowe_confront
-name: The Fourteenth
-art: hall
-text:
-  You tell him what you know: the money, the dark light, the men in the water.
-  Crowe listens without moving.
-  "Elias made a choice," he says. "You are making one now."
-  "There is still time to choose the sensible one."
-opt: "I will keep the light dark." -> crowe_deal
-opt: "You will hang for this." -> crowe_defied set crowe_defied
-opt: "Get out." -> crowe_defied set crowe_defied
-opt: Say nothing and go back -> lamp_room
-
-## crowe_deal
-name: The Bargain
-art: hall
-text:
-  Crowe takes a folded envelope from his coat.
-  "For the keeper," he says. "For the silence."
-  "At dawn no one will remember what the light did."
-  He holds it out. Rain ticks on the glass.
-opt: Take the envelope -> the_hour set crowe_deal msg The paper is dry and heavy. You put it in your coat.
-opt: "I do not want your money." -> crowe_defied set crowe_defied
-opt: "What did you do to Elias?" -> crowe_talk
-
-## crowe_defied
-name: The Man in Grey
-art: hall
-text:
-  Crowe looks at you for a long moment.
-  "You are not the first keeper to mistake stubbornness for courage."
-  He puts on his hat.
-  The stairwell is empty before you can answer.
-opt: Go up to the lamp room -> the_hour
-opt: Go back down to the hall -> hall
 
 ## ending_light
 name: The Light
