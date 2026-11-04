@@ -28,7 +28,7 @@ the boot password screen and per-scene music.
   never blanks and the swap does not stall music. Any number of scenes may share one art; a scene change that reuses the
   art already on screen skips the redraw. There is no resident tile blob and no 4-bitmap limit.
 - **Scene store (128K):** art and scene records are **offset-encoded** and **ZX0-compressed** (each blob is `[u16
-  length][zx0]`), packed together into paged RAM banks 1, 3, 4, 6 and 7 (`games/<slug>/build/scene_banks/bankN.bin`),
+  length][zx0]`), packed together into paged RAM banks 1, 3, 4, 6 and 7 (`<game-folder>/build/scene_banks/bankN.bin`),
   and decompressed into a per-game-sized workspace by `src/zx/paging.asm:paged_unpack()` before use. `paged_unpack`
   stages compressed bytes in `_stage_ws` (0x6000) and decodes into `_scene_ws`/`_art_ws`; `SCENE_WS_SIZE` and
   `ART_WS_SIZE` are emitted by `tools/gen_scenes.py` for the largest scene and art/inventory blobs, so the fixed

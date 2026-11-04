@@ -41,8 +41,8 @@ Download those GGUFs/safetensors with `models/download-qwen-image-2.1.sh`. It se
 are hidden.
 
 The image model receives `"<game prompt>, <art prompt>"`. Generate or regenerate art with the stable-diffusion server
-running at http://localhost:7860 (`--game` defaults to the first game under `games/`; the standalone CLI still uses
-`localhost`):
+running at http://localhost:7860 (`--game` defaults to the first open game, falling back to the first game under
+`games/`; the standalone CLI still uses `localhost`):
 
     python3 tools/gen_images.py --game <slug>          # every art
     python3 tools/gen_images.py --game <slug> dock     # one art

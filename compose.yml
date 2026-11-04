@@ -9,8 +9,8 @@ services:
       context: tools/editor
     command: python3 tools/editor/server.py
     working_dir: /src
-    # Run as the host user (agent, uid 1000) so editor saves keep host
-    # ownership instead of leaving root-owned files behind.
+    # Run as the host user so editor saves keep host ownership instead of
+    # leaving root-owned files behind. Adjust the uid/gid if yours differ.
     user: "1000:1000"
     environment:
       # Bind on all interfaces so the published port is reachable.

@@ -6,9 +6,9 @@ source artwork instead of a converted platform band.
 
 There are two ways to run it:
 
-- **Editor Web tab** — the SPA saves pending edits, exports the game to `games/<slug>/web/` and previews that static
+- **Editor Web tab** — the SPA saves pending edits, exports the game to `<game-folder>/web/` and previews that static
   folder in an iframe. The preview reloads automatically when the exported content changed; **Reload** forces it.
-- **Exported folder** — a self-contained `games/<slug>/web/` tree that can be opened directly, copied to a static host,
+- **Exported folder** — a self-contained `<game-folder>/web/` tree that can be opened directly, copied to a static host,
   or downloaded as a zip. It does not need Python or a web server.
 
 The **runtime implementation is frontend-only**: all story playback lives in `tools/webgame_runtime/app.js`. Python
@@ -39,7 +39,7 @@ The **Web** tab sits between **Build** and **Emulator**. Its toolbar has:
 
 - **Reload** — force a re-export and a fresh iframe, resuming the saved scene and flags.
 - **Open in new tab** — save, then open `/play/<slug>/` in a separate browser tab.
-- **Export web** — save, then write `games/<slug>/web/` and report the path.
+- **Export web** — save, then write `<game-folder>/web/` and report the path.
 - **Download zip** — save, re-export, and download the folder as `<slug>-web.zip`.
 
 Entering the tab saves pending Source/structured edits first (a failed Source validation keeps you on that tab), then
@@ -55,9 +55,9 @@ The editor server adds these routes (the runtime files are served separately fro
 | Route | Purpose |
 |---|---|
 | `GET /play/<slug>/` | The exported `index.html` |
-| `GET /play/<slug>/<file>` | Static runtime file or art from `games/<slug>/web/` |
+| `GET /play/<slug>/<file>` | Static runtime file or art from `<game-folder>/web/` |
 | `GET /play/<slug>` | Redirect to the trailing-slash form |
-| `POST /api/web_export` | Write `games/<slug>/web/` |
+| `POST /api/web_export` | Write `<game-folder>/web/` |
 | `GET /api/webzip/<slug>` | Re-export and download the zip |
 
 `/play/` never generates story data: it serves the build artifacts in the exported folder, and path containment prevents
@@ -174,7 +174,7 @@ landscape. `image-rendering` is left at the browser default because the source i
 Export writes this tree (and replaces the previous contents, so stale art files cannot survive):
 
 ```
-games/<slug>/web/
+<game-folder>/web/
   index.html
   app.js
   style.css
@@ -183,13 +183,14 @@ games/<slug>/web/
 ```
 
 All asset URLs in the exported `game.js` are relative, and the data is a plain script, so opening `index.html`
-directly works in every current browser. The folder is gitignored (`games/*/web/`). The zip contains the same tree
+directly works in every current browser. The folder is gitignored (`<game-folder>/web/`; in this repo
+`/demo-game/web/`). The zip contains the same tree
 under a top-level `<slug>/` directory.
 
 A headless export is available:
 
 ```bash
-python3 tools/webgame.py <slug>           # write games/<slug>/web/
+python3 tools/webgame.py <slug>           # write <game-folder>/web/
 python3 tools/webgame.py <slug> --json    # inspect the generated data
 ```
 

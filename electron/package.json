@@ -8,7 +8,6 @@
     "name": "Alberto Alonso Ruibal",
     "email": "alberto@alonsoruibal.com"
   },
-  "homepage": "https://example.com/retro-visual-novel",
   "desktopName": "com.retrovisualnovel.editor",
   "private": true,
   "main": "main.js",

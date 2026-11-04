@@ -18,7 +18,7 @@ See [playing the games](docs/playing.md) for the controls on each target.
 ## Games
 
 The game is defined in a folder with a `game.md` in its root,
-see the example in [games/demo/game.md](games/demo/game.md).
+see the example in [demo-game/game.md](demo-game/game.md).
 
 It is defined in markdown, it can be manually edit or with the UI.
 
@@ -45,7 +45,7 @@ It has tabs to edit the game sections:
 * Build: Builds the game for the selected systems. The Build log separates each system with a
   `==== name [id] ====` banner.
 * Web: Runs the mobile-first web runtime in an iframe; it can open in a new tab, export a self-contained
-  `games/<slug>/web/` folder, or download that folder as a zip.
+  `<game-folder>/web/` folder, or download that folder as a zip.
 * Emulator: The Emulator tab plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
   EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for CPC and EmulatorJS/Gambatte for
   Game Boy Color. ZX Next is not bundled; use `python3 tools/build.py run <game> next` with ZEsarUX.
@@ -97,12 +97,16 @@ python3 tools/build.py build <game> --all
 Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC), `.rom` (MSX2), `.gbc` (Game Boy Color).
 
 The web runtime is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
-`games/<slug>/web/` folder (and the editor's Web tab does the same plus a zip download). See
+`<game-folder>/web/` folder (and the editor's Web tab does the same plus a zip download). See
 [the web runtime](docs/web-runtime.md).
 
 ## Licenses
 
-See `tools/editor/static/emulator/THIRD_PARTY.md` for upstream licenses of the emulators.
+Retro Visual Novel is released under the MIT License; see [LICENSE](LICENSE).
+
+Vendored components keep their own upstream licenses: see
+`tools/editor/static/emulator/THIRD_PARTY.md` for the web emulators, and the
+`README`/`LICENSE` files under `vendor/` (NIRVANA+, ZX0 and Pixel Operator).
 
 ## Notes for developers and agents
 
