@@ -301,10 +301,10 @@ text:
   The {{reservoir|exam_reservoir}} is dry.
   The wick is black and dry.
   Rain hammers the gallery glass. Far below, the sea is white.
-  A shape waits by the lens. A man in grey waits below.
+  A shape waits by the lens.
+  Through the rain, a man in grey waits on the cliff path.
 opt: Go down to the hall -> hall
 opt: Speak to the shape at the lens -> elias
-opt: Talk to the man in grey -> crowe unless crowe_defied
 opt: Wait for midnight -> the_hour
 
 ## elias
@@ -332,6 +332,8 @@ text:
   Below, the Needles break white.
   "Elias Vane. Died 14 October 1935." -> if exam_grave
   A flare fired from the gallery would be seen from the mainland. -> if exam_mast
+  A man in grey waits on the cliff path. -> unless crowe_defied
+opt: Talk to the man in grey -> crowe unless crowe_defied
 opt: Return to the kitchen -> kitchen
 
 ## mara_talk
@@ -371,23 +373,23 @@ text:
   The matches are in your pocket. -> if matches
   The flare is in your pack. -> if flare
 opt: Let the light die -> ending_dark msg You step back and let the darkness win.
-opt: Speak to the man in grey -> crowe unless crowe_defied
+opt: Go out to the cliff path -> crowe unless crowe_defied
 opt: Go back down -> lamp_room
 
 ## crowe
 name: Silas Crowe
-art: hall
+art: garden
 text:
-  He waits on the stairs, dry in a rain-soaked house.
+  He waits on the cliff path, dry in the rain.
   A silver cigarette case clicks shut in his hand.
   "Good evening," he says. "The lamp is not giving trouble?"
-  He does not look at the lamp. He looks at you.
+  He does not look at the tower. He looks at you.
 opt: "Who are you?" -> - set crowe_met msg "Silas Crowe," he says. "Revenue service." The Mercy Belle is due at midnight. Leave the light dark.
 opt: "You paid Elias." -> - if know_truth set crowe_met msg "Elias made a choice," he says. "You are making one now. There is still time to choose sensibly."
 opt: "I will keep it dark." -> - unless crowe_offered set crowe_met set crowe_offered msg "Crowe takes a folded envelope from his coat. "For the keeper," he says. "For the silence." He holds it out."
 opt: Take the envelope -> the_hour if crowe_offered set crowe_deal msg The paper is dry and heavy. You put it in your coat.
-opt: "I will not help you." -> lamp_room set crowe_met set crowe_defied msg "Crowe looks at you a long moment. "You are not the first keeper to mistake stubbornness for courage." He puts on his hat."
-opt: Say nothing and go back -> lamp_room
+opt: "I will not help you." -> garden set crowe_met set crowe_defied msg "Crowe looks at you a long moment. "You are not the first keeper to mistake stubbornness for courage." He puts on his hat."
+opt: Say nothing and go back -> garden
 
 ## ending_light
 name: The Light
