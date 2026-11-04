@@ -299,7 +299,9 @@ devices change what is shown:
   itself by default, lowercased with anything but letters, digits and `_` as `_`. A chosen word renders as ordinary
   text from then on (one-shot), so lines and options gated on it change with the choice. Up to 8 per scene. The
   markers do not count toward the wrapped width. Keep a word or phrase short enough to stay on one wrapped row; the
-  editor warns if a wrap would split it (only the first part could then be highlighted and selected).
+  editor warns if a wrap would split it (only the first part could then be highlighted and selected). Put a text line
+  a word reveals (`-> if <flag>`) directly below the line containing the word: text renders in source order, and the
+  editor warns when the matching reveal line is elsewhere.
 
 A condition (here and everywhere in the format) only *tests* a name; see
 [Flags and inventory](#flags-and-inventory) for where names come from.

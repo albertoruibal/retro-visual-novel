@@ -766,7 +766,7 @@ def _validate(doc, slug):
                            "msg": "more than 8 text lines"})
         nwords = 0
         fit_entries = []
-        for t in s["text"]:
+        for wi, t in enumerate(s["text"]):
             rendered, conds = scenefile.split_text_line(t)
             if len(conds) > scenefile.MAX_CONDITIONS:
                 issues.append({"level": "error", "section": "scene", "id": sid,
@@ -800,6 +800,19 @@ def _validate(doc, slug):
                                "msg": f"selectable word '{w}' crosses a "
                                       "wrapped line and will not be fully "
                                       "selectable"})
+            for w in words:
+                flag = w["flag"]
+                reveals = [ri for ri, raw in enumerate(s["text"])
+                           if any(k == "if" and n == flag
+                                  for k, n in
+                                  scenefile.split_text_line(raw)[1])]
+                if reveals and (wi + 1 not in reveals):
+                    issues.append({"level": "warn", "section": "scene",
+                                   "id": sid, "need": t,
+                                   "msg": f"text revealed by selectable word "
+                                          f"'{w['word']}' is not directly "
+                                          f"below its line; move the "
+                                          f"`-> if {flag}` line up"})
             nwords += len(words)
             folded = scenefile.filter_system_conditions(conds, fit_system)
             if folded is None:

@@ -6,7 +6,7 @@ title: The Lantern Keeper
 prompt: 1980s game screen, high contrast, flat colours, no text, no letters
 negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, malformed, watermark, signature, text,
   letters
-flags: asked_mara, asked_elias, asked_father, mara_trusted, mara_told, mara_knows, mara_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_lantern, exam_mercy, exam_mara, exam_journal, exam_cups, exam_chest, exam_log, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green, crowe_met, crowe_offered, crowe_deal, crowe_defied
+flags: asked_elias, asked_father, mara_trusted, mara_told, mara_knows, mara_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_mercy, exam_mara, exam_journal, exam_cups, exam_chest, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green, elias_rested, crowe_met, crowe_offered, crowe_deal, crowe_defied
 items: key, oil_lantern, oil_can, matches, gear, flare
 songs: theme
 music: theme
@@ -124,13 +124,15 @@ seed: 42
 ## key
 name: Brass Key
 desc: A small brass key ring from Elias's oilskin.
-  It might fit the sea chest.
+  It already turned the sea chest. -> if chest_open
+  It might fit the sea chest. -> unless chest_open
 opt: Unlock the sea chest -> chest inscene cellar if cellar_lit if exam_chest unless chest_open set chest_open msg The key turns with a gritty snap. The lid lifts.
 
 ## oil_lantern
 name: Oil Lantern
 desc: A brass oil lantern with a glass chimney.
-  The wick is dry. It needs a match.
+  The wick burns steadily. -> if cellar_lit
+  The wick is dry. It needs a match. -> unless cellar_lit
 opt: Light the oil lantern -> - inscene cellar if matches unless cellar_lit set cellar_lit msg The wick catches. A small flame pushes back the dark.
 
 ## oil_can
@@ -192,10 +194,10 @@ art: hall
 text:
   Salt, wet stone, cold ash.
   An {{oilskin coat|exam_coat}} hangs by the door.
-  Something heavy hangs in the coat pocket. -> if exam_coat
-  An oil lantern sits on the shelf.
+  Something heavy hangs in the coat pocket. -> if exam_coat unless key
+  An oil lantern sits on the shelf. -> unless oil_lantern
   The stairs climb into darkness.
-opt: Take the key ring -> - if exam_coat pick key msg The ring is cold. Two small keys and a bent brass tag.
+opt: Take the key ring -> - if exam_coat unless key pick key msg The ring is cold. Two small keys and a bent brass tag.
 opt: Take the oil lantern -> - unless oil_lantern pick oil_lantern msg The brass body is sound, but the chimney is cracked.
 opt: Go to the kitchen -> kitchen
 opt: Open the cellar door -> cellar
@@ -205,10 +207,9 @@ opt: Climb to the lamp room -> lamp_room
 name: The Keeper's Kitchen
 art: cottage
 text:
-  A peat fire ticks in the stove.
-  Mara stands at the window, watching the sea.
-  Two {{cups|exam_cups}} sit on the table.
+  A peat fire ticks. Two {{cups|exam_cups}} sit on the table.
   One is still warm. -> if exam_cups
+  Mara stands at the window, watching the sea. -> unless mara_left
   An open {{journal|exam_journal}} lies beside them.
   The last entry is torn at the corner. -> if exam_journal
 opt: Read the torn entry -> journal if exam_journal
@@ -235,7 +236,8 @@ name: The Pantry
 art: cottage
 text:
   Shelves of tinned beef, tea, and lamp oil.
-  A tin of oil stands beside a box of matches.
+  A tin of oil stands on the shelf. -> unless oil_can
+  A box of matches sits beside it. -> unless matches
   A small window looks out at the black sea.
 opt: Take the oil can -> - unless oil_can pick oil_can msg The tin is heavy enough for one night.
 opt: Take the matches -> - unless matches pick matches msg The heads rattle dryly in the box.
@@ -250,7 +252,7 @@ text:
   It is too dark to search. -> unless cellar_lit
   The oil lantern gutters. -> if cellar_lit
   An iron-bound {{sea chest|exam_chest}} sits against the wall. -> if cellar_lit
-  The lock is old. A small key would turn it. -> if exam_chest
+  The lock is old. A small key would turn it. -> if exam_chest unless chest_open
   A ship's log rests on a crate. -> if cellar_lit
 opt: Read the ship's log -> logbook if cellar_lit
 opt: Search the open chest -> chest if chest_open
@@ -261,9 +263,9 @@ name: The Sea Chest
 art: cellar
 text:
   The lid creaks open.
-  Inside: a brass gear wrapped in oilcloth,
-  a red signal flare,
-  and a {{folded letter|exam_letter}}.
+  A brass gear wrapped in oilcloth. -> unless gear
+  A red signal flare. -> unless flare
+  A {{folded letter|exam_letter}} lies inside.
   The letter is not in Elias's handwriting. -> if exam_letter
 opt: Take the brass gear -> - unless gear pick gear
 opt: Take the signal flare -> - unless flare pick flare
@@ -275,10 +277,10 @@ name: The Letter
 art: cellar
 text:
   "Keep the light dark on the {{fourteenth|know_truth}} and the debt is paid."
-  "If you speak, your {{daughter|exam_daughter}} pays it."
-  There is no signature.
   The same night Elias drowned. -> if know_truth
+  "If you speak, your {{daughter|exam_daughter}} pays it."
   They knew about Mara. -> if exam_daughter
+  There is no signature.
 opt: Return to the chest -> chest
 
 ## logbook
@@ -297,14 +299,15 @@ name: The Lamp Room
 art: workshop
 text:
   The great lens fills the room like a frozen wave.
-  The {{Fresnel lens|exam_lens}} is whole, but its turning gear is gone.
-  The {{reservoir|exam_reservoir}} is dry.
-  The wick is black and dry.
-  Rain hammers the gallery glass. Far below, the sea is white.
-  A shape waits by the lens.
-  Through the rain, a man in grey waits on the cliff path.
+  The {{Fresnel lens|exam_lens}} is whole, and its gear turns true. -> if lens_repaired
+  The {{Fresnel lens|exam_lens}} is whole, but its turning gear is gone. -> unless lens_repaired
+  The {{reservoir|exam_reservoir}} is full of oil. -> if oiled
+  The {{reservoir|exam_reservoir}} is dry. -> unless oiled
+  The wick is dry. Rain hammers the glass. The sea is white.
+  A shape waits by the lens. -> unless elias_rested
+  Through the rain, a man in grey waits on the cliff path. -> unless crowe_defied
 opt: Go down to the hall -> hall
-opt: Speak to the shape at the lens -> elias
+opt: Speak to the shape at the lens -> elias unless elias_rested
 opt: Wait for midnight -> the_hour
 
 ## elias
@@ -320,18 +323,18 @@ opt: "Why did you take the money?" -> - set asked_elias msg "Mara. They said the
 opt: "Who paid you?" -> - set asked_elias msg "A man in a grey coat. Dry boots. A silver cigarette case."
 opt: "How do I repair the lamp?" -> - set asked_elias msg "The gear is in the sea chest. Oil is in the pantry. The rest is nerve."
 opt: "I have your journal." -> - if know_truth set asked_elias msg "Then you know. Light her, keeper. Finish it."
-opt: Rest, Elias. -> lamp_room msg The shape inclines its head, and the cold goes out of the room.
+opt: Rest, Elias. -> lamp_room set elias_rested msg The shape inclines its head, and the cold goes out of the room.
 
 ## garden
 name: The Cliff Garden
 art: garden
 text:
   A walled garden, salted by spray.
-  A new {{grave|exam_grave}} waits under the wall.
-  The {{signal mast|exam_mast}} leans, its shutter rope frayed.
-  Below, the Needles break white.
+  A {{grave|exam_grave}} waits under the wall.
   "Elias Vane. Died 14 October 1935." -> if exam_grave
+  The {{signal mast|exam_mast}} leans, its shutter rope frayed.
   A flare fired from the gallery would be seen from the mainland. -> if exam_mast
+  Below, the Needles break white.
   A man in grey waits on the cliff path. -> unless crowe_defied
 opt: Talk to the man in grey -> crowe unless crowe_defied
 opt: Return to the kitchen -> kitchen
@@ -341,9 +344,9 @@ name: Mara
 art: cottage
 text:
   {{Mara|exam_mara}} stands by the window with her arms folded.
+  She keeps looking at the door. -> if exam_mara
   "My father kept this light for twenty-two years," she says.
   "He would not have let it go dark."
-  She keeps looking at the door. -> if exam_mara
 opt: Promise to light the lamp -> - unless mara_trusted set mara_trusted msg "Mara nods once. "Then we have a chance.""
 opt: Ask about her father -> - unless asked_father set asked_father msg "He sent me away last October. I never saw him again."
 opt: Tell her what you found -> - if know_truth unless mara_told set mara_told msg "You put the journal on the table. Mara reads it twice. Her face does not change. "He sent me away because of them," she says."
@@ -367,8 +370,8 @@ art: workshop
 text:
   The clock in the hall strikes twelve.
   Through the rain, a {{green light|exam_green}} blinks beyond the Needles.
-  The Mercy Belle.
   A ship's sidelight, green against the black. -> if exam_green
+  The Mercy Belle.
   The lamp is ready. -> if lens_repaired if oiled if matches
   The matches are in your pocket. -> if matches
   The flare is in your pack. -> if flare
@@ -387,7 +390,7 @@ text:
 opt: "Who are you?" -> - set crowe_met msg "Silas Crowe," he says. "Revenue service." The Mercy Belle is due at midnight. Leave the light dark.
 opt: "You paid Elias." -> - if know_truth set crowe_met msg "Elias made a choice," he says. "You are making one now. There is still time to choose sensibly."
 opt: "I will keep it dark." -> - unless crowe_offered set crowe_met set crowe_offered msg "Crowe takes a folded envelope from his coat. "For the keeper," he says. "For the silence." He holds it out."
-opt: Take the envelope -> the_hour if crowe_offered set crowe_deal msg The paper is dry and heavy. You put it in your coat.
+opt: Take the envelope -> the_hour if crowe_offered unless crowe_deal set crowe_deal msg The paper is dry and heavy. You put it in your coat.
 opt: "I will not help you." -> garden set crowe_met set crowe_defied msg "Crowe looks at you a long moment. "You are not the first keeper to mistake stubbornness for courage." He puts on his hat."
 opt: Say nothing and go back -> garden
 
@@ -430,7 +433,7 @@ text:
   The green light reaches the Needles and vanishes.
   You take the rowboat. Behind you, the sea is loud.
   At dawn there is wreckage in the bay.
-  And Elias's journal in your coat.
+  And Elias's journal in your coat. -> if know_truth
   Crowe pays you in clean notes. -> if crowe_deal
   The man in grey does not look at you. -> if crowe_defied
 opt: Start again -> start clear
