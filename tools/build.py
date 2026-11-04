@@ -307,7 +307,8 @@ def merge_engine(gdir):
         raise SystemExit(
             "home bank overflow: adventure.bin is %d bytes but must be <= %d "
             "(0xDC03-0x8000); the main image would overlap the NIRVANA+ engine. "
-            "Shorten scene text/item descriptions or remove arts to recover RAM."
+            "Shorten scene text, popup messages or item descriptions, or remove "
+            "arts to recover RAM."
             % (len(main), off))
     if len(main) < off:
         main += bytes(off - len(main))

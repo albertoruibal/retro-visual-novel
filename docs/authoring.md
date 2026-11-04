@@ -343,9 +343,10 @@ are not displayed and do not count):
   into the fresh run.
 - **`msg <text>`** shows the text in a modal popup before the option's effects and navigation run. The message
   consumes the rest of the line, so put every condition/effect before it; continuation lines are joined with spaces.
-  It is plain text (selectable words are not parsed), wraps at the target's text width, and is dismissed with the same
-  controls as the rest of the game. `popup_hint:` overrides the dismiss line (default "Press a key"). Absent means no
-  popup.
+  It is plain text (selectable words are not parsed), wraps at the target's text width, and scrolls with UP/DOWN when
+  it exceeds the pane. Any other key dismisses it (and so do UP at the top or DOWN at the bottom), so a short message
+  still closes with any key. `popup_hint:` overrides the dismiss line (default "Press a key"). Absent means no popup.
+  A message shares its scene's storage, so very long ones count against the scene budget below.
 
 The player moves with the cursor keys or W/S and confirms with ENTER; the cursor never wraps, and pressing down past
 the last entry moves onto the inventory band. Conditions may name items as well as flags, since items are flags too.
@@ -407,7 +408,8 @@ The ZX layout drives the budgets the editor validates:
 | Selectable words per scene | 8 |
 | Pinned scene (worst case) | wrapped text + options `<= 22 - art_rows` rows |
 | Pinned item screen (worst case) | wrapped description + entries `<= 21 - art_rows` rows |
-| Pop-up scene text | scrolls; no fit limit |
+| Pop-up dialog scene text | scrolls; no fit limit |
+| Popup `msg` text | scrolls; shares the scene's storage blob |
 
 The title rides on row 0 and the inventory band on row 23, which is why the pinned budget excludes them. Scene text
 is top-aligned in the band and options are pinned to its bottom, so a short text block still leaves the menu where
@@ -427,12 +429,15 @@ fit 64K. On the MSX2 the scene data is in bank 1, each art takes a bank from 2 u
 following ROM banks. On the Game Boy Color the scenes, art and converted APU streams are uncompressed in MBC1 banks;
 each song starts at a bank boundary and may span several banks. The ZX raw figures to size against:
 
-- a scene is about 175 bytes;
+- a scene is about 175 bytes, plus its text, labels, conditions and `msg` popup strings;
 - an art is `8*art_rows` bytes plus 48 per unique tile, at most `392*art_rows` (3920 bytes at the default 10).
 
-Rule of thumb at the defaults: about 13 arts with ~60 scenes fit, ~11 arts if every one is at maximum tile density,
-~9-10 large arts at ~200 scenes. The build fails past the budget with "scene/art data exceeds available banks"; the
-fix is to merge arts (repoint several scenes' `art:` to one id) or drop detail from prompts, not to squeeze text.
+On the ZX the scene workspace (`_scene_ws`) is sized to the largest single scene, so one very long popup can grow the
+main image even when the bank pool has room; the build then fails with "home bank overflow". Shorten that scene's
+text/messages or split the exposition across scenes. Rule of thumb at the defaults: about 13 arts with ~60 scenes fit,
+~11 arts if every one is at maximum tile density, ~9-10 large arts at ~200 scenes. The build fails past the budget
+with "scene/art data exceeds available banks"; the fix is to merge arts (repoint several scenes' `art:` to one id) or
+drop detail from prompts, not to squeeze text.
 The songs' 4158-byte cap is separate and enforced at conversion time.
 
 The editor writes `game.md` atomically (keeping `game.md.bak`) and refuses a save that fails validation. It is fine

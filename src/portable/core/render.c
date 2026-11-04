@@ -44,7 +44,7 @@ unsigned char print_text_color(unsigned char row, unsigned char col,
 }
 #endif
 
-#if !PORT_NO_WRAP
+#if !PORT_NO_WRAP || HAVE_MESSAGES
 /* Take the next wrapped segment of ``s`` (same rules as print_text). */
 void text_next_segment(const char **ps, unsigned char width, char *buf)
 {

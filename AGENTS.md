@@ -252,7 +252,8 @@ There is no test suite and no configured linter. Verify by:
   `<game-folder>/build/adventure.bin` size (must be < `0xDC03 - 0x8000` = 23555 bytes). To keep room,
   `gen_scenes.py` emits exact-length `art_bank`/`art_off`/`scene_bank`/`scene_off`/`item_name_off` arrays (the engine
   only indexes them with ids it bounds against `N_ART`/`N_SCENES`/`N_ITEMS`), sizes `_scene_ws` per game
-  (`SCENE_WS_SIZE`, the largest raw scene blob) and, when the game uses an accented letter, ships only the accent
+  (`SCENE_WS_SIZE`, the largest raw scene blob; there is no fixed per-scene cap, so the main-image check is what limits
+  a long scene/popup) and, when the game uses an accented letter, ships only the accent
   slot offsets/glyphs and patches the CRT's own `CRT_FONT_64` table in place at startup (`NEED_ACCENT_FONT`); an
   ASCII game does nothing.
 - **The paging routines must be linked below `0xC000`.** `paged_unpack`/`load_banks` page data banks in at `0xC000`, and
@@ -338,7 +339,9 @@ There is no test suite and no configured linter. Verify by:
   negated)` pairs (`OptHdr`/`ItemOptHdr` also carry `ncond`); `OptHdr.clear` bit0 is the `clear` reset. An option may
   end with `msg <text>` (`scenefile.split_option_msg`), stored as a `u16 msg_off` (0 = none) in both headers; choosing it
   shows the text in a modal text-pane popup (`show_message`, gated by `HAVE_MESSAGES`) before its effects and target run.
-  `msg` consumes the rest of the line, so conditions/effects must precede it. The popup's dismiss line comes from
+  The popup wraps at `PORT_TEXT_WIDTH` and scrolls with UP/DOWN (`^`/`v` at `PORT_SCROLL_COL`) when it exceeds the
+  pane; any other key dismisses, as do UP at the top / DOWN at the bottom. `msg` consumes the rest of the line, so
+  conditions/effects must precede it. The popup's dismiss line comes from
   `# Game popup_hint:` (`scenefile.popup_hint`, default "Press a key"), emitted as `port_game_popup_hint`.
   `# Game carry: <n>` caps held items; a full pack hides `pick` options, and the global **inventory** screen clears an
   item's flag, so the cap can never soft-lock. Both are parsed/serialized by `scenefile.py`, emitted by `gen_scenes.py`,

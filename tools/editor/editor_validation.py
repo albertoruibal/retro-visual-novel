@@ -422,12 +422,6 @@ def _validate(doc, slug):
                                    "id": name, "need": o,
                                    "msg": "selectable words are not parsed "
                                           "in a popup message"})
-                if scenefile.text_rows(popup, TEXT_COLS) > 22 - band_lines:
-                    issues.append({"level": "warn", "section": "item",
-                                   "id": name, "need": o,
-                                   "msg": "popup message may not fit the ZX "
-                                          f"text pane with art_rows="
-                                          f"{band_lines}"})
             if target != "-" and target not in scene_ids:
                 issues.append({"level": "error", "section": "item", "id": name,
                                "need": o,
@@ -843,12 +837,6 @@ def _validate(doc, slug):
                                    "id": sid, "need": o,
                                    "msg": "selectable words are not parsed "
                                           "in a popup message"})
-                if scenefile.text_rows(popup, TEXT_COLS) > 22 - band_lines:
-                    issues.append({"level": "warn", "section": "scene",
-                                   "id": sid, "need": o,
-                                   "msg": "popup message may not fit the ZX "
-                                          f"text pane with art_rows="
-                                          f"{band_lines}"})
             if "{{" in label:
                 issues.append({"level": "warn", "section": "scene", "id": sid,
                                "need": o,

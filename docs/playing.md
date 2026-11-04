@@ -39,8 +39,9 @@ and **Restart** resets the story. Music is not present in the web runtime. See
 - **Inventory:** `DOWN` from the last option moves the cursor to the inventory row 23. `LEFT`/`RIGHT` (or `A`/`D`)
   step through the held items, `UP` returns to the options, and `ENTER` opens the selected item. On the item screen
   `UP`/`DOWN` move between the item's options, **Drop** and **Back**, and `ENTER` confirms.
-- A scene or item option with a `msg` line first shows that message in a popup over the text pane. Dismiss it with
-  the usual movement/confirm controls, then the option's effects and target run as normal.
+- A scene or item option with a `msg` line first shows that message in a popup over the text pane. A message longer
+  than the pane scrolls with `UP`/`DOWN` (`^`/`v` mark the overflow); any other key dismisses it, as do `UP` at the
+  top or `DOWN` at the bottom. Then the option's effects and target run as normal.
 - **Pop-up dialog:** with `## zx menu: popup`, `SPACE` opens and closes an action dialog instead; it lists
   the scene options first and then the held items (prefixed `*`), with `UP`/`DOWN` to move and `ENTER` to choose.
   The text then uses every row below the art and there is no permanent inventory row; overflowing scene text and

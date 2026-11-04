@@ -695,7 +695,7 @@ function paneItem(id) {
     <h3>Options</h3>
     <div class="hint">Choosing one applies its effects, then goes to its target
       scene; <b>— same scene —</b> redraws the current one. An optional
-      <b>popup message</b> is shown first. <code>inscene</code>
+      <b>popup message</b> is shown first (long ones scroll). <code>inscene</code>
       shows it only when the item was opened from that scene. A Drop entry (with
       a <code>carry:</code> cap) and a Back entry follow; on ZX the whole entry
       list is pinned to the bottom of the text band (or of the wider dialog
@@ -1047,8 +1047,8 @@ function paneScene(id) {
   <div class="card">
     <h3>Options</h3>
     <div class="hint">Choosing an option applies its effects, then goes to its
-      target. An optional <b>popup message</b> is shown first and dismissed
-      before the action runs.</div>
+      target. An optional <b>popup message</b> is shown first (long ones scroll)
+      and dismissed before the action runs.</div>
     ${s.opts.length ? `<div class="opt opthead">
       <div>Label</div><div>Target scene</div>
       <div>Conditions (all must hold)</div><div>Set flag</div>

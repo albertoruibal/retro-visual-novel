@@ -6,38 +6,53 @@
    to the caller, which applies the option's effects and follows its target. */
 void show_message(const char *text)
 {
-    unsigned char row = PORT_TEXT_TOP;
-    unsigned char last_row = (unsigned char)(PLAT_ROWS - 1);
-    plat_clear_pane();
-    while (*text && row < last_row) {
+    unsigned char top = PORT_TEXT_TOP;
+    unsigned char hint_row = (unsigned char)(PLAT_ROWS - 1);
+    unsigned char body_rows = (unsigned char)(hint_row - top);
+    unsigned int first = 0;
+    for (;;) {
+        const char *p = text;
         char buf[PORT_COLS + 2];
-        unsigned char n = 0, last = 0, i;
-        while (text[n] && n < PORT_TEXT_WIDTH) {
-            if (text[n] == ' ')
-                last = n;
-            n++;
-        }
-        if (text[n] && last)
-            n = last;
-        if (!n)
-            n = 1;
-        for (i = 0; i < n; i++)
-            buf[i] = text[i];
-        buf[n] = 0;
-        plat_text_at(row, 0, buf, PLAT_COLOR_BODY);
-        text += n;
-        while (*text == ' ')
-            text++;
-        row++;
-    }
-    plat_text_at(last_row, 0, ">", PLAT_COLOR_SEL);
-    plat_text_at(last_row, 2, port_game_popup_hint, PLAT_COLOR_SEL);
-    {
+        unsigned int row = 0, r = 0, scroll_max;
         unsigned char k;
+        plat_clear_pane();
+        while (*p) {
+            text_next_segment(&p, PORT_TEXT_WIDTH, buf);
+            if (r >= first && row < body_rows) {
+                plat_text_at((unsigned char)(top + row), 0, buf,
+                             PLAT_COLOR_BODY);
+                row++;
+            }
+            r++;
+        }
+        scroll_max = (r > body_rows) ? r - body_rows : 0;
+        if (first > scroll_max)
+            first = scroll_max;
+        if (scroll_max) {
+            if (first)
+                plat_text_at(top, PORT_SCROLL_COL, PORT_SCROLL_UP,
+                             PLAT_COLOR_BODY);
+            if (first < scroll_max)
+                plat_text_at((unsigned char)(hint_row - 1), PORT_SCROLL_COL,
+                             PORT_SCROLL_DOWN, PLAT_COLOR_BODY);
+        }
+        plat_text_at(hint_row, 0, ">", PLAT_COLOR_SEL);
+        plat_text_at(hint_row, 2, port_game_popup_hint, PLAT_COLOR_SEL);
         do {
             k = plat_read_key();
         } while (!k);
         plat_wait_release();
+        if (scroll_max) {
+            if (k == CURSOR_UP && first) {
+                first--;
+                continue;
+            }
+            if (k == CURSOR_DOWN && first < scroll_max) {
+                first++;
+                continue;
+            }
+        }
+        break;
     }
 }
 #endif

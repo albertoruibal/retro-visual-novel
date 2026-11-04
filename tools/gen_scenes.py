@@ -197,9 +197,9 @@ MAX_ITEMS = scenefile.MAX_ITEMS
 assign_flags = scenefile.assign_flags
 BANK_MAGIC = 0x5C        # first byte of every resident bank
 # Blobs are stored compressed with ZX0 and decompressed directly from the paged
-# bank into the runtime workspace (src/zx/paging.asm). Sizes below are the
-# *decompressed* ceilings the workspaces impose.
-SCENE_WS = 1024
+# bank into the runtime workspace (src/zx/paging.asm). `_scene_ws` is sized per
+# game to the largest raw scene blob; the linked main-image check in
+# tools/build.py is the real ceiling (it must stay below the NIRVANA+ engine).
 # _art_ws (src/zx/paging.asm) is a single buffer sized per game (ART_WS_SIZE) to
 # hold the largest art blob (map[8*L] + 48-byte tiles) or the inventory blob,
 # decoded into the same buffer while the item screen is open. A NIRVANA+ tile
@@ -1374,13 +1374,10 @@ def main():
     # inventory blob (both decoded into it); sized per game so a small band does
     # not reserve the old fixed 4096, and a tall one can grow.
     art_ws_size = max(max_art, len(inv_blob) if inv_blob is not None else 0)
-    # The engine decompresses each blob into a fixed home-bank workspace before
-    # use (src/zx/paging.asm: _scene_ws 1024, _art_ws), so a blob that outgrows its
-    # workspace would smash the engine. Conditional text grows scene blobs, so
-    # this is checked rather than assumed.
-    if max_scene > SCENE_WS:
-        sys.exit(f"scene blob {max_scene}B exceeds _scene_ws ({SCENE_WS}B); "
-                 "shorten a scene's text/options")
+    # The engine decompresses each blob into the per-game home-bank workspace
+    # before use (src/zx/paging.asm: _scene_ws, _art_ws). `_scene_ws` grows with
+    # the largest scene blob; tools/build.py then rejects a main image that would
+    # overlap the NIRVANA+ engine, so there is no fixed per-scene size cap here.
     if inv_blob is not None and len(inv_blob) > art_ws_size:
         sys.exit(f"inventory strings + item descriptions {len(inv_blob)}B "
                  f"exceed the {art_ws_size}B _art_ws workspace; shorten them")
