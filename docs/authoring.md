@@ -396,6 +396,40 @@ pressing down past the last option enters the band; there the cursor keys (or A/
 screen, described under [Items](#items). The inventory can never soft-lock a `carry:` cap: a full pack hides `pick`
 entries, and every item can always be dropped through its own screen.
 
+## Authoring recommendations
+
+These are conventions, not rules — the format accepts their opposite — but they make a game easier to read and
+less mechanical on the small text band.
+
+- **Reveal new text directly below the word that reveals it.** A selectable word is one-shot: choosing
+  `{{brass key}}` sets the `brass_key` flag and the word turns back into plain text. Put the line gated on that flag
+  immediately below the line containing the word, so the response appears where the player was looking:
+
+      text:
+        A {{brass key}} glints in the dust.
+        It looks like it opens the cellar. -> if brass_key
+
+- **Give item actions a `msg`.** `pick`, `leave` and an item's own `opt:` change state silently otherwise. Put
+  `msg` at the very end of the option (it consumes the rest of the line) so the player sees the result before the
+  scene redraws or navigates:
+
+      opt: Take the lantern -> - pick lantern msg You take the brass lantern.
+      opt: Light it -> - inscene cellar set lamp_lit msg The wick catches with a sputter.
+
+- **Put character replies in a `msg` popup.** Keep scene text for narration and the room, and answer dialogue with
+  the option's popup. It separates speech from description without another text system, and works on every target:
+
+      opt: Ask about the boat -> - msg She is older than she looks, but she still floats.
+
+- **Hide some progression in item screens.** A scene option is a signpost; an item option rewards opening the
+  inventory. Move an advancing action onto the item's `opt:` (use `inscene <scene>` when it only works in one room)
+  so the route is discoverable rather than listed in the main menu. The editor counts item-option targets as
+  reachable, so a scene reached this way is valid:
+
+      # Items
+      ## captain_log
+      opt: Read the last entry -> harbour_night
+
 ## Screen budgets
 
 The ZX layout drives the budgets the editor validates:
