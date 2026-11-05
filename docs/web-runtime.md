@@ -71,7 +71,7 @@ walking outside it. The editor calls `POST /api/web_export` before showing the t
 window.RVN_GAME = {
   format: 1,
   slug: "demo",
-  title: "The Lantern Keeper",
+  title: "The Lighthouse Keeper",
   artRows: 12,                  // selected system's art_rows (even, 4..16)
   startScene: "start",
   startItems: ["seed"],
@@ -96,7 +96,7 @@ window.RVN_GAME = {
   },
   scenes: [{
     id: "start",
-    title: "The Lantern Keeper",
+    title: "The Lighthouse Keeper",
     art: "title",
     ending: "",
     text: [{
