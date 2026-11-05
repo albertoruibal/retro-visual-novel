@@ -6,6 +6,7 @@ from server import *  # noqa: F401,F403 - shared state and helpers
 
 from editor_games import *
 from editor_validation import *
+import pngmeta
 
 def _drop_art_overrides(doc):
     """Remove every per-art generation parameter.
@@ -135,9 +136,10 @@ def _reference_extra_images(game_dir, names, refs_meta):
 
 def _render_art(slug, art_id, art, game, overrides, job_id=None,
                 refs_meta=None, refs_done=None):
-    """Render one art and write a *new* candidate PNG + raw result JSON.
+    """Render one art and write a *new* candidate PNG + sanitised result JSON.
 
-    Each run drops ``gen-<epoch>.png`` (and its ``_result.json``) into the art's
+    Each run drops ``gen-<epoch>.png`` (with embedded PNG metadata stripped, and
+    a ``_result.json`` without the image payload or model details) into the art's
     folder, leaving earlier candidates in place, then records it as the art's
     ``image:``. Returns (prompt, params, png_len, filename, refs). Shared by the
     single-art and regenerate-all jobs so both build the request and write files
@@ -191,14 +193,15 @@ def _render_art(slug, art_id, art, game, overrides, job_id=None,
     if job_id is not None and _is_cancelled(job_id):
         raise _JobCancelled()
     b64 = res["images"][0].split(",", 1)[-1]
-    png = base64.b64decode(b64)
+    png = pngmeta.strip_png_metadata(base64.b64decode(b64))
     rec = _game_or_error(slug)
     name = _new_art_filename("gen")
     adir = os.path.join(_art_root(rec["dir"]), art_id)
     os.makedirs(adir, exist_ok=True)
     with _lock:
         open(os.path.join(adir, name), "wb").write(png)
-        json.dump(res, open(os.path.join(adir, name[:-4] + "_result.json"), "w"))
+        json.dump(pngmeta.sanitize_result(res),
+                  open(os.path.join(adir, name[:-4] + "_result.json"), "w"))
     _set_art_image(slug, art_id, name)
     return prompt, params, len(png), name, refs
 
@@ -236,14 +239,15 @@ def _render_ref(slug, ref_id, ref, game, overrides, job_id=None):
     if job_id is not None and _is_cancelled(job_id):
         raise _JobCancelled()
     b64 = res["images"][0].split(",", 1)[-1]
-    png = base64.b64decode(b64)
+    png = pngmeta.strip_png_metadata(base64.b64decode(b64))
     rec = _game_or_error(slug)
     name = _new_art_filename("gen")
     rdir = os.path.join(_ref_root(rec["dir"]), ref_id)
     os.makedirs(rdir, exist_ok=True)
     with _lock:
         open(os.path.join(rdir, name), "wb").write(png)
-        json.dump(res, open(os.path.join(rdir, name[:-4] + "_result.json"), "w"))
+        json.dump(pngmeta.sanitize_result(res),
+                  open(os.path.join(rdir, name[:-4] + "_result.json"), "w"))
     _set_ref_image(slug, ref_id, name)
     return prompt, params, len(png), name
 
@@ -386,15 +390,16 @@ def _refine_image(slug, kind, ident, entry, game, overrides=None, job_id=None):
         raise
     if job_id is not None and _is_cancelled(job_id):
         raise _JobCancelled()
-    png = base64.b64decode(res["images"][0].split(",", 1)[-1])
+    png = pngmeta.strip_png_metadata(
+        base64.b64decode(res["images"][0].split(",", 1)[-1]))
     name = _new_art_filename("ref")
     out_dir = (os.path.join(_art_root(rec["dir"]), ident) if kind == "art"
                else os.path.join(_ref_root(rec["dir"]), ident))
     os.makedirs(out_dir, exist_ok=True)
     with _lock:
         open(os.path.join(out_dir, name), "wb").write(png)
-        json.dump(res, open(os.path.join(out_dir, name[:-4] + "_result.json"),
-                            "w"))
+        json.dump(pngmeta.sanitize_result(res),
+                  open(os.path.join(out_dir, name[:-4] + "_result.json"), "w"))
     if kind == "art":
         _set_art_image(slug, ident, name)
     else:
@@ -580,8 +585,10 @@ def upload_art(slug, art_id, data):
     adir = os.path.join(_art_root(game["dir"]), art_id)
     os.makedirs(adir, exist_ok=True)
     out = os.path.join(adir, name)
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
     with _lock:
-        im.save(out, "PNG")
+        open(out, "wb").write(pngmeta.strip_png_metadata(buf.getvalue()))
     _set_art_image(slug, art_id, name)
     return {"art": art_id, "image": name, "width": width, "height": height,
             "size": width if width == height else None,
@@ -635,8 +642,10 @@ def upload_ref(slug, ref_id, data, kind="up"):
     rdir = os.path.join(_ref_root(game["dir"]), ref_id)
     os.makedirs(rdir, exist_ok=True)
     out = os.path.join(rdir, name)
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
     with _lock:
-        im.save(out, "PNG")
+        open(out, "wb").write(pngmeta.strip_png_metadata(buf.getvalue()))
     _set_ref_image(slug, ref_id, name)
     return {"ref": ref_id, "image": name, "width": width, "height": height,
             "bytes": os.path.getsize(out)}

@@ -5,8 +5,10 @@ The server runs Qwen-Image 2.1 (leejet/stable-diffusion.cpp) with its
 A1111-compatible API. Each ``## <art-id>`` block under ``# Art`` of a game's ``game.md`` is
 rendered by posting ``"<game prompt>, <art prompt>"`` to
 ``/sdapi/v1/txt2img``; the first returned image is written as a *new*
-``assets/art/<id>/gen-<epoch>.png`` (earlier candidates are kept) and the raw
-job response beside it as ``.../gen-<epoch>_result.json``. The new file becomes
+``assets/art/<id>/gen-<epoch>.png`` (earlier candidates are kept) and a
+sanitised job response beside it as ``.../gen-<epoch>_result.json``. Embedded
+PNG metadata (server parameters/model names) is stripped before writing, and
+the sidecar omits the image payload and model details. The new file becomes
 the art's ``image:`` in ``game.md``. A ``prompt:`` may be written over several
 4-space-indented lines; they keep their line breaks (see scenefile), just as
 the editor saves them.
@@ -54,6 +56,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gamestore
+import pngmeta
 import scenefile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -82,10 +85,11 @@ def _candidate(dirpath):
 
 def _write(dirpath, res):
     b64 = res["images"][0].split(",", 1)[-1]
-    png = base64.b64decode(b64)
+    png = pngmeta.strip_png_metadata(base64.b64decode(b64))
     fname = _candidate(dirpath)
     open(os.path.join(dirpath, fname), "wb").write(png)
-    json.dump(res, open(os.path.join(dirpath, fname[:-4] + "_result.json"), "w"))
+    json.dump(pngmeta.sanitize_result(res),
+              open(os.path.join(dirpath, fname[:-4] + "_result.json"), "w"))
     return fname, png
 
 
