@@ -11,12 +11,10 @@
 #define MSX2_TEXT_8PX 0
 #endif
 #if MSX2_TEXT_8PX
-#include "port_font8_raw.h"
 #define MSX2_CHAR_PX 8
 #define MSX2_CHAR_BYTES 4
 #define MSX2_FONT_BYTES 4
 #else
-#include "port_font4.h"
 #define MSX2_CHAR_PX 6
 #define MSX2_CHAR_BYTES 3
 #define MSX2_FONT_BYTES 2
@@ -100,12 +98,12 @@ extern void msx2_text(const char *src, unsigned int addr, unsigned char n,
 extern void msx2_text8(const char *src, unsigned int addr, unsigned char n,
                        unsigned char mask);
 
-static void build_font_cells(void)
+static void build_font_cells(const unsigned char *raw)
 {
     unsigned int i;
 #if MSX2_TEXT_8PX
     for (i = 0; i < MSX2_FONT_CHARS * 8; i++) {
-        unsigned char row = port_font8_raw[i];
+        unsigned char row = raw[i];
         unsigned char *d = port_font_cells + i * 4;
         d[0] = (unsigned char)((row & 0x01 ? 0xF0 : 0)
                                | (row & 0x02 ? 0x0F : 0));
@@ -118,7 +116,7 @@ static void build_font_cells(void)
     }
 #else
     for (i = 0; i < MSX2_FONT_CHARS * 8; i++) {
-        unsigned char row = port_font4[i] & 0x0F;
+        unsigned char row = raw[i] & 0x0F;
         unsigned char *d = port_font_cells + i * 2;
         d[0] = (unsigned char)((row & 0x08 ? 0xF0 : 0)
                                | (row & 0x04 ? 0x0F : 0));
@@ -153,7 +151,9 @@ void plat_music_hook(unsigned char on)
 
 void plat_init(void)
 {
-    build_font_cells();
+    plat_set_bank(MSX2_FONT_BANK);
+    build_font_cells((const unsigned char *)0x8000);
+    plat_set_bank(PORT_DATA_BANK);
     screen7();
     vdp_set_reg(7, 0);
     vdp_set_reg(14, 0);

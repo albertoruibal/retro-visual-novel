@@ -13,10 +13,11 @@
   options and held items move to the `SPACE`/joystick-button-2 dialog, the text may use row 23, and only the text
   lines must fit (`23 - art_rows` rows).
   A long item description scrolls with up/down while the cursor is on the first entry.
-  Text is emitted by an assembly loop from a glyph-cell table built at startup in RAM from the raw 768-byte font
-  (`port_font8_raw.h` for 64 columns or `port_font4.h` for 80), using the shared CC0 8x8 Pixel Operator Mono 8 or the
-  4x8 CRT font; scene clears use the V9938 HMMV command, and a scene redraw only clears the title/text pane, never the
-  art band it is about to overwrite. The runtime expansion keeps up to 2.3 KB out of the tight 16 KB fixed ROM bank.
+  Text is emitted by an assembly loop from a glyph-cell table built at startup in RAM from a raw 768-byte font (the
+  shared CC0 8x8 Pixel Operator Mono 8 for 64 columns, or the 4x8 CRT font for 80). The font lives in its own ASCII16
+  ROM bank after the art/song banks (`build/port_font.asm`, selected by `MSX2_FONT_BANK`), so it never consumes the
+  fixed 16 KB page; scene clears use the V9938 HMMV command, and a scene redraw only clears the title/text pane, never
+  the art band it is about to overwrite.
 - **Conversion:** `tools/msx2art.py` shares one converter between the editor preview and the build. Each art is a 512 x
   `8*art_rows` 4bpp bitmap with a per-art 16-colour palette. Screen 7's pixels are half-width (512 pixels span the same
   physical width as Screen 5's 256), so the source is fitted to the band's `256 x 8*art_rows` physical aspect and
@@ -27,7 +28,11 @@
 - **Storage:** scene/inventory data lives in ASCII16 ROM bank 1. Each art gets its own 16K bank starting at bank 2: the
   blob is `[u8 palette[16*2]][u16 comp_len][ZX0 2048-byte strip] * art_rows`, so the runtime decompresses one 8-line
   strip at a time and writes it straight into VRAM. Songs are ZX0-compressed into ROM banks after the art banks
-  (`build/port_song.asm`); the mapper is selected with `-pragma-define:MAPPER_ASCII16`.
+  (`build/port_song.asm`); the raw font gets one more bank after them (`build/port_font.asm`). The mapper is selected
+  with `-pragma-define:MAPPER_ASCII16`.
+  The fixed linked binary must stay below 0x8000: when it is over 16 KB, z88dk-appmake treats bank 1 as part of the
+  32 KB main binary, starts reading cartridge banks at bank 2 and silently drops `_BANK_01.bin` (the scene/inventory
+  data). `tools/targets/msx2.py` checks the map for this and fails the build instead of writing a dead ROM.
 - **Sound:** `# Game songs:` / per-scene `music:` PT3 modules play through z88dk's VT2 player from the VDP IM1
   interrupt. The module is ZX0-decoded from its ROM bank into a `SONG_WS_SIZE` BSS buffer; `build/port_song.asm` packs
   the songs after the art banks. Press `P` to toggle music.
@@ -37,6 +42,5 @@
   blobs are ZX0-compressed.
 - **Emulator:** WebMSX with C-BIOS in MSX2 mode (`emulator/msx`).
 
-Key files: `tools/msx2art.py`, `src/msx2/plat_msx2.c`, `build/port_font8_raw.h`/`build/port_font4.h` (generated raw
-fonts expanded into RAM at startup), `build/port_song.asm`, `src/portable/core/music.c`, `vendor/pixeloperator8/`,
-`vendor/zx0/`.
+Key files: `tools/msx2art.py`, `src/msx2/plat_msx2.c`, `build/port_font.asm` (raw font bank, expanded into RAM at
+startup), `build/port_song.asm`, `src/portable/core/music.c`, `vendor/pixeloperator8/`, `vendor/zx0/`.

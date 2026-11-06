@@ -47,10 +47,9 @@ def _build(ctx):
             os.path.join(ctx.root, "vendor", "zx0", "zx0.asm"),
             os.path.join(ctx.bdir, "port_data.c"),
             os.path.join(ctx.bdir, "port_data.h"),
-            os.path.join(ctx.bdir, "port_font8_raw.h"),
-            os.path.join(ctx.bdir, "port_font4.h"),
             os.path.join(ctx.bdir, "port_art.asm"),
             os.path.join(ctx.bdir, "port_song.asm"),
+            os.path.join(ctx.bdir, "port_font.asm"),
         ]
         names = build.stage_inputs(td, sources)
         names = [n for n in names if n.endswith((".c", ".asm"))]
@@ -92,15 +91,16 @@ def _guard_map(path):
     rom_end = 0
     for m in re.finditer(
             r"^__(?:code|rodata)_[A-Za-z0-9_]*_tail\s*=\s*\$([0-9A-Fa-f]+)",
-            txt, re.M):
+            txt, re.M | re.IGNORECASE):
         addr = int(m.group(1), 16)
         if addr < 0x10000:
             rom_end = max(rom_end, addr)
     if rom_end > 0x8000:
         raise SystemExit(
-            "MSX2 main ROM code reaches 0x%04X; the fixed 16 KB bank is "
-            "full (art/song banks would page over it). Shorten the game or "
-            "reduce music/font data." % rom_end)
+            "MSX2 main ROM reaches 0x%04X; the fixed 16 KB bank must stay "
+            "below 0x8000. z88dk-appmake otherwise starts at bank 2 and "
+            "silently drops the bank-1 scene/inventory data. Shorten the "
+            "game or move resident data into a bank." % rom_end)
 
 
 def _rows(text, width):

@@ -20,6 +20,18 @@ from .base import BuildResult, Target, TargetOption, portable_sources
 CPC_SONG_WS = 0x9600
 
 
+def _define_int(bdir, name, default):
+    """Read an integer #define from the generated port_data.h."""
+    hdr = os.path.join(bdir, "port_data.h")
+    try:
+        with open(hdr, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return default
+    m = re.search(rf"^#define {name} (0x[0-9A-Fa-f]+|\d+)", text, re.M)
+    return int(m.group(1), 0) if m else default
+
+
 def _available():
     if importlib.util.find_spec("PIL") is None:
         return False, "Pillow is required for CPC art conversion"
@@ -66,6 +78,7 @@ def _guard_map(path, bdir):
 
     hdr = os.path.join(bdir, "port_data.h")
     n_songs = 0
+    ws_base = CPC_SONG_WS
     song_ws = CPC_SONG_WS
     song_ws_size = 0
     if os.path.exists(hdr):
@@ -73,11 +86,24 @@ def _guard_map(path, bdir):
             head = f.read()
         m = re.search(r"^#define N_SONGS (\d+)", head, re.M)
         n_songs = int(m.group(1)) if m else 0
+        m = re.search(r"^#define CPC_WS_BASE (0x[0-9A-Fa-f]+|\d+)", head,
+                      re.M)
+        ws_base = int(m.group(1), 0) if m else CPC_SONG_WS
         m = re.search(r"^#define SONG_WS_ADDR (0x[0-9A-Fa-f]+|\d+)", head,
                       re.M)
         song_ws = int(m.group(1), 0) if m else CPC_SONG_WS
         m = re.search(r"^#define SONG_WS_SIZE (\d+)", head, re.M)
         song_ws_size = int(m.group(1)) if m else 0
+
+    bss = None
+    m = re.search(r"^__BSS_END_tail\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    if m:
+        bss = int(m.group(1), 16)
+    if bss is not None and bss >= ws_base:
+        raise SystemExit(
+            "CPC base memory reaches 0x%04X; the fixed workspaces at 0x%04X "
+            "would overlap it. Shorten the game or lower cpc_art_rows."
+            % (bss, ws_base))
 
     art_asm = os.path.join(bdir, "port_art.asm")
     uses_bank2 = False
@@ -92,24 +118,17 @@ def _guard_map(path, bdir):
                 "CPC music builds cannot also place art/song data in BANK_2; "
                 "the 0x8000 page holds the resident song workspace. Lower "
                 "cpc_art_rows or remove arts.")
-        m = re.search(r"^__BSS_END_tail\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
-        if m and int(m.group(1), 16) >= song_ws:
-            raise SystemExit(
-                "CPC base memory reaches 0x%s; the song workspace at 0x%04X "
-                "would overlap it. Shorten the game or lower cpc_art_rows."
-                % (m.group(1), song_ws))
         if song_ws + song_ws_size > 0xA600:
             raise SystemExit(
                 "CPC song workspace (0x%04X..0x%04X) reaches the firmware "
                 "event blocks at 0xA600; shorten the module."
                 % (song_ws, song_ws + song_ws_size))
     elif uses_bank2:
-        m = re.search(r"^__BSS_END_tail\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
-        if m and int(m.group(1), 16) >= 0x8000:
+        if bss is not None and bss >= 0x8000:
             raise SystemExit(
-                "CPC base memory reaches 0x%s; BANK_2 art at 0x8000 would "
+                "CPC base memory reaches 0x%04X; BANK_2 art at 0x8000 would "
                 "overlap it. Shorten the game or lower cpc_art_rows."
-                % m.group(1))
+                % bss)
 
 
 def _build(ctx):
@@ -135,6 +154,7 @@ def _build(ctx):
             os.path.join(ctx.bdir, "port_data.h"),
             os.path.join(ctx.bdir, "port_font4.h"),
             os.path.join(ctx.bdir, "port_art.asm"),
+            os.path.join(ctx.bdir, "port_ws.asm"),
         ]
         names = build.stage_inputs(td, sources)
         names = [n for n in names if n.endswith((".c", ".asm"))]
@@ -142,8 +162,8 @@ def _build(ctx):
         # GAME.4, ...) stable, so the web emulator can auto-type RUN"GAME.
         cmd = ["zcc", "+cpc", "-subtype=dsk", "-create-app", "-m",
                "-Ca-DZX0_LOW", "-DPLAT_ROWS=25", "-I."]
-        if ctx.doc["game"].get("songs"):
-            cmd.append("-pragma-define:CRT_MAX_HEAP_ADDRESS=%d" % CPC_SONG_WS)
+        cmd.append("-pragma-define:CRT_MAX_HEAP_ADDRESS=%d"
+                   % _define_int(ctx.bdir, "CPC_WS_BASE", CPC_SONG_WS))
         cmd += [*names, "-o", "GAME"]
         build.run(cmd, ctx.env, cwd=td)
         produced = os.path.join(td, "GAME.dsk")

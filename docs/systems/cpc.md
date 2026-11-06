@@ -27,15 +27,18 @@
   build.
 - **Storage:** compressed art blobs are packed into the 6128's extra 16K banks `BANK_4`..`BANK_7`, with `BANK_2`
   (0x8000, capped at 8K) as overflow. A music build packs the song blobs into the same four extra banks but leaves
-  `BANK_2` free for the resident song workspace, so art + music must fit 64K. The runtime pages through port 0x7F,
+  `BANK_2` free for the base-RAM workspaces, so art + music must fit 64K. The runtime pages through port 0x7F,
   decodes to 0xC000 and scatters the band to rows 1..`art_rows`. The art is cached by id (`PORT_KEEP_ART`): a scene
   that reuses the picture only clears the title/text pane, while an art change blanks every pen before decoding so the
   temporary bytes written into video RAM are not visible; the palette is restored after the band and pane have been
-  cleared.
+  cleared. The scene and inventory workspaces (`port_ws.asm`, `CPC_WS_BASE`) share one fixed buffer sized to the
+  larger, and the song workspace follows it, all packed just below the firmware event blocks at `0xA600`. Because
+  the item screen reuses the scene buffer, returning from it forces a full scene redraw
+  (`PORT_INV_OVERWRITES_ART`).
 - **Sound:** `# Game songs:` / per-scene `music:` PT3 modules play through z88dk's VT2 player from the firmware
-  frame-flyback ISR. The module is ZX0-decoded into a fixed `0x9600` base-RAM workspace (`SONG_WS_SIZE` bytes after
-  decompression); music builds cap the CRT heap at `0x9600`, keep `BANK_2` free, and check the linked BSS stays below
-  the workspace. Press `P` to toggle music.
+  frame-flyback ISR. The module is ZX0-decoded into `SONG_WS_ADDR` (`SONG_WS_SIZE` bytes after decompression, above
+  the scene/inventory buffer and below `0xA600`); the CRT heap is capped at `CPC_WS_BASE`, `BANK_2` stays free, and
+  the map guard checks the linked BSS ends before the fixed workspaces. Press `P` to toggle music.
 - **Options:** `mode`, `columns`, `art_rows`, and `menu: popup` (Modes 1/2; Mode 0 always uses the dialog).
   The dialog key is `SPACE`; `ENTER`/fire confirms.
 - **Controls:** arrow keys or W/A/S/D move the cursor; Enter or the joystick fire button chooses (Space also chooses
@@ -48,4 +51,4 @@
 - **Emulator:** CPCJS/Caprice32 WASM (`emulator/cpc`), auto-running `GAME`.
 
 Key files: `tools/cpcart.py`, `src/cpc/plat_cpc.c`, `src/cpc/cpc_paging.asm`, `src/cpc/cpc_ink.asm`,
-`src/cpc/font8_4bpp.h`, `src/portable/core/music.c`.
+`src/cpc/font8_4bpp.h`, `build/port_ws.asm` (fixed scene/inventory workspace), `src/portable/core/music.c`.

@@ -534,9 +534,12 @@ There is no test suite and no configured linter. Verify by:
 - **CPC runtime:** `tools/gen_port.py --cpc` converts each art band to CPC screen bytes (`[u8 ninks][u8 hardware inks][8
   scanline chunks]`) and packs the ZX0-compressed blobs into `BANK_4..BANK_7`, with `BANK_2` (0x8000, capped at 8K so it
   cannot reach the stack) holding overflow. A music build packs art+song blobs into the four extra banks only (no
-  `BANK_2`), because the AY VT2 workspace is fixed at 0x9600; the target caps `CRT_MAX_HEAP_ADDRESS` at 0x9600 and
-  guards `__BSS_END_tail < 0x9600` plus the music code below 0x8000. Songs load through `cpc_unpack_banked()` (`off+2`,
-  skipping the packed length prefix) into that workspace and play from the firmware frame-flyback ISR. `plat_cpc.c`
+  `BANK_2`), because the base-RAM page holds the fixed workspaces. The scene and inventory workspaces share one buffer
+  at `CPC_WS_BASE` (`build/port_ws.asm`, sized to the larger; the item screen reloads the scene on return, so
+  `PORT_INV_OVERWRITES_ART` forces that redraw) and the AY VT2 song workspace follows it, all packed below the
+  firmware event blocks at 0xA600. The target caps `CRT_MAX_HEAP_ADDRESS` at `CPC_WS_BASE` and guards
+  `__BSS_END_tail < CPC_WS_BASE` plus the music code below 0x8000. Songs load through `cpc_unpack_banked()` (`off+2`,
+  skipping the packed length prefix) into `SONG_WS_ADDR` and play from the firmware frame-flyback ISR. `plat_cpc.c`
   renders text directly into screen memory (8x8 doubled glyphs, or 4x8 for 62 columns) and `cpc_paging.asm` pages a
   bank through port 0x7F with interrupts off, decodes to 0xC000, restores the base mapping, then scatters the band to
   rows 1..`cpc_art_rows`. The paging routine and ZX0 decoder must stay below 0x4000; they are assembled into `code_l`
@@ -567,10 +570,11 @@ There is no test suite and no configured linter. Verify by:
   into the 512-pixel grid. An explicit `crop:` keeps its full width and re-centres its vertical window to that aspect
   (clamped to the source), so it is neither stretched nor cropped sideways; the editor preview doubles the height to
   match. `columns` is 64 (default) or 80. 64 columns use 8x8 glyphs at 8 pixels per cell, filling the full 512-pixel
-  width; 80 columns use 6-pixel cells (4-pixel glyphs from the generated `port_font4.h` plus a 2-pixel gap) starting at
-  x=16. The 64-column 8x8 glyphs are the shared CC0 Pixel Operator Mono 8 (`vendor/pixeloperator8/`); the 80-column
-  cells use the 4x8 CRT font. `plat_msx2.c` expands the raw 768-byte font into the Screen 7 cell table in RAM at
-  startup (the old pre-expanded table was 3 KB of the 16 KB fixed ROM bank). Palette entry 0 is the game's
+  width; 80 columns use 6-pixel cells (4-pixel glyphs plus a 2-pixel gap) starting at x=16. The 64-column 8x8 glyphs
+  are the shared CC0 Pixel Operator Mono 8 (`vendor/pixeloperator8/`); the 80-column cells use the 4x8 CRT font.
+  `gen_port.py` writes the raw 768-byte font to its own ASCII16 bank after the song banks (`build/port_font.asm`,
+  `MSX2_FONT_BANK`); `plat_msx2.c` selects that bank and expands the font into the Screen 7 cell table in RAM at
+  startup, then selects `PORT_DATA_BANK`. Palette entry 0 is the game's
   `text_bg:` and entries 14/15 its `highlight_ink:`/`text_ink:` (snapped to RGB333), so cleared rows and selection use
   the chosen colours; `msx2art.text_colours` bakes them into every art palette and the editor preview, so changing them
   rebakes the art. The MSX2 text pane is fixed (`PORT_NO_TEXT_SCROLL`), so scene text and options must fit the rows
@@ -579,7 +583,10 @@ There is no test suite and no configured linter. Verify by:
   2048 bytes (8 full-width lines); the runtime decodes a strip into a 2K RAM buffer and writes it to VRAM, so a 24K
   full-width bitmap fits one 16K bank. Palette bytes are `red:3 << 4 | blue:3` then `green:3`. The target builds with
   `+msx -subtype=rom2`, passes `-pragma-define:MAPPER_ASCII16`, uses `plat_set_bank()` for the 0x8000 window, and guards
-  the link map so resident code stays below 0x8000. Songs are packed into ROM banks after the art banks
+  the link map so resident code stays below 0x8000. That limit is not optional: when the fixed binary is over 16 KB,
+  z88dk-appmake starts at bank 2 and silently drops `_BANK_01.bin` (the scene/inventory data), producing a ROM that
+  boots without its story. The guard reads the z88dk map, whose labels are uppercase. Songs are packed into ROM banks
+  after the art banks
   (`build/port_song.asm`); `plat_load(PLAT_LOAD_SONG)` maps the song bank, decodes `0x8000+off+2` into the BSS
   workspace, restores bank 1, and the VDP IM1 ISR drives the VT2 player. Screen 7 and the V9938 palette are set through
   the BIOS/CHGMOD path; `plat_msx2.c` writes VRAM with R#14 page handling.
