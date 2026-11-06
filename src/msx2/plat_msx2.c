@@ -257,6 +257,41 @@ void plat_draw_art(unsigned char id)
 #endif
 }
 
+/* SNSMAT ($0141) reads a keyboard matrix row: A selects the row and the
+   returned bits are clear for pressed keys.  Interrupts are disabled so the
+   BIOS keyboard ISR cannot switch the PPI row selection mid-read. */
+static unsigned char msx_matrix(unsigned char row) __z88dk_fastcall
+{
+    #asm
+    di
+    ld      a,l
+    call    $0141
+    ld      l,a
+    ld      h,0
+    ei
+    #endasm
+}
+
+/* Every key plat_read_key() consumes, by SNSMAT row/bit.  Waiting for these
+   (instead of the joystick bits alone) keeps a held confirm key such as
+   ENTER, which is not in joystick(1)'s row-8 mapping, from repeating into the
+   next scene and selecting its first option. */
+static unsigned char msx_keys_held(void)
+{
+    unsigned char held = 0;
+    held |= (unsigned char)~msx_matrix(0) & 0x54;   /* 2 4 6 */
+    held |= (unsigned char)~msx_matrix(1) & 0x01;   /* 8 */
+    held |= (unsigned char)~msx_matrix(2) & 0x40;   /* A */
+    held |= (unsigned char)~msx_matrix(3) & 0x02;   /* D */
+#if N_SONGS > 0
+    held |= (unsigned char)~msx_matrix(4) & 0x20;   /* P */
+#endif
+    held |= (unsigned char)~msx_matrix(5) & 0x11;   /* S W */
+    held |= (unsigned char)~msx_matrix(7) & 0x80;   /* ENTER */
+    held |= (unsigned char)~msx_matrix(8) & 0xF1;   /* SPACE, arrows */
+    return held;
+}
+
 #if PORT_OVERLAY_MENU
 /* GTTRIG(0) is the keyboard space bar.  z88dk keeps the BIOS wrappers in
    msxbios.lib, which this ROM2 link does not pull in, so call the BIOS entry
@@ -316,18 +351,22 @@ unsigned char plat_read_key(void)
 
 void plat_wait_release(void)
 {
-    while ((joystick(0) | joystick(1))
-           & (MOVE_UP | MOVE_DOWN | MOVE_LEFT | MOVE_RIGHT | MOVE_FIRE
+    for (;;) {
+        while ((joystick(0) | joystick(1))
+               & (MOVE_UP | MOVE_DOWN | MOVE_LEFT | MOVE_RIGHT | MOVE_FIRE
 #if PORT_OVERLAY_MENU
-              | MOVE_FIRE2
+                  | MOVE_FIRE2
 #endif
-              )) {
-        #asm
-        nop
-        #endasm
+                  )) {
+            #asm
+            nop
+            #endasm
+        }
+        while (kbhit())
+            getch();
+        if (!msx_keys_held())
+            break;
     }
-    while (kbhit())
-        getch();
 }
 
 void plat_clear_row(unsigned char row)
