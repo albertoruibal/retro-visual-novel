@@ -47,6 +47,8 @@ zesarux_index_menu.idx
 
 # Local compose overrides (host model URLs etc.)
 .env
+compose.override.yml
+docker-compose.override.yml
 
 # Local model weights (large; fetched by models/download-*.sh)
 models/*.gguf
