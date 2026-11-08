@@ -44,8 +44,11 @@ def _fit(im, crop, art_rows):
 
 
 def _mono_grid(im, mode):
-    """Dither a prepared image to a 0/1 ink grid using the shared schemes."""
-    from PIL import Image
+    """Dither a prepared image to a 0/1 ink grid using the shared schemes.
+
+    ``off`` resolves to an ordered dither (``zxart.mono_dither``) because a
+    1-bit screen cannot hold a mid-tone.
+    """
     gray = im.convert("L")
     w, h = gray.size
     px = gray.load()

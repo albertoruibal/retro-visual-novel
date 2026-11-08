@@ -66,8 +66,9 @@ DEFAULT_DITHER = "off"
 # A 1-bit monochrome screen has no mid-tone, so `off` would hard-threshold the
 # luminance and throw the shading away. Monochrome converters substitute this
 # ordered scheme when the resolved mode is `off`; an explicit scheme still
-# applies. Bayer packs far better than error diffusion in the resident blobs.
-DEFAULT_MONO_DITHER = "bayer4"
+# applies. The coarsest ordered matrix packs best in the resident blobs; error
+# diffusion can overflow the Oric's tight memory.
+DEFAULT_MONO_DITHER = "bayer2"
 
 # Error-diffusion kernels sharing one table: (divisor, [(dx, dy, weight)]).
 # The tap order matters for exact numpy/pure-Python parity; ``floyd`` keeps the

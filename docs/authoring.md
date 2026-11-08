@@ -107,7 +107,7 @@ result, so the engine carries no state. Each is a `# Game` default that any art 
   `bayer2`/`bayer4`/`bayer8` are ordered matrices from coarsest to finest, `noise` is plain grain, and `floyd`,
   `atkinson`, `jarvis`, `stucki` and `sierra` are error-diffusion kernels (jarvis smoothest, atkinson highest
   contrast). Error diffusion can push the unique-tile count up a little. Monochrome targets cannot honour `off`
-  (a hard threshold would leave only black and white), so they substitute an ordered dither: Oric Atmos uses 4x4
+  (a hard threshold would leave only black and white), so they substitute an ordered dither: Oric Atmos uses 2x2
   Bayer, and CPC Mode 1 always ordered-dithers its black/grey/white ramp.
 - `match:` picks the distance metric used to pick colours: `rgb` (default) or `perceptual`, a redmean approximation
   that weighs hues the way the eye does.

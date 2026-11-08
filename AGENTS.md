@@ -351,7 +351,7 @@ There is no test suite and no configured linter. Verify by:
   pure-Python paths (`_nirvana_band_numpy`, `_nirvana_band_python`) byte-for-byte identical for every mode — the
   pointwise modes share `zxart._threshold_grid`, and error diffusion runs the shared `_DIFFUSE` tap order in the fixed
   raster order in both. **Monochrome targets force dithering**: `zxart.mono_dither()` maps `off` to
-  `zxart.DEFAULT_MONO_DITHER` (`bayer4`) for the 1-bit Oric HIRES converter (`tools/oricart.py`), because a hard
+  `zxart.DEFAULT_MONO_DITHER` (`bayer2`) for the 1-bit Oric HIRES converter (`tools/oricart.py`), because a hard
   threshold would leave only black and white; CPC Mode 1 already ordered-dithers its mono ramp in `cpcart.py`.
 - **More source-conversion options keep colour** (all baked at conversion time, so the engine carries no state):
   `match:` (`rgb` or the `perceptual` redmean distance, `zxart._dist_py`/`_dist_rgb`), `palette:` (`none`/`spectrum`/
