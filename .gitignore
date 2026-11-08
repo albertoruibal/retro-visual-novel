@@ -12,6 +12,8 @@
 /demo-game/*.rom
 /demo-game/*.gb
 /demo-game/*.gbc
+/demo-game/*.prg
+/demo-game/*.nes
 /demo-game/*.cdt
 /demo-game/*.cpc
 /demo-game/*_CODE.bin

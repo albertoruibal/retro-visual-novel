@@ -15,11 +15,21 @@ async function save() {
 
 async function runBuild() {
   await loadServerSettings();
-  if (!SERVER.z88dk_available) {
+  const tg = (typeof gameTargets === "function") ? gameTargets() : ["zx"];
+  const needCc65 = tg.some((t) => t === "c64" || t === "nes");
+  const needZ88dk = tg.some((t) => t !== "c64" && t !== "nes");
+  if (needZ88dk && !SERVER.z88dk_available) {
     const miss = (SERVER.z88dk_missing || []).join(", ");
     setBuildStatus(miss ? `z88dk incomplete — missing ${miss}`
                         : "z88dk not ready — see Settings", "bad");
     openServerSettings("z88dk");
+    return;
+  }
+  if (needCc65 && !SERVER.cc65_available) {
+    const miss = (SERVER.cc65_missing || []).join(", ");
+    setBuildStatus(miss ? `cc65 incomplete — missing ${miss}`
+                        : "cc65 not ready — see Settings", "bad");
+    openServerSettings("cc65");
     return;
   }
   if (view === "raw" && rawDirty) { await saveRaw(); if (rawDirty) return; }
@@ -60,7 +70,8 @@ async function runBuild() {
   } catch (e) {
     $("buildlog").textContent = "build error: " + e.message;
     setBuildStatus("error", "bad");
-    if (/z88dk/i.test(e.message)) openServerSettings("z88dk");
+    if (/cc65/i.test(e.message)) openServerSettings("cc65");
+    else if (/z88dk/i.test(e.message)) openServerSettings("z88dk");
   }
 }
 

@@ -20,16 +20,18 @@ Environment:
     Z88DK        z88dk toolchain root for the build  (default: a detected
                  Snap install at /snap/z88dk/current, else "/tmp/z88dk");
                  its bin/ is put on PATH and ZCCCFG=$Z88DK/lib/config
+    CC65         cc65 toolchain root for the Commodore 64 / NES builds
+                 (default: a detected cl65 on PATH); its bin/ is put on PATH
     RVN_SETTINGS   JSON file for editor-wide settings (server endpoints,
                  chosen in the top-bar Settings modal); wins over the variables above
                  (the old ZXAD_SETTINGS is still read as a fallback)
     EDITOR_PORT  HTTP port to listen on              (default 8765)
     EDITOR_HOST  bind address                        (default 127.0.0.1)
 
-The model-server endpoints and the z88dk toolchain path can be set in the UI
-(top-bar Settings) instead of the environment; a change takes effect
-immediately and is persisted to the settings file. Pointing the editor at a
-local z88dk lets a packaged desktop app build without a bundled toolchain.
+The model-server endpoints and the z88dk/cc65 toolchain paths can be set in the
+UI (top-bar Settings) instead of the environment; a change takes effect
+immediately and is persisted to the settings file. Pointing the editor at local
+toolchains lets a packaged desktop app build without bundled compilers.
 
 Run:
     python3 tools/editor/server.py
@@ -55,10 +57,11 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     GET    /api/health                config + whether the image server is up
     GET    /api/settings              editable editor settings (image-server URL
                                       + z88dk_path)
-    POST   /api/settings              {"stable_diffusion_url","z88dk_path"}
-                                      -> validate/persist + apply (blank URL
-                                      disables; blank z88dk resets to $Z88DK,
-                                      then a detected Snap install)
+    POST   /api/settings              {"stable_diffusion_url","z88dk_path",
+                                      "cc65_path"} -> validate/persist + apply
+                                      (blank URL disables; blank z88dk resets
+                                      to $Z88DK, then a detected Snap install;
+                                      blank cc65 resets to $CC65/detection)
     POST   /api/generate              {"game","art","overrides"} -> job id
     POST   /api/generate_ref          {"game","ref","overrides"} -> job id
     POST   /api/refine_art            {"game","art"} -> 2x img2img job id
@@ -118,6 +121,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import cc65path
 import gamestore
 import scenefile
 import targets
@@ -136,6 +140,12 @@ MONACO = os.path.join(STATIC, "monaco")
 # blank stored value disables the feature, even if the variable set one).
 _ENV_SD_URL = os.environ.get("STABLE_DIFFUSION_URL", "").strip().rstrip("/")
 _ENV_Z88DK = os.environ.get("Z88DK", "").strip()
+_ENV_CC65 = (os.environ.get("CC65") or os.environ.get("RVN_CC65") or "").strip()
+
+STABLE_DIFFUSION_URL = ""
+IMAGE_ENABLED = False
+Z88DK_PATH = _ENV_Z88DK
+CC65_PATH = _ENV_CC65
 
 
 def z88dk_valid(path):
@@ -178,6 +188,27 @@ def z88dk_missing_tools(path=None):
 def z88dk_ready(path=None):
     """True if the toolchain has every host tool the builds invoke."""
     return not z88dk_missing_tools(path)
+
+
+def cc65_valid(path):
+    """True if ``path`` looks like a cc65 install (has cl65/ca65)."""
+    return cc65path.looks_like(path)
+
+
+def cc65_effective_path():
+    """The cc65 root used for the Commodore 64 / NES builds."""
+    return CC65_PATH or cc65path.detected()
+
+
+def cc65_missing_tools(path=None):
+    """The cc65 host tools not found for the configured root."""
+    path = cc65_effective_path() if path is None else str(path or "").strip()
+    return cc65path.missing_tools(path)
+
+
+def cc65_ready(path=None):
+    return bool(cc65_effective_path() if path is None else path) and \
+        not cc65_missing_tools(path)
 
 
 def _default_settings_path():
@@ -242,7 +273,8 @@ def _save_settings_file(patch):
 
 _SETTING_MODULES = ("editor_games", "editor_images", "editor_music",
                    "editor_build")
-_SETTING_NAMES = ("STABLE_DIFFUSION_URL", "IMAGE_ENABLED", "Z88DK_PATH")
+_SETTING_NAMES = ("STABLE_DIFFUSION_URL", "IMAGE_ENABLED", "Z88DK_PATH",
+                  "CC65_PATH")
 
 
 def _sync_setting_modules():
@@ -263,6 +295,11 @@ def settings_payload():
             "z88dk_effective": z88dk_effective_path(),
             "z88dk_available": z88dk_ready(),
             "z88dk_missing": z88dk_missing_tools(),
+            "cc65_path": CC65_PATH, "cc65_valid": cc65_valid(CC65_PATH),
+            "cc65_default": _ENV_CC65 or cc65path.detected(),
+            "cc65_effective": cc65_effective_path(),
+            "cc65_available": cc65_ready(),
+            "cc65_missing": cc65_missing_tools(),
             "settings_path": SETTINGS_PATH}
 
 
@@ -274,13 +311,20 @@ def apply_settings(settings):
     z88dk path is different: a blank value falls back to ``$Z88DK`` (the
     toolchain location is a path, not a feature switch).
     """
-    global STABLE_DIFFUSION_URL, IMAGE_ENABLED, Z88DK_PATH
+    global STABLE_DIFFUSION_URL, IMAGE_ENABLED, Z88DK_PATH, CC65_PATH
     sd = settings.get("stable_diffusion_url")
     tool = settings.get("z88dk_path")
+    cc65 = settings.get("cc65_path")
     STABLE_DIFFUSION_URL = (str(sd).strip().rstrip("/")
                             if sd is not None else _ENV_SD_URL)
     Z88DK_PATH = str(tool).strip() if tool is not None and str(tool).strip() \
         else _ENV_Z88DK
+    CC65_PATH = str(cc65).strip() if cc65 is not None and str(cc65).strip() \
+        else _ENV_CC65
+    if CC65_PATH:
+        os.environ["CC65"] = CC65_PATH
+    else:
+        os.environ.pop("CC65", None)
     IMAGE_ENABLED = bool(STABLE_DIFFUSION_URL)
     _sync_setting_modules()
     return settings_payload()
@@ -298,6 +342,8 @@ def save_settings(body):
         # A path, not a feature toggle: any string is accepted and the payload's
         # ``z88dk_valid`` tells the UI whether it is a usable toolchain.
         patch["z88dk_path"] = str(body.get("z88dk_path") or "").strip()
+    if "cc65_path" in body:
+        patch["cc65_path"] = str(body.get("cc65_path") or "").strip()
     if patch:
         _save_settings_file(patch)
         apply_settings(_read_settings_file())
@@ -349,7 +395,10 @@ def health():
             "image_enabled": IMAGE_ENABLED, "port": PORT,
             "z88dk_path": Z88DK_PATH, "z88dk_valid": z88dk_valid(Z88DK_PATH),
             "z88dk_available": z88dk_ready(),
-            "z88dk_missing": z88dk_missing_tools()}
+            "z88dk_missing": z88dk_missing_tools(),
+            "cc65_path": CC65_PATH, "cc65_valid": cc65_valid(CC65_PATH),
+            "cc65_available": cc65_ready(),
+            "cc65_missing": cc65_missing_tools()}
 
 
 # -------------------------------------------------------------------- server
@@ -816,6 +865,9 @@ def main():
     eff = z88dk_effective_path()
     ok = " (ok)" if z88dk_ready() else " (not found)"
     print(f"  z88dk   : {eff}{ok}")
+    eff = cc65_effective_path() or "(not set)"
+    ok = " (ok)" if cc65_ready() else " (not found)"
+    print(f"  cc65    : {eff}{ok}")
     print(f"  open    : http://{HOST}:{PORT}")
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     try:

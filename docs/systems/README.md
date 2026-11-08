@@ -3,7 +3,8 @@
 One page per build system. The shared runtime (`src/portable/core/`) handles scenes, flags, items, selectable words
 and the inventory on **every** target, including the Spectrum; each page records the display, art conversion, storage
 and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `src/next/plat_next.c`,
-`src/sms/plat_sms.c`, `src/cpc/plat_cpc.c`, `src/msx2/plat_msx2.c` and `src/gb/plat_gb.c`.
+`src/sms/plat_sms.c`, `src/cpc/plat_cpc.c`, `src/msx2/plat_msx2.c`, `src/gb/plat_gb.c`, `src/c64/plat_c64.c` and
+`src/nes/plat_nes.c`.
 
 | System | Page | Output |
 |---|---|---|
@@ -13,6 +14,8 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 | Amstrad CPC 6128 | [cpc.md](cpc.md) | `.dsk` |
 | MSX2 (V9938) | [msx2.md](msx2.md) | `.rom` |
 | Nintendo Game Boy Color | [gb.md](gb.md) | `.gbc` |
+| Commodore 64 | [c64.md](c64.md) | `.prg` |
+| Nintendo Entertainment System | [nes.md](nes.md) | `.nes` |
 
 Targets are discovered from `tools/targets/` and selected under `## Systems` in `game.md`:
 
@@ -21,6 +24,10 @@ Targets are discovered from `tools/targets/` and selected under `## Systems` in 
     art_rows: 12
     ## gb
     art_rows: 6
+    ## c64
+    art_rows: 6
+    ## nes
+    art_rows: 10
 
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.

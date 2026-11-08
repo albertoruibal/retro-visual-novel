@@ -66,6 +66,39 @@ def _cond_sets(conditions):
     return need, clear
 
 
+def _active_text(lines, system):
+    """Text lines left after folding one build target's ``system_*`` flags."""
+    out = []
+    for raw in lines or []:
+        _rendered, conds = scenefile.split_text_line(raw)
+        if scenefile.filter_system_conditions(conds, system) is not None:
+            out.append(raw)
+    return out
+
+
+def _option_conditions(raw):
+    """The condition tokens on an option line (the part after ``->``)."""
+    core, _popup = scenefile.split_option_msg(raw)
+    m = scenefile._OPT_RE.match(core)
+    return scenefile.option_conditions(m.group(3)) if m else []
+
+
+def _active_options(opts, system):
+    """Option lines left after folding one build target's ``system_*`` flags."""
+    return [raw for raw in (opts or [])
+            if scenefile.filter_system_conditions(
+                _option_conditions(raw), system) is not None]
+
+
+def _over_limit(counts, limit):
+    """Systems whose folded count exceeds a build limit, for a clear message."""
+    over = {system: n for system, n in counts.items() if n > limit}
+    if not over:
+        return None
+    detail = ", ".join(f"{system} {n}" for system, n in over.items())
+    return f"more than {limit} after system_* folding ({detail})"
+
+
 def _max_visible_rows(entries, scene_bits=None, item_names=(), carry=0):
     """Worst-case visible rows over every satisfiable flag/item combination.
 
@@ -172,7 +205,7 @@ def _validate(doc, slug):
     # The row budget below is the ZX layout. Next uses the same layout with its
     # own art_rows/menu options, so validate the tighter of the selected ZX
     # systems (and fold the matching system_* conditions).
-    selected_systems = targets.selected_targets(doc)
+    selected_systems = targets.selected_targets(doc) or ["zx"]
     fit_system = "zx"
     zx_target = targets.get_target("zx")
     next_target = targets.get_target("next")
@@ -369,10 +402,12 @@ def _validate(doc, slug):
         if not lines and not disp and not opts:
             issues.append({"level": "warn", "section": "item", "id": name,
                            "msg": "empty description"})
-        if len(lines) > 4:
+        desc_over = _over_limit(
+            {system: len(_active_text(lines, system))
+             for system in selected_systems}, 4)
+        if desc_over:
             issues.append({"level": "error", "section": "item", "id": name,
-                           "msg": f"{len(lines)} description lines; the engine "
-                                  "shows at most 4"})
+                           "msg": f"description has {desc_over}"})
         # Conditions are postfix (after `->`) and are not displayed; long
         # description lines are word-wrapped by the engine.
         for ln in lines:
@@ -400,9 +435,12 @@ def _validate(doc, slug):
             fit_entries.append(
                 (scenefile.text_rows(rendered, TEXT_COLS), need, clear,
                  None, None))
-        if len(opts) > 6:
+        opt_over = _over_limit(
+            {system: len(_active_options(opts, system))
+             for system in selected_systems}, 6)
+        if opt_over:
             issues.append({"level": "error", "section": "item", "id": name,
-                           "msg": f"{len(opts)} options (max 6)"})
+                           "msg": f"options: {opt_over}"})
         for o in opts:
             core, popup = scenefile.split_option_msg(o)
             om = scenefile._OPT_RE.match(core)
@@ -761,10 +799,12 @@ def _validate(doc, slug):
         if s["id"] not in reachable:
             issues.append({"level": "warn", "section": "scene", "id": sid,
                            "msg": "unreachable from the first scene"})
-        if len(s["text"]) > 8:
+        text_over = _over_limit(
+            {system: len(_active_text(s["text"], system))
+             for system in selected_systems}, 8)
+        if text_over:
             issues.append({"level": "error", "section": "scene", "id": sid,
-                           "msg": "more than 8 text lines"})
-        nwords = 0
+                           "msg": f"text lines: {text_over}"})
         fit_entries = []
         for wi, t in enumerate(s["text"]):
             rendered, conds = scenefile.split_text_line(t)
@@ -813,7 +853,6 @@ def _validate(doc, slug):
                                           f"'{w['word']}' is not directly "
                                           f"below its line; move the "
                                           f"`-> if {flag}` line up"})
-            nwords += len(words)
             folded = scenefile.filter_system_conditions(conds, fit_system)
             if folded is None:
                 continue
@@ -821,15 +860,24 @@ def _validate(doc, slug):
             fit_entries.append(
                 (scenefile.text_rows(clean, TEXT_COLS), need, clear,
                  None, None))
-        if nwords > 8:
+        word_over = _over_limit(
+            {system: sum(
+                len(scenefile.parse_words(
+                    scenefile.split_text_line(raw)[0])[1])
+                for raw in _active_text(s["text"], system))
+             for system in selected_systems}, 8)
+        if word_over:
             issues.append({"level": "error", "section": "scene", "id": sid,
-                           "msg": f"{nwords} selectable words (max 8)"})
+                           "msg": f"selectable words: {word_over}"})
         if len(s.get("title", "")) > TEXT_COLS:
             issues.append({"level": "warn", "section": "scene", "id": sid,
                            "msg": f"title >{TEXT_COLS} cols; it will run off the screen"})
-        if len(s["opts"]) > 6:
+        opt_over = _over_limit(
+            {system: len(_active_options(s["opts"], system))
+             for system in selected_systems}, 6)
+        if opt_over:
             issues.append({"level": "error", "section": "scene", "id": sid,
-                           "msg": f"{len(s['opts'])} options (max 6)"})
+                           "msg": f"options: {opt_over}"})
         check_music(s.get("music"), "scene", sid)
         for o in s["opts"]:
             core, popup = scenefile.split_option_msg(o)

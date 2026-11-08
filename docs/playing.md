@@ -6,8 +6,8 @@ changes is how you move, confirm and open the inventory/action list. The built g
 
 The text of a scene is above the options, and an option that is hidden by a flag is simply not shown. Highlighted
 `{{words}}` are one-shot: selecting one sets its flag and redraws the scene. A system with `menu: popup` enabled in
-`# Systems` puts its options and held items in a dialog instead of the pinned list (the Master System, Game Boy Color
-and CPC Mode 0 always do this).
+`# Systems` puts its options and held items in a dialog instead of the pinned list (the Master System, Game Boy
+Color, Commodore 64, NES and CPC Mode 0 always do this).
 
 ## Controls at a glance
 
@@ -20,6 +20,8 @@ and CPC Mode 0 always do this).
 | MSX2 | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
 | Sega Master System | D-pad | Button 2 | Button 1 opens/closes the action dialog |
 | Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
+| Commodore 64 | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
+| NES | D-pad | A | B or Select opens/closes the action dialog |
 | Web runtime | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
 ## Web runtime
@@ -120,6 +122,25 @@ Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
 - **Music:** `Select` pauses/resumes the converted Game Boy APU soundtrack.
 - The Game Boy Color build has no boot-password screen.
 
+## Commodore 64
+
+- **Movement:** cursor keys or `W` `A` `S` `D`; `RETURN` confirms.
+- **Options and items:** `SPACE` opens and closes the action dialog. It lists the scene options first and then the
+  held items (prefixed `*`); the cursor keys move and scroll the list and `RETURN` confirms. On a long item description,
+  `UP`/`DOWN` scroll the description while the cursor is on the first entry.
+- **Music:** not implemented yet on the C64 build.
+- There is no boot-password screen.
+
+## NES
+
+- **Movement:** D-pad; `A` confirms.
+- **Options and items:** `B` or `SELECT` opens and closes the action dialog. It lists the scene options first and then
+  the held items (prefixed `*`); the D-pad moves and scrolls the list and `A` confirms. On a long item description,
+  `UP`/`DOWN` scroll the description while the cursor is on the first entry.
+- **Music:** not implemented yet on the NES build.
+- There is no boot-password screen. The build targets MMC1 cartridges with 8KB battery WRAM, so use a compatible
+  emulator (FCEUX, Mesen, Nestopia) or flash cart.
+
 ## Other notes
 
 - Items can have their own options; choosing one applies its effects and returns to the current scene. **Drop**
@@ -127,5 +148,6 @@ Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
 - A game's `# Game carry:` cap limits how many items are held; when the pack is full, `pick` options are hidden, so
   dropping an item is how you make room.
 - On the targets with a permanent inventory row (ZX, MSX2, CPC Modes 1/2) the item screen also has **Drop** and
-  **Back** entries. On the dialog targets (SMS, Game Boy Color, CPC Mode 0, and any system with `menu: popup`) the
+  **Back** entries. On the dialog targets (SMS, Game Boy Color, Commodore 64, NES, CPC Mode 0, and any system with
+  `menu: popup`) the
   action dialog is the only way in.

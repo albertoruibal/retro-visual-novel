@@ -35,6 +35,7 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cc65path
 import gamestore
 import scenefile
 import targets
@@ -57,35 +58,50 @@ def _fwd(p):
     return str(p).replace("\\", "/")
 
 
+def _settings_path():
+    """The editor settings file, shared by the CLI and the desktop app."""
+    path = os.environ.get("RVN_SETTINGS") or os.environ.get("ZXAD_SETTINGS")
+    if path:
+        return path
+    if sys.platform == "darwin":
+        cfg = os.path.join(os.path.expanduser("~"), "Library",
+                           "Application Support")
+    elif os.name == "nt":
+        cfg = os.environ.get("APPDATA") or os.path.expanduser("~")
+    else:
+        cfg = os.environ.get("XDG_CONFIG_HOME") or \
+            os.path.join(os.path.expanduser("~"), ".config")
+    path = os.path.join(cfg, "retro-visual-novel", "settings.json")
+    for old in (os.path.join(cfg, "zx-novel", "settings.json"),
+                os.path.join(cfg, "zxadventure", "settings.json")):
+        if os.path.exists(path):
+            break
+        if os.path.exists(old):
+            path = old
+    return path
+
+
+def _settings_value(key):
+    try:
+        with open(_settings_path(), encoding="utf-8") as f:
+            val = json.load(f).get(key)
+    except Exception:                          # noqa: BLE001 - missing/garbled
+        return ""
+    return str(val).strip() if val else ""
+
+
 def _settings_z88dk():
     """The editor's saved z88dk_path, so a CLI build honours the UI setting.
 
     The editor server passes ``$Z88DK`` directly, so this is only a fallback
     for running ``tools/build.py`` on its own.
     """
-    path = os.environ.get("RVN_SETTINGS") or os.environ.get("ZXAD_SETTINGS")
-    if not path:
-        if sys.platform == "darwin":
-            cfg = os.path.join(os.path.expanduser("~"), "Library",
-                               "Application Support")
-        elif os.name == "nt":
-            cfg = os.environ.get("APPDATA") or os.path.expanduser("~")
-        else:
-            cfg = os.environ.get("XDG_CONFIG_HOME") or \
-                os.path.join(os.path.expanduser("~"), ".config")
-        path = os.path.join(cfg, "retro-visual-novel", "settings.json")
-        for old in (os.path.join(cfg, "zx-novel", "settings.json"),
-                    os.path.join(cfg, "zxadventure", "settings.json")):
-            if os.path.exists(path):
-                break
-            if os.path.exists(old):
-                path = old
-    try:
-        with open(path, encoding="utf-8") as f:
-            val = json.load(f).get("z88dk_path")
-    except Exception:                          # noqa: BLE001 - missing/garbled
-        return ""
-    return str(val).strip() if val else ""
+    return _settings_value("z88dk_path")
+
+
+def _settings_cc65():
+    """The editor's saved cc65_path (Commodore 64 / NES builds)."""
+    return _settings_value("cc65_path")
 
 
 def zcc_config(z88dk):
@@ -113,6 +129,11 @@ def build_env():
     env["Z88DK"] = z88dk
     env["ZCCCFG"] = zcc_config(z88dk)
     env["PATH"] = os.path.join(z88dk, "bin") + os.pathsep + env.get("PATH", "")
+    cc65 = env.get("CC65") or _settings_cc65() or cc65path.detected()
+    if cc65:
+        env["CC65"] = cc65
+        os.environ["CC65"] = cc65
+        env["PATH"] = cc65path.bin_dir(cc65) + os.pathsep + env["PATH"]
     return env
 
 
@@ -628,19 +649,35 @@ def _target_ids(doc, requested=None, build_all=False):
     return targets.ordered_targets(targets.selected_targets(doc))
 
 
+CC65_TARGETS = ("c64", "nes")
+
+
+def _needs_z88dk(ids):
+    return any(str(t).strip().lower() not in CC65_TARGETS for t in ids)
+
+
 def build_selected(slug, requested=None, build_all=False):
     """Build every selected target; return a per-target result summary."""
     game, doc = _game_doc(slug)
     env = build_env()
-    missing = _z88dk_missing(env)
-    if missing:
-        raise SystemExit(
-            "z88dk is incomplete — missing %s. Set $Z88DK or choose the "
-            "toolchain folder in the editor's Settings (Build toolchain)"
-            % ", ".join(missing))
     ids = _target_ids(doc, requested, build_all)
     if not ids:
         raise SystemExit("no build targets selected (add targets: to game.md)")
+    if _needs_z88dk(ids):
+        missing = _z88dk_missing(env)
+        if missing:
+            raise SystemExit(
+                "z88dk is incomplete — missing %s. Set $Z88DK or choose the "
+                "toolchain folder in the editor's Settings (Build toolchain)"
+                % ", ".join(missing))
+    if any(str(t).strip().lower() in CC65_TARGETS for t in ids):
+        cc65 = env.get("CC65") or cc65path.detected()
+        missing = cc65path.missing_tools(cc65)
+        if missing:
+            raise SystemExit(
+                "cc65 is incomplete — missing %s. Install cc65 or choose its "
+                "folder in the editor's Settings (Build toolchain)"
+                % ", ".join(missing))
     summary = []
     failures = 0
     for index, target_id in enumerate(ids):

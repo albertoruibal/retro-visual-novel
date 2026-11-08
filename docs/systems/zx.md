@@ -14,7 +14,7 @@ the boot password screen and per-scene music.
   description. The pinned layout allows `22 - art_rows` text+option rows; the dialog layout allows
   `23 - art_rows` text rows. Text and item descriptions may be any length and word-wrap at 62 columns; with
   `menu: popup` overflowing text scrolls, while the pinned layout must fit (the editor checks the worst case across
-  all flag/item combinations). Up to 8 logical text lines and 6 options remain.
+  all flag/item combinations). Up to 8 logical text lines and 6 options remain after `system_*` folding.
 - **Engine:** NIRVANA+ (Einar Saukas) — **vendored** in `vendor/nirvanap/`, built per game as
   `vendor/nirvanap/nirvanap.lib` with `TOTAL_ROWS` = `## zx` `art_rows:` (default 10): it races bicolor attribute rows
   **1..art_rows** (the art band). On the pinned layout the story band is rows **art_rows+1..22** and row **23** is

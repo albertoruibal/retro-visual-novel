@@ -165,10 +165,15 @@ overrides the prompt line above the input ("Enter the password:" by default).
     menu: popup             # optional: options/items in a SPACE/button-2 dialog
     ## gb
     art_rows: 6             # 4|6|8 (default 6); Game Boy Color action dialog
+    ## c64
+    art_rows: 6             # 4|6|8|10 (default 6); C64 action dialog
+    ## nes
+    art_rows: 10            # 6|8|10 (default 10); NES action dialog
 
 A build compiles ZX first when it is selected, then the other systems in block order; each system's log is separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
-(`<slug>.tap`, `.sna`, `.nex`, `.sms`, `.dsk`, `.rom`, `.gbc`). An absent `# Systems` means the legacy `targets:` list in
+(`<slug>.tap`, `.sna`, `.nex`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`). An absent `# Systems` means the legacy
+`targets:` list in
 `# Game`, or ZX only when that is absent too. Old hand-written `<target>_<option>` lines in `# Game` (and the old
 `## zx art_lines:` spelling) are still read and are rewritten into this section on save; the editor's **Systems** tab
 edits the selection.
@@ -258,6 +263,7 @@ game default, and a scene's `music:` overrides the game default for that scene �
 The player only restarts when the chosen song actually changes, so adjacent scenes with the same song play
 continuously. PT3 plays directly on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible). The Master System build
 converts it to an SN76489 PSG stream and the Game Boy Color build to a Game Boy APU register stream at build time.
+The Commodore 64 and NES builds currently ignore songs; they still build when `songs:`/`music:` are present.
 
 The Music tab converts into `assets/music/`: **Convert MIDI → PT3** keeps the uploaded source as `<id>.mid` next to
 the module, so a re-conversion with a different cut or style does not need a re-upload.
@@ -274,7 +280,7 @@ first block is still the start.) Each block:
     art: hall                   # which art to draw
     ending: won                 # optional; sets the flag when reached
     music: theme                # optional; overrides the # Game default
-    text:                       # scene body, up to 8 logical lines (wrapped)
+    text:                       # scene body, up to 8 logical lines per target (wrapped)
       Dust hangs in the light.
       The {{staircase}} spirals upward.
     opt: Climb the stairs -> upper_hall
@@ -286,8 +292,9 @@ above.
 
 ### Text lines
 
-`text:` lists the scene's logical lines, at most 8. Each may be any length: the engine word-wraps it at spaces to the
-text band width (62 columns on ZX) and hard-splits a word that is longer than a whole row. Blank lines are dropped and
+`text:` lists the scene's logical lines, at most 8 after `system_*` conditions are folded for the target being
+built. Each may be any length: the engine word-wraps it at spaces to the text band width (62 columns on ZX) and
+hard-splits a word that is longer than a whole row. Blank lines are dropped and
 the text is top-aligned in the band; wrapped rows, not source lines, count against the screen budget. Two per-line
 devices change what is shown:
 
@@ -308,8 +315,8 @@ A condition (here and everywhere in the format) only *tests* a name; see
 
 #### Build-time system flags
 
-`system_zx`, `system_next`, `system_sms`, `system_cpc`, `system_msx2` and `system_gb` are reserved pseudo-flags that
-are true only while generating that target. They are folded at build time: on a matching build an `if system_zx` token
+`system_zx`, `system_next`, `system_sms`, `system_cpc`, `system_msx2`, `system_gb`, `system_c64` and `system_nes` are
+reserved pseudo-flags that are true only while generating that target. They are folded at build time: on a matching build an `if system_zx` token
 disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
 `unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in `if`/`unless`
 conditions — declaring them, listing them in `start:`, using them with `set`/`unset`/`pick`/`leave`, as an `ending:`
@@ -322,8 +329,10 @@ This is how one source can give each system its own instructions or credits, for
       Press ENTER to choose. -> if system_zx
       Press SPACE to open the menu and ENTER or fire to choose. -> if system_cpc
 
-The generated scene data (and therefore the ZX/Next/CPC/SMS/MSX2/GB builds) differs per target. The web export is not one
-of those systems, so all native system flags are false there; keep a generic line for the web build.
+The generated scene data (and therefore the ZX/Next/CPC/SMS/MSX2/GB builds) differs per target. Per-scene limits such
+as the 8 text lines and 6 options apply after this folding, so a scene may carry more source lines when each target
+keeps only its own subset. The web export is not one of those systems, so all native system flags are false there;
+keep a generic line for the web build.
 
 ### Options
 
@@ -436,7 +445,7 @@ The ZX layout drives the budgets the editor validates:
 
 | Thing | Limit |
 |---|---|
-| Scene text logical lines | 8 (wrapped rows must fit the band) |
+| Scene text logical lines | 8 per target after `system_*` folding (wrapped rows must fit the band) |
 | Option/label/title columns | 62 (item display names 58) |
 | Scene text / item description | word-wrapped at 62 columns on ZX |
 | Options per scene/item | 6 |

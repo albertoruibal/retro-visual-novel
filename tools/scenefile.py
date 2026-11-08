@@ -72,6 +72,8 @@ SYSTEM_FLAGS = {
     "system_msx2": "msx2",
     "system_gb": "gb",
     "system_next": "next",
+    "system_c64": "c64",
+    "system_nes": "nes",
 }
 # Accepted values for `# Game dither:`, mirroring zxart.DITHER_MODES.
 DITHER_MODES = ("off", "bayer2", "bayer4", "bayer8", "noise", "floyd",

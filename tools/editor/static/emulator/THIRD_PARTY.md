@@ -17,6 +17,8 @@ offline.
 - **ZX Spectrum 128K:** JSSpeccy 3 (`jsspeccy/jsspeccy.js.LICENSE.txt`); GPL-3.0 / upstream notices.
 - **ZX Spectrum Next:** no web emulator is bundled. Run the `.nex` with an external ZEsarUX (TBBlue); the editor's
   Emulator tab intentionally does not list Next.
+- **Commodore 64:** no web emulator is bundled. Run the `.prg` with VICE (`x64sc`).
+- **NES:** no web emulator is bundled. Run the `.nes` with FCEUX, Mesen, Nestopia or another MMC1-capable emulator.
 
 The EmulatorJS data (`emulatorjs/data`), including the smsplus and gambatte cores, is shared by the SMS and
 Game Boy Color pages. The editor's server serves these files through `/emulator/<path>`; the game artifacts are

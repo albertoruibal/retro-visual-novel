@@ -131,7 +131,7 @@ def _scene_rows(doc, art_rows, columns, popup=False):
     text_top = 1 + art_rows
     for scene in (doc or {}).get("scenes") or []:
         text = 0
-        for raw in (scene.get("text") or [])[:8]:
+        for raw in scene.get("text") or []:
             rendered, conds = scenefile.split_text_line(raw)
             if scenefile.filter_system_conditions(conds, "msx2") is None:
                 continue
@@ -139,7 +139,7 @@ def _scene_rows(doc, art_rows, columns, popup=False):
                             in scenefile.word_segments(rendered))
             text += _rows(clean, columns)
         opts = 0
-        for raw in (scene.get("opts") or [])[:6]:
+        for raw in scene.get("opts") or []:
             rest = str(raw).split("->", 1)[1] if "->" in str(raw) else ""
             if scenefile.filter_system_conditions(
                     scenefile.option_conditions(rest), "msx2") is None:

@@ -2,7 +2,13 @@
 #ifndef PORT_PLAT_H
 #define PORT_PLAT_H
 
+#if defined(__CC65__)
+/* cc65 (Commodore 64 / NES) has no z88dk compiler attributes. */
+#define __smallc
+#define __z88dk_fastcall
+#else
 #include <sys/compiler.h>
+#endif
 
 #ifndef PLAT_ROWS
 #define PLAT_ROWS 24

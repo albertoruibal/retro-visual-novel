@@ -132,7 +132,7 @@ extern unsigned char flags[NFLAGS];
 extern unsigned char cur;
 extern unsigned char cur_art;
 extern unsigned char opt_idx[NOPT_MAX];
-extern unsigned char inv_vis[N_ITEMS ? N_ITEMS : 1];
+extern unsigned char inv_vis[N_ITEMS + 1];
 extern unsigned char inv_nvis;
 extern unsigned char opt_row[NOPT_MAX];
 extern unsigned char opt_nrows[NOPT_MAX];

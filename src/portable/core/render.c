@@ -17,11 +17,13 @@ unsigned char print_text_color(unsigned char row, unsigned char col,
 {
     unsigned char start = row;
     unsigned int guard = 0;
+    unsigned char n, last, i;
     char buf[PORT_COLS + 2];
     while (*s && row < PLAT_ROWS) {
         if (++guard > 200)
             break;
-        unsigned char n = 0, last = 0, i;
+        n = 0;
+        last = 0;
         while (s[n] && n < width) {
             if (s[n] == ' ')
                 last = n;
@@ -92,7 +94,9 @@ void render_text(void)
 #if HAVE_WORDS
     PortWordHdr *words = (PortWordHdr *)(scene_ws + sc->words_off);
 #endif
-    unsigned char i, vrow = 0;
+    unsigned char i, r, vrow = 0;
+    char buf[PORT_COLS + 2];
+    unsigned int guard = 0;
     word_count = 0;
 
 #if PORT_NO_WRAP
@@ -103,7 +107,7 @@ void render_text(void)
     else
         for (i = 0; i < text_rows; i++)
             clear_row(text_top + i);
-    for (unsigned char r = 0; r < 8; r++) {
+    for (r = 0; r < 8; r++) {
         const unsigned char *s;
         unsigned char visible;
         if (!sc->text_off[r])
@@ -141,14 +145,12 @@ void render_text(void)
     }
     text_total = vrow;
 #else
-    char buf[PORT_COLS + 2];
-    unsigned int guard = 0;
     if (text_fresh)
         text_fresh = 0;
     else
         for (i = 0; i < text_rows; i++)
             clear_row(text_top + i);
-    for (unsigned char r = 0; r < 8; r++) {
+    for (r = 0; r < 8; r++) {
         const unsigned char *s, *line_start;
         unsigned char visible, pos = 0;
         if (!sc->text_off[r])

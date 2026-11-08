@@ -19,6 +19,7 @@ def _build_env_for(slug):
         env.pop("ZXAD_GAMES", None)
         env.pop("ZXAD_GAME", None)
     env["Z88DK"] = z88dk_effective_path()
+    env["CC65"] = cc65_effective_path()
     return env
 
 
@@ -97,14 +98,28 @@ def _run_build(build_id, slug, requested=None):
 
 
 def start_build(slug, requested=None):
-    _game_or_error(slug)
-    missing = z88dk_missing_tools()
-    if missing:
-        raise ValueError(
-            "z88dk is incomplete — missing %s in %s. Set the toolchain "
-            "folder in Settings (Build toolchain)." % (
-                ", ".join(missing),
-                os.path.join(z88dk_effective_path(), "bin")))
+    game = _game_or_error(slug)
+    doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+    ids = targets.ordered_targets(
+        str(t).strip().lower() for t in (requested or [])
+        if str(t).strip())
+    if not ids:
+        ids = targets.ordered_targets(targets.selected_targets(doc))
+    cc65_targets = ("c64", "nes")
+    if any(t not in cc65_targets for t in ids):
+        missing = z88dk_missing_tools()
+        if missing:
+            raise ValueError(
+                "z88dk is incomplete — missing %s in %s. Set the toolchain "
+                "folder in Settings (Build toolchain)." % (
+                    ", ".join(missing),
+                    os.path.join(z88dk_effective_path(), "bin")))
+    if any(t in cc65_targets for t in ids):
+        missing = cc65_missing_tools()
+        if missing:
+            raise ValueError(
+                "cc65 is incomplete — missing %s. Install cc65 or set its "
+                "folder in Settings (Build toolchain)." % ", ".join(missing))
     build_id = f"build-{slug}-{int(time.time()*1000)}"
     _builds[build_id] = {"id": build_id, "game": slug, "status": "queued",
                          "log": [], "targets": {}}

@@ -14,7 +14,7 @@ unsigned char cur;
 unsigned char cur_art = 0xFF;
 #endif
 unsigned char opt_idx[NOPT_MAX];
-unsigned char inv_vis[N_ITEMS ? N_ITEMS : 1];
+unsigned char inv_vis[N_ITEMS + 1];
 unsigned char inv_nvis;
 #if !PORT_OVERLAY_MENU
 unsigned char opt_row[NOPT_MAX];

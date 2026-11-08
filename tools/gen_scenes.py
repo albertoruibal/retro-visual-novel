@@ -145,7 +145,7 @@ game.md format (author-facing):
     # Items                # optional: display names + inventory descriptions
     ## <item-id>
     name: <display name>   # shown in the item list; default the id (<= 58 cols)
-    desc: <lines...>       # up to 4 logical lines; long lines wrap
+    desc: <lines...>       # up to 4 logical lines; long lines wrap (per target)
 
     # Scenes               # story order; the first ## block is the start
     ## <scene-id>
@@ -153,7 +153,7 @@ game.md format (author-facing):
     art: <art-id>          # shared by any number of scenes
     ending: <flag>         # optional; set when this scene is shown
     music: off|<song-id>|on  # optional: overrides the # Game default
-    text:                  # up to 8 logical lines; long lines wrap
+    text:                  # up to 8 logical lines per target; long lines wrap
       <line> -> if <flag> unless <flag>       # postfix conditions (all hold)
       ... {{selectable word|flag}} ...        # word sets its flag when chosen
     opt: <label max 62> -> <target-id|-> [if flag] [unless flag] [set flag]
@@ -344,6 +344,9 @@ def build_scene_blob(b, idmap, artmap, flag_map, system="zx"):
                      fid(pick.group(1) if pick else None),
                      fid(leave.group(1) if leave else None),
                      1 if clear else 0, esc_bytes(msg) if msg else b""))
+    if len(opts) > 6:
+        sys.exit(f"scene {b['id']}: {len(opts)} options after system_* "
+                 f"folding for {system} (max 6)")
 
     strings = bytearray()
     title_off = HDR_SIZE
@@ -351,12 +354,15 @@ def build_scene_blob(b, idmap, artmap, flag_map, system="zx"):
     text_off = []
     words = []                  # (line, col, len, flag id), line then col order
     active_lines = []
-    for raw in b["text"][:8]:
+    for raw in b["text"]:
         rendered, conds = scenefile.split_text_line(raw)
         conds = scenefile.filter_system_conditions(conds, system)
         if conds is None:
             continue
         active_lines.append((rendered, conds))
+    if len(active_lines) > 8:
+        sys.exit(f"scene {b['id']}: {len(active_lines)} text lines after "
+                 f"system_* folding for {system} (max 8)")
     for li, (rendered, conds) in enumerate(active_lines):
         # every line is stored as: [ncond][(flag id, negated) * ncond] + text.
         # A plain line has ncond=0, so the header is unambiguous.
@@ -380,7 +386,7 @@ def build_scene_blob(b, idmap, artmap, flag_map, system="zx"):
     while len(text_off) < 8:
         text_off.append(0)
     opt_blobs = []
-    for (label, nxt, conds, set_, unset, pick, leave, clear, msg) in opts[:6]:
+    for (label, nxt, conds, set_, unset, pick, leave, clear, msg) in opts:
         label_off = HDR_SIZE + len(strings)
         strings += label
         msg_off = 0
@@ -540,8 +546,6 @@ def build_inv_blob(item_list, flag_map, item_meta, ui, carry, idmap,
         meta = (item_meta.get(name) or {}) if name else {}
         raw = [str(x).strip() for x in (meta.get("desc") or [])]
         raw = [x for x in raw if x]
-        if len(raw) > 4:
-            sys.exit(f"item {name!r}: description has {len(raw)} lines (max 4)")
 
         def desc_fid(cond_name):
             if cond_name not in flag_map:
@@ -558,6 +562,9 @@ def build_inv_blob(item_list, flag_map, item_meta, ui, carry, idmap,
             control = text_cond_header(
                 conds, desc_fid, f"item {name!r}: description line")
             lines.append(control + esc_bytes(rendered))
+        if len(lines) > 4:
+            sys.exit(f"item {name!r}: description has {len(lines)} lines "
+                     f"after system_* folding for {system} (max 4)")
         if lines:
             any_desc = True
         desc_lines.append(lines)
@@ -723,13 +730,15 @@ def scene_song_array(scenes, doc, songmap):
 
 
 def _zx0_tool():
-    """Locate the z88dk-zx0 host compressor, or exit with a clear message.
+    """Locate the z88dk-zx0 host compressor, or ``None`` when it is missing.
 
     Prefers the checkout's ``$Z88DK/bin`` (the build sets it) and falls back to
     ``PATH`` (which honours ``PATHEXT`` on Windows, so ``.exe`` is found). When
     ``Z88DK`` points at the toolchain root, its ``bin`` directory is checked;
     the directory holding the ``zcc`` on PATH is checked as a last resort for
-    installs that keep the host tools together.
+    installs that keep the host tools together.  A missing tool is not fatal:
+    ``zx0_compress`` then uses the built-in encoder, so a C64/NES-only build
+    does not need z88dk at all.
     """
     from shutil import which
     z88dk = os.environ.get("Z88DK") or z88dkpath.default_root()
@@ -749,8 +758,7 @@ def _zx0_tool():
             cand = os.path.join(os.path.dirname(zcc), name)
             if os.path.exists(cand):
                 return cand
-    sys.exit("z88dk-zx0 not found in %s/bin or on PATH; set $Z88DK or add "
-             "it to PATH; it ships with z88dk" % z88dk)
+    return None
 
 
 def zx0_decompress(data):
@@ -1013,6 +1021,13 @@ def zx0_compress(blob, tmpdir=None):
     """
     global _ZX0_QUICK_WARNED, _ZX0_BUILTIN_WARNED
     tool = _zx0_tool()
+    if tool is None:
+        if not _ZX0_BUILTIN_WARNED:
+            sys.stderr.write(
+                "WARNING: z88dk-zx0 not found; using the built-in ZX0 "
+                "compressor\n")
+            _ZX0_BUILTIN_WARNED = True
+        return zx0_compress_py(blob)
     for options in (["-f", "-q"], ["-f"]):
         try:
             with tempfile.TemporaryDirectory(dir=tmpdir) as td:

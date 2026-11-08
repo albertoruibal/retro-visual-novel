@@ -5,8 +5,9 @@ Guidance for coding agents working in this repository.
 ## What this is
 
 Retro Visual Novel is an 8-bit visual novel authoring + build system for the **ZX Spectrum 128K**, **ZX Spectrum
-Next** and four portable targets. The story engine is shared by every target (`src/portable/core/`); each platform
-supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`).
+Next** and six portable targets. The story engine is shared by every target (`src/portable/core/`); each platform
+supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`,
+`src/c64/`, `src/nes/`). The two 6502 targets share `src/6502/zx0.c`.
 NIRVANA+ is vendored under `vendor/`. A game
 is a self-contained folder whose story lives in `game.md`; this repository ships a single demo game in `demo-game/`.
 A stdlib-only Python editor (`tools/editor/server.py`) serves a browser UI to author games, generate art with local
@@ -23,8 +24,10 @@ constraints live in `docs/systems/zx.md`.
     src/portable/core/       shared story engine + music player for every target
     src/portable/plat.h      platform surface implemented by each src/<target>/
     src/z80/zx0_wrap.asm     shared Z80 C wrapper for the vendored ZX0 decoder
+    src/6502/zx0.c           shared 6502 C ZX0 decoder (C64 + NES)
     src/sms/ src/cpc/        platform layers and paging/vram asm
     src/msx2/ src/gb/        platform layers (GB APU player in src/gb/gb_music.c)
+    src/c64/ src/nes/        6502 platform layers (VIC-II MCM / NES PPU, MMC1 asm)
     vendor/zx0/              pinned ZX0 decoder (69-byte standard, BSD-3)
     vendor/pixeloperator8/   pinned CC0 8x8 font for GBC/SMS/MSX2 text
     demo-game/assets/music/  per-game PT3 modules (assets/music/<id>.pt3)
@@ -36,12 +39,15 @@ constraints live in `docs/systems/zx.md`.
     tools/gamestore.py       open/create/duplicate/rename game folders (demo-game/)
     tools/gen_scenes.py      game.md -> build/scene_data.h + port_data.h
                              + bankN.bin + *.asm
-    tools/targets/           pluggable build targets (zx, sms, cpc, msx2, gb)
+    tools/targets/           pluggable build targets (zx, sms, cpc, msx2, gb, c64, nes)
     tools/smsart.py          SMS art preview/build conversion
     tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
     tools/gbmusic.py         PT3 -> Game Boy APU register stream for the GBC runtime
     tools/cpcart.py          CPC Mode 0/1/2 art preview/build conversion
+    tools/c64art.py          C64 VIC-II multicolor art preview/build conversion
+    tools/nesart.py          NES 4-colour tile art preview/CHR bank conversion
+    tools/cc65path.py        locate the cc65 6502 toolchain (C64/NES)
     tools/msx2art.py         MSX2 V9938 Screen 7 art preview/build conversion
     tools/gbart.py           Game Boy Color art preview/build conversion
     tools/gen_images.py      game.md art sections -> PNG via Qwen/SD server
@@ -70,13 +76,15 @@ constraints live in `docs/systems/zx.md`.
 
 Generated per-game files live in `<game-folder>/build/` (`scene_data.h`, `scene_banks.asm`, `scene_bankN.asm`,
 `scene_flags.txt`, the `.bin`/`port_*` intermediates and `scene_banks/bankN.bin`) and are gitignored. Only the playable
-outputs (`<slug>.tap`, `.sna`, `.sms`, `.dsk`, `.rom`, `.gbc`) and the editor's `game.md.bak` stay at the game root
+outputs (`<slug>.tap`, `.sna`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`) and the editor's `game.md.bak` stay at
+the game root
 (for the demo, `demo-game/`). Do not hand-edit generated files; edit `game.md` and rebuild.
 
 ## Build / run
 
-Native build needs z88dk (`Z88DK`, default: a detected Snap install, else `/tmp/z88dk`) and Pillow for `zxart.py`. This
-dev box does **not** have zcc installed, so builds normally run inside the editor Docker image:
+Native build needs z88dk (`Z88DK`, default: a detected Snap install, else `/tmp/z88dk`) and Pillow for `zxart.py`.
+The Commodore 64 and NES targets use **cc65** (`CC65`/`RVN_CC65` or the saved `cc65_path`), not z88dk. This dev box does
+**not** have zcc installed, so builds normally run inside the editor Docker image (which now also contains cc65):
 
     docker compose up -d --build          # editor on http://localhost:8765
 
@@ -91,6 +99,8 @@ Useful commands:
     python3 tools/build.py list-targets
     python3 tools/build.py build demo-game    # every system selected in game.md
     python3 tools/build.py build demo-game sms cpc gb
+    python3 tools/build.py build demo-game c64 nes   # cc65 targets
+    python3 tools/build.py list-targets              # shows cc65 availability
     python3 tools/build.py run   demo-game    # build then launch the ZX emulator
     python3 tools/editor/server.py        # editor without Docker (port 8765)
     python3 tools/gen_scenes.py demo-game     # regenerate tables/banks only
@@ -105,7 +115,9 @@ does not need them on system Python. Dev-run:
     cd electron && npm install && npm run venv && npm start   # add RVN_NO_SANDBOX=1 on Linux if needed
 
 `prepare-python.js` uses `uv` when present (relocatable venv), else `python3 -m venv`; `--stage <dir>` copies the venv
-to `<dir>/python` for packaging. `pythonExe()` prefers `<resources>/python` (packaged) then `<root>/.venv` (dev) then
+to `<dir>/python` for packaging. cc65 is **not bundled** either: the desktop app uses `CC65`/`RVN_CC65` or the saved
+`cc65_path` from the same **Build toolchain** card; users install cc65 for their host (`bin/cl65` etc.).
+`pythonExe()` prefers `<resources>/python` (packaged) then `<root>/.venv` (dev) then
 system `python3`. z88dk is **not bundled**: `z88dkDir()` returns an explicit `Z88DK`/`RVN_Z88DK`, else the editor's
 saved `z88dk_path`, else a detected Snap install (`/snap/z88dk/current`), else `""`, and the build then reports the
 missing toolchain. Users point the Settings **Build
@@ -169,10 +181,15 @@ There is no test suite and no configured linter. Verify by:
 2. A full build (`python3 tools/build.py build demo-game` or the editor **Build** button) for anything touching
    `game.md` format, `gen_scenes.py`, the engine, or the editor's save path. The Game Boy Color target needs
    `z88dk-zsdcc`, so build it in the editor container
-   (`Z88DK=/opt/z88dk python3 tools/build.py build demo-game gb`) and check the `.gbc` header/ROM banks.
+   (`Z88DK=/opt/z88dk python3 tools/build.py build demo-game gb`) and check the `.gbc` header/ROM banks. The C64/NES
+   targets need cc65 in the container (`cl65 -t c64` / `cl65 -t nes`); check the `.prg` load address/size and the
+   `.nes` iNES header (PRG=2, mapper=1, CHR count) and CHR bank file.
+4. **Headless screen check** for engine/art changes: `tools/spectrum.py` drives ZEsarUX-13.0 (in the repo) over ZRCP, no
+   X server.
 3. For editor UI edits, start the server and exercise the affected tab; the UI is plain ES modules-free JS split by
    topic under `tools/editor/static/` (classic `<script src="/static/<topic>.js">` tags sharing one global scope), no
-   bundler.
+   bundler. For C64/NES screen checks run VICE (`x64sc -autostartprgmode 1 -autostart ... -limitcycles ... -exitscreenshot`)
+   or FCEUX under `xvfb-run`; neither emulator is vendored.
 4. **Headless screen check** for engine/art changes: `tools/spectrum.py` drives ZEsarUX-13.0 (in the repo) over ZRCP, no
    X server. On a fresh box it needs `libsdl1.2-compat` (provides `libSDL-1.2.so.0`) and `libncurses6`, or it dies with
    `fuse did not start`:
@@ -326,7 +343,8 @@ There is no test suite and no configured linter. Verify by:
   (`zxart.preprocess`), applied after `_fit_band` and before quantisation. They resolve per art over the `# Game`
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
   live `?dither=...` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
-- **`system_zx`/`system_sms`/`system_cpc`/`system_msx2`/`system_gb` are reserved build-time pseudo-flags**
+- **`system_zx`/`system_sms`/`system_cpc`/`system_msx2`/`system_gb`/`system_c64`/`system_nes` are reserved
+  build-time pseudo-flags**
   (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and as
   all-false by the web export), never assigned a flag id or runtime state. Using one as a declaration, `start:`,
   `ending:`, effect or selectable-word flag is an error.
@@ -500,7 +518,9 @@ There is no test suite and no configured linter. Verify by:
 - **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX; local
   iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS), CPC (`emulator/cpc`,
   CPCJS/Caprice32) and Game Boy Color (`emulator/gb`, EmulatorJS Gambatte). The SMS and GBC pages share the pinned
-  EmulatorJS data in `emulator/emulatorjs/data`. Built artifacts are served by `/api/artifact/<slug>/<file>`;
+  EmulatorJS data in `emulator/emulatorjs/data`. The Commodore 64 and NES targets have no bundled web emulator
+  (`emulator=""`); run their `.prg`/`.nes` with VICE/FCEUX or another external emulator. Built artifacts are served by
+  `/api/artifact/<slug>/<file>`;
   `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
   via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name.
 - **Web runtime:** the runtime is **frontend-only**. `tools/webgame_runtime/` is a plain classic-script SPA
@@ -607,6 +627,35 @@ There is no test suite and no configured linter. Verify by:
   quantised to four colours and the tile palettes are clustered into at most six shared palettes, ordered light-to-
   dark for the DMG fallback; `art_rows` is 4/6/8 (default 6). Selection uses the configured highlight palette on CGB
   and keeps the `>` marker so it also works on a monochrome Game Boy.
+- **Commodore 64 runtime:** `tools/targets/c64.py` builds a `cl65 -t c64` `.prg` (cc65, not z88dk).
+  `tools/gen_port.py --c64` emits `build/port_data.c/h`, the bit-reversed `build/port_font8.h` and the compressed
+  scene/inventory/art arrays; `src/6502/zx0.c` decodes them and `src/c64/plat_c64.c` renders through the VIC-II. The
+  display is 40x25 in multicolor character mode: row 0 title, rows 1..`c64_art_rows` the picture, the text pane below,
+  and the `SPACE` action dialog (`PORT_OVERLAY_MENU=1`). The charset at `$A000` holds 96 hi-res text glyphs (indices
+  0..95) and up to 160 multicolor 4x8 art tiles (96..255); `$D021` is `text_bg:`, `$D022`/`$D023` are chosen per art and
+  each cell adds a colour-RAM colour from 0..7. Text ink/highlight are limited to the first eight C64 colours. Screen
+  RAM is `$A800`, colour RAM `$D800`, VIC bank 2 is selected through CIA2, and `src/c64/c64.cfg` reserves `$A000-$ABFF`
+  with BSS at `$AC00-$C7FF` and the stack at `$C800-$CFFF`. The loaded `.prg` must end below `$A000`; the target checks
+  its size. Art is `tools/c64art.py`: a 160 x `8*art_rows` logical band (previewed at 320 physical pixels),
+  4-colour cells with at most 160 deduplicated tiles, and a `[u8 ntiles][u8 c22][u8 c23][tiles][map][colors]` blob.
+  `art_rows` is 4/6/8/10 (default 6). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
+  read keys. There is no boot password and no music yet (`N_SONGS=0` for this target).
+- **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1)
+  and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed scene/inventory arrays plus the
+  uncompressed art maps/attributes/palettes in `port_data.c/h` and `build/port_nes_chr.bin`. The cartridge is 32KB PRG
+  with 8KB battery WRAM at `$6000`; BSS and the C stack live there. The PPU screen is 32x30: row 0 title, row 1 blank,
+  rows 2..`nes_art_rows+1` the picture, and text from `nes_art_rows+2` through 29 (`PORT_OVERLAY_MENU=1`; A confirms,
+  B/Select opens/closes the dialog). The NES background pattern table is only 256 tiles, so the normal 96-glyph font
+  (0..95) and up to 160 art tiles (96..255) share it; highlighted text uses attribute palette 1 and body text
+  palette 0, while art uses palettes 2/3. The even art-band start and height align it with the 2x2-tile attribute
+  quadrants; `nesart` emits the full 64-byte attribute table per art and the runtime keeps a RAM shadow so selected
+  text can switch its quadrant to palette 1. Each art gets one 8KB CHR bank after bank 0 (font + blanks); MMC1 8KB CHR
+  mode addresses 16 banks, so a game may have at most 15 arts. `src/nes/nes_mmc1.s` writes the MMC1 registers
+  serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
+  directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer
+  (`src/nes/nes_ppu.s`) and its NMI flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19
+  ppubuf API (the version in the editor Docker image). `art_rows` is 6/8/10 (default 10); the 32KB PRG is the main size
+  limit. There is no boot password and no music yet.
 - **SMS runtime:** `tools/gen_port.py --sms` converts each art band to planar 4bpp tiles and writes one uncompressed
   blob per `BANK_02`.. ROM bank plus `port_banks.asm` (both gitignored). Songs are converted to a compressed
   SN76489 PSG stream and packed into the remaining data banks (`port_song.asm`); `plat_load(PLAT_LOAD_SONG)` maps the
@@ -621,8 +670,8 @@ There is no test suite and no configured linter. Verify by:
   `smsart.text_colours` bakes them into every art palette and the editor preview, so changing them rebakes the art.
   The text layer uses z88dk's newlib `arch/sms.h` helpers, not SMSlib.
 - **Portable under-art dialog:** `PORT_OVERLAY_MENU` makes `show_scene` give the text every row from `PORT_TEXT_TOP`
-  to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color and CPC
-  mode 0;
+  to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color, Commodore
+  64, NES and CPC mode 0;
   ZX, MSX2 and CPC modes 1/2 opt in with the system's `menu: popup` target option (ZX/CPC `SPACE`, MSX2 `SPACE` or
   joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text` also clears row 23 when it
   is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane: visible

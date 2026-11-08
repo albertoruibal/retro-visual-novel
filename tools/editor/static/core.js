@@ -26,7 +26,9 @@ let AI = { image: false };
 let SERVER = { stable_diffusion_url: "", image_enabled: false, settings_path: "",
                z88dk_path: "", z88dk_valid: false, z88dk_default: "",
                z88dk_effective: "", z88dk_available: false,
-               z88dk_missing: [] };
+               z88dk_missing: [],
+               cc65_path: "", cc65_valid: false, cc65_default: "",
+               cc65_effective: "", cc65_available: false, cc65_missing: [] };
 let jobTimers = {};
 let pollingJobs = new Set();  // job ids with a live progress poller (no dupes)
 let activeJob = null;      // id of the generation job the Stop button cancels

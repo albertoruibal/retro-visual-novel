@@ -207,9 +207,26 @@ function paneEditor() {
       this card needs a folder built for your host.</div>
     <div class="hint" id="msz88dkstate"></div>
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-      <button id="mszsavetool" class="primary">Save toolchain</button>
+      <button id="mszsavetool" class="primary">Save toolchains</button>
       <span id="mszstatus" class="status"></span>
     </div>
+  </div>
+  <div class="card" id="cardcc65" data-pane="z88dk">
+    <label>cc65 path (Commodore 64 / NES)</label>
+    <div style="display:flex;gap:8px">
+      <input id="mscc65" value="${esc(SERVER.cc65_path || "")}"
+             placeholder="${esc(SERVER.cc65_default || "")}"
+             style="flex:1">
+      <button id="mscc65browse" type="button">Browse…</button>
+    </div>
+    <div class="hint">Point this at the root of an installed cc65 toolchain
+      (it needs <code>bin/cl65</code>, <code>bin/ca65</code>,
+      <code>bin/ld65</code> and <code>bin/cc65</code>), or leave it blank to
+      use <code>$CC65</code>/<code>$RVN_CC65</code> or a <code>cl65</code> on
+      <code>PATH</code>. cc65 is the 6502 C toolchain for the Commodore 64 and
+      NES builds; z88dk does not provide those targets. The editor Docker image
+      installs cc65 under <code>/usr/local</code>.</div>
+    <div class="hint" id="mscc65state"></div>
   </div>
   <div class="card" data-pane="servers" hidden>
     <label>Stable Diffusion server</label>
@@ -256,6 +273,37 @@ function renderZ88dkState() {
   }
 }
 
+function renderCc65State() {
+  const el = $("mscc65state");
+  if (!el) return;
+  const typed = $("mscc65") ? $("mscc65").value.trim() : "";
+  const saved = SERVER.cc65_path || "";
+  const missing = Array.isArray(SERVER.cc65_missing) ? SERVER.cc65_missing : [];
+  const absent = missing.length ? missing.join(", ") : "bin/cl65";
+  const eff = SERVER.cc65_effective || typed || SERVER.cc65_default || "";
+  if (!typed) {
+    if (SERVER.cc65_available) {
+      el.textContent = `Using the default: ${eff} (toolchain complete).`;
+      el.className = "hint ok";
+    } else {
+      el.textContent = `No cc65 toolchain found${eff ? ` at ${eff}` : ""}` +
+        ` — missing ${absent}. Install cc65 or set its folder before building ` +
+        "a Commodore 64 or NES target.";
+      el.className = "hint bad";
+    }
+  } else if (typed !== saved) {
+    el.textContent = "Save this path to check it.";
+    el.className = "hint";
+  } else if (SERVER.cc65_available) {
+    el.textContent = "Looks like a valid cc65 toolchain (all build tools found).";
+    el.className = "hint ok";
+  } else {
+    el.textContent = `This cc65 folder is incomplete — missing ${absent}. ` +
+      "Pick a complete cc65 install.";
+    el.className = "hint bad";
+  }
+}
+
 /* The Settings modal splits its editor-wide blocks into tabs. Only the active
  * pane is shown; openServerSettings("z88dk") switches to the toolchain tab. */
 function showSettingsPane(pane) {
@@ -291,7 +339,22 @@ function wireEditor() {
     }
     await picked(await b.pickDir());
   };
+  const browseCc65 = $("mscc65browse");
+  if (browseCc65) browseCc65.onclick = async () => {
+    const b = window.rvn;
+    const picked = async (p) => {
+      if (!p) return;
+      $("mscc65").value = p;
+      await saveToolchain($("mszstatus"));
+    };
+    if (!b || typeof b.pickDir !== "function") {
+      await picked(prompt("Path to the cc65 toolchain folder:", $("mscc65").value));
+      return;
+    }
+    await picked(await b.pickDir());
+  };
   renderZ88dkState();
+  renderCc65State();
 }
 
 /* Saving the toolchain alone (the Browse picker calls this) leaves the model
@@ -301,10 +364,12 @@ async function saveToolchain(el) {
   try {
     const r = await api("POST", "/api/settings", {
       z88dk_path: $("msz88dk") ? $("msz88dk").value.trim() : "",
+      cc65_path: $("mscc65") ? $("mscc65").value.trim() : "",
     });
     SERVER = r;
     if (el) { el.textContent = "saved"; el.className = "status ok"; }
     renderZ88dkState();
+    renderCc65State();
     return true;
   } catch (e) {
     if (el) { el.textContent = e.message; el.className = "status bad"; }
@@ -318,11 +383,13 @@ async function saveServers(el) {
     const r = await api("POST", "/api/settings", {
       stable_diffusion_url: $("mssdurl").value.trim(),
       z88dk_path: $("msz88dk") ? $("msz88dk").value.trim() : "",
+      cc65_path: $("mscc65") ? $("mscc65").value.trim() : "",
     });
     SERVER = r;
     setAiFlags({ image: r.image_enabled });
     if (el) { el.textContent = "saved"; el.className = "status ok"; }
     renderZ88dkState();
+    renderCc65State();
     checkArt();
   } catch (e) {
     if (el) { el.textContent = e.message; el.className = "status bad"; }
@@ -339,9 +406,10 @@ function openServerSettings(focus) {
   wireEditor();
   showSettingsPane(focus === "servers" ? "servers" : "z88dk");
   modal.hidden = false;
-  if (focus === "z88dk") {
-    const input = $("msz88dk");
-    const card = $("cardz88dk");
+  if (focus === "z88dk" || focus === "cc65") {
+    const cc = focus === "cc65";
+    const input = $(cc ? "mscc65" : "msz88dk");
+    const card = $(cc ? "cardcc65" : "cardz88dk");
     if (card) {
       card.classList.add("attention");
       setTimeout(() => card.classList.remove("attention"), 1800);

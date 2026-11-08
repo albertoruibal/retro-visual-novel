@@ -1,6 +1,10 @@
 #include "port.h"
 
+#if defined(__CC65__)
+int main(void)
+#else
 void main(void)
+#endif
 {
     plat_init();
     reset_game();
@@ -24,4 +28,7 @@ void main(void)
             cur = next;
         /* SCENE_NONE means "stay here" (an item screen just closed). */
     }
+#if defined(__CC65__)
+    return 0;
+#endif
 }

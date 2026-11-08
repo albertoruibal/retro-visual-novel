@@ -45,6 +45,12 @@ columns: 64
 ## gb
 art_rows: 6
 
+## c64
+art_rows: 6
+
+## nes
+art_rows: 10
+
 # Art
 
 ## title
@@ -54,8 +60,8 @@ image: gen-1793441722798.png
 crop: 0 25 100 75
 
 ## jetty
-prompt: a wet granite jetty below the Fisterra lighthouse in a storm, a moored rowboat, a woman in a dark oilskin
-  coat holding an oil lantern, rain and Atlantic spray, no text
+prompt: a wet granite jetty below the Fisterra lighthouse in a storm, a moored rowboat, a woman in a dark oilskin coat
+  holding an oil lantern, rain and Atlantic spray, no text
 refs: uxia
 image: gen-1793442406565.png
 crop: 0 0 100 75
@@ -77,8 +83,8 @@ prompt: a low granite cellar under a Galician lighthouse, shelves of oil cans, a
 image: gen-1793444372078.png
 
 ## workshop
-prompt: the lamp room at the top of the Fisterra lighthouse, a huge brass Fresnel lens, a missing gear, a dry
-  reservoir, a workbench of tools, storm clouds outside the gallery windows, no text
+prompt: the lamp room at the top of the Fisterra lighthouse, a huge brass Fresnel lens, a missing gear, a dry reservoir,
+  a workbench of tools, storm clouds outside the gallery windows, no text
 image: gen-1793445012067.png
 
 ## garden
@@ -99,8 +105,8 @@ refs: uxia misericordia
 image: gen-1793447058386.png
 
 ## ending_dark
-prompt: an empty rowboat on a black stormy Atlantic sea, the unlit Fisterra lighthouse on the cliff behind, wreckage
-  and a vanishing green light in the distance, no text
+prompt: an empty rowboat on a black stormy Atlantic sea, the unlit Fisterra lighthouse on the cliff behind, wreckage and
+  a vanishing green light in the distance, no text
 refs: misericordia
 image: gen-1793447740548.png
 
