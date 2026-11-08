@@ -1,0 +1,5 @@
+Nintendo Entertainment System emulation uses EmulatorJS
+(https://emulatorjs.org) with the FCEUmm libretro core
+(https://github.com/EmulatorJS/libretro-fceumm). EmulatorJS is GPL-3.0 (see
+../emulatorjs/LICENSE). FCEUmm is GPL-2.0 (see LICENSE.GPL2); retain its
+upstream attribution and license terms when redistributing.

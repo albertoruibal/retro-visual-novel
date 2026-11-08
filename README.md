@@ -49,9 +49,9 @@ It has tabs to edit the game sections:
 * Web: Runs the mobile-first web runtime in an iframe; it can open in a new tab, export a self-contained
   `<game-folder>/web/` folder, or download that folder as a zip.
 * Emulator: The Emulator tab plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
-  EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for CPC and EmulatorJS/Gambatte for
-  Game Boy Color. ZX Next, Commodore 64 and NES are not bundled; use `python3 tools/build.py run <game> next`
-  with ZEsarUX, VICE (`x64sc`) for the C64 and an NES emulator such as FCEUX/Mesen.
+  EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for CPC, EmulatorJS/Gambatte for
+  Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64 and EmulatorJS/FCEUmm for NES. ZX Next is not bundled;
+  use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
 

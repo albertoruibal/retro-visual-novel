@@ -34,8 +34,10 @@
 - **Build:** `cl65 -t nes -Oirs ...`, output `<slug>.nes`; cc65 is required (z88dk has no NES target). The editor
   Docker image contains cc65 (V2.18, whose `ppubuf` API `src/nes/nes_ppu.s` wraps); on a desktop install a matching
   cc65 and point the **Build toolchain** settings card at it.
-- **Emulator:** no web emulator is bundled. Run the `.nes` with FCEUX, Mesen, Nestopia or another MMC1-capable NES
-  emulator.
+- **Emulator:** the editor's Emulator tab runs the `.nes` in a pinned EmulatorJS build of FCEUmm (MMC1-capable). Its
+  default keyboard mapping is arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and
+  `Enter` = Start; remap it in the emulator's Control Settings. The ROM also runs in FCEUX, Mesen, Nestopia or another
+  MMC1-capable NES emulator.
 - **Limitations:** no boot-password screen; the 32KB PRG is the main size limit (shorten the story or reduce
   `art_rows` if the linker overflows); highlights use the coarser 2x2-tile attribute granularity.
 

@@ -24,6 +24,11 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 | NES | D-pad | A | B or Select opens/closes the action dialog |
 | Web runtime | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
+The editor's **Emulator** tab runs the C64 in VICE and the NES in FCEUmm. Click the C64 picture first; the page
+forwards the physical keyboard (cursor keys/`W` `A` `S` `D`, `RETURN`, `SPACE`). For the NES, EmulatorJS's defaults
+are arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and `Enter` = Start; remap them in
+its Control Settings.
+
 ## Web runtime
 
 The exported web runtime and the editor's **Web** tab use the same mobile-first SPA. Tap or click an option, a
@@ -138,8 +143,8 @@ Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
   the held items (prefixed `*`); the D-pad moves and scrolls the list and `A` confirms. On a long item description,
   `UP`/`DOWN` scroll the description while the cursor is on the first entry.
 - **Music:** not implemented yet on the NES build.
-- There is no boot-password screen. The build targets MMC1 cartridges with 8KB battery WRAM, so use a compatible
-  emulator (FCEUX, Mesen, Nestopia) or flash cart.
+- There is no boot-password screen. The build targets MMC1 cartridges with 8KB battery WRAM, so use the editor's
+  Emulator tab, a compatible emulator (FCEUX, Mesen, Nestopia) or a flash cart.
 
 ## Other notes
 

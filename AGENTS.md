@@ -188,8 +188,9 @@ There is no test suite and no configured linter. Verify by:
    X server.
 3. For editor UI edits, start the server and exercise the affected tab; the UI is plain ES modules-free JS split by
    topic under `tools/editor/static/` (classic `<script src="/static/<topic>.js">` tags sharing one global scope), no
-   bundler. For C64/NES screen checks run VICE (`x64sc -autostartprgmode 1 -autostart ... -limitcycles ... -exitscreenshot`)
-   or FCEUX under `xvfb-run`; neither emulator is vendored.
+   bundler. For C64/NES screen checks run VICE
+   (`x64sc -autostartprgmode 1 -autostart ... -limitcycles ... -exitscreenshot`) or FCEUX under `xvfb-run`; those
+   desktop emulators are not vendored (the editor bundles the VICE/FCEUmm web cores for in-browser play).
 4. **Headless screen check** for engine/art changes: `tools/spectrum.py` drives ZEsarUX-13.0 (in the repo) over ZRCP, no
    X server. On a fresh box it needs `libsdl1.2-compat` (provides `libSDL-1.2.so.0`) and `libncurses6`, or it dies with
    `fuse did not start`:
@@ -518,9 +519,9 @@ There is no test suite and no configured linter. Verify by:
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
 - **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX; local
   iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS), CPC (`emulator/cpc`,
-  CPCJS/Caprice32) and Game Boy Color (`emulator/gb`, EmulatorJS Gambatte). The SMS and GBC pages share the pinned
-  EmulatorJS data in `emulator/emulatorjs/data`. The Commodore 64 and NES targets have no bundled web emulator
-  (`emulator=""`); run their `.prg`/`.nes` with VICE/FCEUX or another external emulator. Built artifacts are served by
+  CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte), Commodore 64 (`emulator/c64`, EmulatorJS VICE
+  x64sc, direct keyboard input) and NES (`emulator/nes`, EmulatorJS FCEUmm). The SMS, GBC, C64 and NES pages share the
+  pinned EmulatorJS data in `emulator/emulatorjs/data`. Built artifacts are served by
   `/api/artifact/<slug>/<file>`;
   `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
   via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name.

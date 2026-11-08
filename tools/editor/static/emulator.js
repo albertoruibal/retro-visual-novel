@@ -1,20 +1,29 @@
 "use strict";
 // ------------------------------------------------------------- web emulators
 /* Target-aware Emulator tab. ZX uses the vendored JSSpeccy inline; SMS, MSX2,
- * CPC and Game Boy Color load pinned offline emulator pages in a same-origin iframe. The
- * target registry (GET /api/targets) supplies the adapter id and artifact
- * extensions, so adding a target does not hard-code anything here. */
+ * CPC, Game Boy Color, Commodore 64 and NES load pinned offline emulator pages
+ * in a same-origin iframe. The target registry (GET /api/targets) supplies the
+ * adapter id and artifact extensions, so adding a target does not hard-code
+ * anything here. */
 let emu = null;             // { exit() } for the running emulator
 let jsspeccy = null;        // the JSSpeccy instance (ZX only)
 let emuFitObserver = null;  // refits an iframe emulator when the tab resizes
 
-const EMU_KINDS = ["jsspeccy", "emulatorjs", "webmsx", "cpcjs", "gambatte"];
+const EMU_KINDS = ["jsspeccy", "emulatorjs", "emulatorjs-c64",
+  "emulatorjs-nes", "webmsx", "cpcjs", "gambatte"];
 const EMU_EXT = {
   jsspeccy: ".tap",
   emulatorjs: ".sms",
+  "emulatorjs-c64": ".prg",
+  "emulatorjs-nes": ".nes",
   webmsx: ".rom",
   cpcjs: ".dsk",
   gambatte: ".gbc",
+};
+const EMU_PAGES = {
+  emulatorjs: "sms",
+  "emulatorjs-c64": "c64",
+  "emulatorjs-nes": "nes",
 };
 /* Native display aspect per target, so an iframe is sized to its picture
  * instead of filling the tab height and leaving black bands inside it. */
@@ -24,6 +33,8 @@ const EMU_ASPECT = {
   gb: 160 / 144,
   cpc: 768 / 540,
   msx2: (544 * 1.14) / 456,
+  c64: 4 / 3,
+  nes: 4 / 3,
 };
 
 function emuTargetMeta(id) {
@@ -42,7 +53,8 @@ function emuTargets() {
 }
 function emuArtifact(meta) {
   const ext = EMU_EXT[meta.emulator] ||
-    (meta.outputs || []).find((e) => [".tap", ".sna", ".sms", ".rom", ".dsk", ".gb", ".gbc", ".nex"].includes(e));
+    (meta.outputs || []).find((e) => [".tap", ".sna", ".sms", ".rom", ".dsk",
+      ".gb", ".gbc", ".nex", ".prg", ".nes"].includes(e));
   if (!ext) return null;
   return `/api/artifact/${encodeURIComponent(game)}/${encodeURIComponent(game)}${ext}`;
 }
@@ -283,10 +295,10 @@ async function runEmulator() {
     });
     applySpeccyCrop(zoom);
     emu = { exit() { try { jsspeccy.exit(); } catch {} } };
-  } else if (meta.emulator === "emulatorjs") {
+  } else if (EMU_PAGES[meta.emulator]) {
     fitEmulatorHost(meta);
     emu = iframeEmu(host,
-      `/emulator/sms/index.html?rom=${encoded}&name=${name}`);
+      `/emulator/${EMU_PAGES[meta.emulator]}/index.html?rom=${encoded}&name=${name}`);
   } else if (meta.emulator === "webmsx") {
     /* Large ROMs auto-detect as Konami before ASCII16; force our mapper. */
     fitEmulatorHost(meta);

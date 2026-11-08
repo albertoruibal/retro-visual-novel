@@ -1,0 +1,5 @@
+Commodore 64 emulation uses EmulatorJS (https://emulatorjs.org) with the
+VICE x64sc libretro core (https://github.com/EmulatorJS/vice-libretro).
+EmulatorJS is GPL-3.0 (see ../emulatorjs/LICENSE). VICE is GPL-2.0 (see
+LICENSE.GPL2); retain its upstream attribution and license terms when
+redistributing. The core build embeds the required C64 ROMs.
