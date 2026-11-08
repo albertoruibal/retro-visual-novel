@@ -330,7 +330,7 @@ def _plan(im, conv, art_rows, text_bg):
     tiles = []
     pixels = []
     lookup = {}
-    tilemap = []
+    tilemap = [[0] * COLS for _ in range(art_rows)]
     for by in range(block_rows):
         for bx in range(16):
             bi = by * 16 + bx
@@ -353,7 +353,8 @@ def _plan(im, conv, art_rows, text_bg):
                             pixels.append(pattern)
                         else:
                             idx = _nearest_pattern(pattern, pixels)
-                    tilemap.append(idx)
+                    tilemap[typix][txpix] = idx
+    tilemap = [idx for row in tilemap for idx in row]
 
     attrs = bytearray(64)
     for by in range(8):
