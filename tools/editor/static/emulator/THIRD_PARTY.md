@@ -17,7 +17,7 @@ offline.
   GPL-2.0 (core notices in `nes/NOTICE`).
 - **MSX:** WebMSX C-BIOS embedded (`https://github.com/ppeccin/WebMSX`); C-BIOS is 2-clause BSD; WebMSX has no root
   license file, see `msx/NOTICE`.
-- **Amstrad CPC 6128:** CPCJS / Caprice32 WASM
+- **Amstrad CPC 6128 / 464:** CPCJS / Caprice32 WASM
   (`https://github.com/smichea/cpcjs`, `https://github.com/ColinPitrat/caprice32`); GPL-2.0; Caprice32 ROM packaging
   notices in `cpc/NOTICE`.
 - **ZX Spectrum 128K:** JSSpeccy 3 (`jsspeccy/jsspeccy.js.LICENSE.txt`); GPL-3.0 / upstream notices.

@@ -38,6 +38,11 @@ art_rows: 10
 columns: 32
 mode: 0
 
+## cpc464
+art_rows: 8
+columns: 32
+mode: 0
+
 ## msx2
 art_rows: 10
 columns: 64

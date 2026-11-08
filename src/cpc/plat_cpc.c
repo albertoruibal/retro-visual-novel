@@ -65,8 +65,18 @@ static void set_text_palette(void)
 }
 
 extern void cpc_unpack_banked(unsigned int bank, unsigned int off, void *dst);
+extern void cpc_disk_unpack(unsigned int bank, unsigned int off, void *dst,
+                            void *buf);
+extern void cpc_disk_unpack_slow(unsigned int bank, unsigned int off,
+                                 void *dst, void *buf);
 extern void cpc_restore_base(void);
 extern void port_unpack(const void *src, void *dst);
+
+#if PORT_ART_FROM_DISK
+/* The 464 has no extra banks: each art/song blob is loaded from its GAME.Bn
+   file on the disk into this buffer, then ZX0-decoded from there. */
+static unsigned char cpc_art_buf[CPC_ART_LOAD_SIZE];
+#endif
 
 #if PORT_ART_MODE == 2
 static unsigned char dbl4(unsigned char n)
@@ -241,6 +251,10 @@ void plat_draw_art(unsigned char id)
     for (i = 0; i < CPC_INKS; i++)
         cpc_set_ink(i, 0);
     cpc_restore_base();
+#if PORT_ART_FROM_DISK
+    cpc_disk_unpack(port_art_bank[id], port_art_off[id],
+                    (void *)CPC_SCREEN, cpc_art_buf);
+#else
     if (port_art_bank[id] == 2)
         port_unpack((const void *)(0x8000 + (unsigned int)port_art_off[id] + 2),
                     (void *)CPC_SCREEN);
@@ -248,6 +262,7 @@ void plat_draw_art(unsigned char id)
         cpc_unpack_banked(port_art_bank[id],
                           (unsigned int)port_art_off[id] + 2,
                           (void *)CPC_SCREEN);
+#endif
     p = (unsigned char *)CPC_SCREEN;
     n = *p++;
     src = p + n;                    /* chunks start after the n ink bytes */
@@ -421,10 +436,14 @@ void plat_load(unsigned char bank, unsigned short off, void *dst,
                unsigned char kind)
 {
     if (kind == PLAT_LOAD_SONG) {
+#if PORT_ART_FROM_DISK
+        cpc_disk_unpack_slow(bank, off, dst, cpc_art_buf);
+#else
         if (bank == 2)
             port_unpack((const void *)(0x8000 + (unsigned int)off + 2), dst);
         else
             cpc_unpack_banked(bank, (unsigned int)off + 2, dst);
+#endif
         return;
     }
     if (kind == PLAT_LOAD_INV)

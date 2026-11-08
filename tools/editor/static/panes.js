@@ -203,11 +203,14 @@ function targetOptionValue(target, o) {
     return o.default;
   return v;
 }
+function isCpcBuild(target) {
+  return !!target && (target.id === "cpc" || target.id === "cpc464");
+}
 function targetOptionChoices(target, o) {
   const choices = (o.choices || []).slice();
-  if (target && target.id === "cpc" && o.suffix === "art_rows") {
+  if (isCpcBuild(target) && o.suffix === "art_rows") {
     const ex = (P && P.game && P.game.extras) || {};
-    const mode = +(ex.cpc_mode ?? 1);
+    const mode = +(ex[target.id + "_mode"] ?? 1);
     if (mode !== 2) return choices.filter((c) => +c <= 12);
   }
   return choices;
@@ -225,9 +228,9 @@ function targetOptionOn(o, v) {
   return false;
 }
 function cpcMenuForced(target, o) {
-  if (!target || target.id !== "cpc" || o.suffix !== "menu") return false;
+  if (!isCpcBuild(target) || o.suffix !== "menu") return false;
   const ex = (P && P.game && P.game.extras) || {};
-  return +(ex.cpc_mode ?? 1) === 0;
+  return +(ex[target.id + "_mode"] ?? 1) === 0;
 }
 function systemTargets() {
   return (TARGETS && TARGETS.targets) || [];
@@ -584,7 +587,7 @@ function systemFlagNames() {
   const flags = P.system_flags && P.system_flags.length
     ? P.system_flags
     : ["system_zx", "system_zx128", "system_zx48", "system_sms",
-       "system_cpc", "system_msx2", "system_gb"];
+       "system_cpc", "system_cpc464", "system_msx2", "system_gb"];
   return flags.slice();
 }
 function condNameOptions(selv) {

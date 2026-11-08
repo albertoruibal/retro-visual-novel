@@ -162,6 +162,11 @@ overrides the prompt line above the input ("Enter the password:" by default).
     columns: 32             # text columns 32|40|62 (default 32)
     art_rows: 12            # default 12; 14/16 need mode 2
     menu: popup             # optional in modes 1/2; mode 0 always uses it
+    ## cpc464
+    mode: 1                 # same mode/columns/art_rows options as cpc
+    columns: 32
+    art_rows: 8             # default 8; art is streamed from the disk
+    menu: popup             # optional in modes 1/2; mode 0 always uses it
     ## msx2
     columns: 64             # text columns 64|80 (default 64)
     art_rows: 12            # default 12
@@ -176,7 +181,8 @@ overrides the prompt line above the input ("Enter the password:" by default).
 A build compiles the ZX targets first (128K before 48K), then the other systems in block order; each system's log is
 separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
-(`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`). An absent `# Systems`
+(`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
+`.nes`). An absent `# Systems`
 means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
 `<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
@@ -266,7 +272,7 @@ Music is declared, not generated: `# Game songs:` lists the ids and each id is b
 oversized modules are rejected). `music: <id>` on `# Game` names the default song, `off` stops it, `on` selects the
 game default, and a scene's `music:` overrides the game default for that scene — including `off` to stop music there.
 The player only restarts when the chosen song actually changes, so adjacent scenes with the same song play
-continuously. PT3 plays directly on the ZX, ZX Next, CPC 6128 and MSX2 (all AY-compatible). The Master System build
+continuously. PT3 plays directly on the ZX, ZX Next, CPC 6128/464 and MSX2 (all AY-compatible). The Master System build
 converts it to an SN76489 PSG stream and the Game Boy Color build to a Game Boy APU register stream at build time.
 The Commodore 64 and NES builds currently ignore songs; they still build when `songs:`/`music:` are present.
 
@@ -320,9 +326,10 @@ A condition (here and everywhere in the format) only *tests* a name; see
 
 #### Build-time system flags
 
-`system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_msx2`, `system_gb`, `system_c64` and
-`system_nes` are reserved pseudo-flags that are true only while generating that target. `system_zx` is a legacy
-any-Spectrum flag true for both `zx128` and `zx48`. They are folded at build time: on a matching build an `if system_zx`
+`system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_cpc464`, `system_msx2`,
+`system_gb`, `system_c64` and `system_nes` are reserved pseudo-flags that are true only while generating that
+target. `system_zx` is a legacy any-Spectrum flag true for both `zx128` and `zx48`, and `system_cpc` is true for
+both `cpc` and `cpc464`. They are folded at build time: on a matching build an `if system_zx`
 token disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
 `unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in
 `if`/`unless`
@@ -476,9 +483,11 @@ settings); these are the caps the author writes against.
 ## Storage budget
 
 On the ZX, all art, scene and inventory blobs — and song modules — share the five paged 16K banks, and blobs are
-ZX0-compressed at build time (raw sizes shrink to roughly half, in effect doubling what fits). On the CPC the art and
-song blobs share the four extra 16K banks; a music build leaves `BANK_2` free for the AY workspace, so art + music must
-fit 64K. On the MSX2 the scene data is in bank 1, each art takes a bank from 2 up, and songs are packed into the
+ZX0-compressed at build time (raw sizes shrink to roughly half, in effect doubling what fits). On the CPC 6128 the art
+and song blobs share the four extra 16K banks; a music build leaves `BANK_2` free for the AY workspace, so art + music
+must fit 64K. The CPC 464 has no extra banks: its story and a small load buffer are resident, and each art/song
+blob is read from the `GAME.Bn` files on the disk when needed, so total art size is limited by the disk instead of
+RAM. On the MSX2 the scene data is in bank 1, each art takes a bank from 2 up, and songs are packed into the
 following ROM banks. On the Game Boy Color the scenes, art and converted APU streams are uncompressed in MBC1 banks;
 each song starts at a bank boundary and may span several banks. The ZX raw figures to size against:
 

@@ -155,9 +155,11 @@ function wirePane() {
         if (String(v) === String(def)) delete P.game.extras[key];
         else P.game.extras[key] = v;
         markDirty();
-        if (target && target.id === "cpc" && opt && opt.key === "mode") {
-          if (+v !== 2 && +(P.game.extras.cpc_art_rows ?? 0) > 12)
-            delete P.game.extras.cpc_art_rows;
+        if (target && (target.id === "cpc" || target.id === "cpc464")
+            && opt && opt.key === "mode") {
+          const rowsKey = target.id + "_art_rows";
+          if (+v !== 2 && +(P.game.extras[rowsKey] ?? 0) > 12)
+            delete P.game.extras[rowsKey];
           renderAll();
         }
       };

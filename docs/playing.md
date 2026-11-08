@@ -73,9 +73,11 @@ Without a bundled Next emulator, run it with ZEsarUX:
 
     python3 tools/build.py run demo-game next
 
-## Amstrad CPC 6128
+## Amstrad CPC 6128 / 464
 
-Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
+Both CPC joystick ports work; the web emulator maps its arrow keys to port 0. The controls are identical on the
+6128 and 464 builds. The 464 build is a 64K disk image (it needs a disk drive, e.g. the DDI-1) and streams its
+pictures from the disk, so the first scene may pause briefly while a new art loads.
 
 - **Movement:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or the joystick.
 - **Confirm:** `ENTER` or the joystick fire button when the dialog is enabled; with pinned options `SPACE` also

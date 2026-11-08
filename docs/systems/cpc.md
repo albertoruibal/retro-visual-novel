@@ -1,5 +1,8 @@
 # Amstrad CPC 6128
 
+The 64K [CPC 464](cpc464.md) uses the same runtime and art converter but streams
+the compressed art/song blobs from the disk instead of paging the extra banks.
+
 - **Display:** Mode 1 by default (320x200, four monochrome shades); Mode 0 (160px, 16 inks) and Mode 2 (640px, two
   inks) are selectable. Text uses 32, 40 or 62 columns on 25 rows; Mode 0 fits at most 40 (4px font for 32/40), while
   Modes 1/2 use the 8px font for 32/40 and the compact 4px font for 62. Mode 0 gives the text every row below the art

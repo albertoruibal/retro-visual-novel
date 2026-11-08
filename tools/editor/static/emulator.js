@@ -10,7 +10,7 @@ let jsspeccy = null;        // the JSSpeccy instance (ZX only)
 let emuFitObserver = null;  // refits an iframe emulator when the tab resizes
 
 const EMU_KINDS = ["jsspeccy", "emulatorjs", "emulatorjs-c64",
-  "emulatorjs-nes", "webmsx", "cpcjs", "gambatte"];
+  "emulatorjs-nes", "webmsx", "cpcjs", "cpc464", "gambatte"];
 const EMU_EXT = {
   jsspeccy: ".tap",
   emulatorjs: ".sms",
@@ -18,6 +18,7 @@ const EMU_EXT = {
   "emulatorjs-nes": ".nes",
   webmsx: ".rom",
   cpcjs: ".dsk",
+  cpc464: ".dsk",
   gambatte: ".gbc",
 };
 const EMU_PAGES = {
@@ -33,6 +34,7 @@ const EMU_ASPECT = {
   sms: 4 / 3,
   gb: 160 / 144,
   cpc: 768 / 540,
+  cpc464: 768 / 540,
   msx2: (544 * 1.14) / 456,
   c64: 4 / 3,
   nes: 4 / 3,
@@ -50,6 +52,12 @@ function emuTargets() {
   const ids = selected.slice();
   if (ids.includes("zx128") || ids.includes("zx48")) {
     for (const id of ["zx128", "zx48"])
+      if (!ids.includes(id)) ids.push(id);
+  }
+  /* Likewise, offer both CPC models whenever either is selected: the 464
+   * build is a separate disk but the same story. */
+  if (ids.includes("cpc") || ids.includes("cpc464")) {
+    for (const id of ["cpc", "cpc464"])
       if (!ids.includes(id)) ids.push(id);
   }
   const rank = (id) => {
@@ -86,7 +94,8 @@ function storedEmuSystem() {
   return value;
 }
 function emuRunName(meta) {
-  if (meta && meta.emulator === "cpcjs") return "GAME";
+  if (meta && (meta.emulator === "cpcjs" || meta.emulator === "cpc464"))
+    return "GAME";
   return String(game || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 }
 
@@ -238,6 +247,9 @@ function updateEmuHint() {
   if (meta.id === "zx48" && !gameTargets().includes("zx48"))
     hint.innerHTML += "<br>48K is not in the build selection; enable " +
       "<b>ZX Spectrum 48K</b> in Systems and Build to create the tape.";
+  if (meta.id === "cpc464" && !gameTargets().includes("cpc464"))
+    hint.innerHTML += "<br>CPC 464 is not in the build selection; enable " +
+      "<b>Amstrad CPC 464</b> in Systems and Build to create the disk.";
 }
 
 async function refreshRunButton() {
@@ -322,11 +334,12 @@ async function runEmulator() {
       `&CARTRIDGE1_FORMAT=ASCII16` +
       `&FAST_BOOT=1&SCREEN_CONTROL_BAR=0&AUTO_START=1` +
       `&SCREEN_FULLSCREEN_MODE=2`);
-  } else if (meta.emulator === "cpcjs") {
+  } else if (meta.emulator === "cpcjs" || meta.emulator === "cpc464") {
     fitEmulatorHost(meta);
+    const model = meta.emulator === "cpc464" ? "&model=464" : "";
     emu = iframeEmu(host,
       `/emulator/cpc/index.html?rom=${encoded}&name=${name}` +
-      `&run=${encodeURIComponent(emuRunName(meta))}`);
+      `&run=${encodeURIComponent(emuRunName(meta))}${model}`);
   } else if (meta.emulator === "gambatte") {
     fitEmulatorHost(meta);
     emu = iframeEmu(host,

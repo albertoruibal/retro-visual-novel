@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Amstrad CPC 6128</title>
+<title>Amstrad CPC</title>
 <style>
   html, body { margin:0; width:100%; height:100%; background:#000; overflow:hidden; }
   #canvas { display:block; width:100vw; height:100vh; object-fit:contain; image-rendering:pixelated; background:#000; }
@@ -15,6 +15,8 @@
   const q = new URLSearchParams(location.search);
   const dsk = q.get('rom');
   const run = (q.get('run') || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase();
+  const model = q.get('model') === '464' ? '464' : '6128';
+  document.title = 'Amstrad CPC ' + model;
   const canvas = document.querySelector('#canvas');
   if (!dsk) { document.body.textContent = 'No disk supplied'; return; }
   window.Module = {
@@ -30,7 +32,7 @@
         const data = new Uint8Array(await resp.arrayBuffer());
         Module.FS.mkdirTree('/games');
         try {
-          const cfg = await fetch('cap32.cfg', { cache: 'no-store' });
+          const cfg = await fetch(model === '464' ? 'cap32_464.cfg' : 'cap32.cfg', { cache: 'no-store' });
           if (cfg.ok) Module.FS.writeFile('/cap32.cfg', new Uint8Array(await cfg.arrayBuffer()));
         } catch (_) { /* the preloaded config is usually present */ }
         const file = '/games/' + (q.get('name') || 'game') + '.dsk';

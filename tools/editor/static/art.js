@@ -53,7 +53,7 @@ function fitCropToBand(rect, natW, natH) {
 
 /* Selected build systems for Art-tab previews. The Systems tab is the
  * source of truth; ZX is the backward-compatible default. */
-const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "msx2", "sms", "gb", "c64", "nes"];
+const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx2", "sms", "gb", "c64", "nes"];
 function previewTargets() {
   const list = typeof gameTargets === "function" ? gameTargets() : ["zx128"];
   const rank = (id) => {
@@ -72,15 +72,17 @@ function previewTargetLabel(id) {
   return m ? m.label : ({ zx128: "ZX Spectrum 128K", zx48: "ZX Spectrum 48K",
                           next: "ZX Spectrum Next",
                           sms: "Sega Master System",
-                          cpc: "Amstrad CPC 6128", msx2: "MSX2 (V9938)",
+                          cpc: "Amstrad CPC 6128", cpc464: "Amstrad CPC 464",
+                          msx2: "MSX2 (V9938)",
                           gb: "Nintendo Game Boy Color",
                           c64: "Commodore 64", nes: "Nintendo NES" }[id] || id);
 }
+function isCpcTarget(id) { return id === "cpc" || id === "cpc464"; }
 function previewTargetRows(id) {
   const m = previewTargetMeta(id);
   const opt = ((m && m.options) || []).find((o) => o.suffix === "art_rows");
   let choices = ((opt && opt.choices) || [8, 10, 12, 14, 16]).map(Number);
-  if (id === "cpc" && previewCpcMode() !== 2)
+  if (isCpcTarget(id) && previewCpcMode(id) !== 2)
     choices = choices.filter((n) => n <= 12);
   const def = +(opt && opt.default != null ? opt.default : 12);
   const ex = (P && P.game && P.game.extras) || {};
@@ -89,15 +91,16 @@ function previewTargetRows(id) {
 }
 /* CPC video mode (0/1/2, default 1); the mode sets both the pixel width and
  * the number of simultaneously displayable inks. */
-function previewCpcMode() {
+function previewCpcMode(id = "cpc") {
   const ex = (P && P.game && P.game.extras) || {};
-  const mode = +(ex.cpc_mode ?? 1);
+  const mode = +(ex[id + "_mode"] ?? 1);
   return [0, 1, 2].includes(mode) ? mode : 1;
 }
 function previewTargetWidth(id) {
   const m = previewTargetMeta(id);
   const width = (m && +m.band_width) || 256;
-  if (id === "cpc") return ({ 0: 160, 1: 320, 2: 640 }[previewCpcMode()] || width);
+  if (isCpcTarget(id))
+    return ({ 0: 160, 1: 320, 2: 640 }[previewCpcMode(id)] || width);
   return width;
 }
 function previewTargetSize(id) {
@@ -108,7 +111,8 @@ function previewTargetSize(id) {
  * video mode, otherwise the registry is the source of truth with the built-in
  * values as a fallback. */
 function previewTargetColors(id) {
-  if (id === "cpc") return ({ 0: 16, 1: 4, 2: 2 }[previewCpcMode()] || 4);
+  if (isCpcTarget(id))
+    return ({ 0: 16, 1: 4, 2: 2 }[previewCpcMode(id)] || 4);
   const m = previewTargetMeta(id);
   const n = m ? +m.colors : NaN;
   if (n > 0) return n;
@@ -130,7 +134,7 @@ function targetPreviewQuery(id, q) {
 function targetPreviewFig(id, g, aid, q, bust) {
   const src = `/api/preview/${g}/${aid}${targetPreviewQuery(id, q)}`;
   const colors = previewTargetColors(id);
-  const colorText = id === "cpc" && previewCpcMode() === 1
+  const colorText = isCpcTarget(id) && previewCpcMode(id) === 1
     ? ", mono"
     : colors ? `, ${colors} colour${colors === 1 ? "" : "s"}` : "";
   const engine = previewTargetEngine(id);

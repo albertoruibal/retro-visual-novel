@@ -78,7 +78,7 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     DELETE /api/refimages/<slug>/<ref>?file=<name>  delete one reference candidate
     GET    /api/refimage/<slug>/<ref>  reference source PNG (?file= a candidate)
     GET    /api/preview/<slug>/<art>  Spectrum-quantisised band preview PNG
-           ?target=sms|cpc|msx2|gb    preview through that target's converter
+           ?target=sms|cpc|cpc464|msx2|gb    preview through that target's converter
     GET    /api/preview/<slug>/<art>/classic  same, standard 8x8 attributes
     GET    /api/preview/<slug>/<art>/bifrost  same, Bifrost* 8x1 attributes
            ?file= &crop= &lines= &dither= &match= &palette= &palette_colors= &saturation= ...

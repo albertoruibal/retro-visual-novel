@@ -9,6 +9,7 @@ and other 8-bit targets, with a shared engine and authoring UI.
 - [ZX Spectrum 48K](docs/systems/zx48.md)
 - [ZX Spectrum Next](docs/systems/next.md)
 - [Amstrad CPC 6128](docs/systems/cpc.md) (alpha)
+- [Amstrad CPC 464](docs/systems/cpc464.md) (alpha)
 - [MSX2](docs/systems/msx2.md) (alpha)
 - [Sega Master System](docs/systems/sms.md)  (alpha)
 - [Nintendo Game Boy Color](docs/systems/gb.md) (alpha)
@@ -37,7 +38,7 @@ It has tabs to edit the game sections:
 * Game: Global game settings.
 * Systems: Chooses the systems to build the game for and their specific options; each platform has its own sub-tab.
 * Art: Allows to generate and upload images and previews them for every selected system.
-* Music: Imports PT3, converts from MIDI with spectrumizer, and plays on the AY targets (ZX Spectrum, CPC 6128 and
+* Music: Imports PT3, converts from MIDI with spectrumizer, and plays on the AY targets (ZX Spectrum, CPC 6128/464 and
   MSX2); the Master System build converts PT3 to SN76489 PSG data and the Game Boy Color build to Game Boy APU
   register data, so songs play there too. The Commodore 64 and NES builds currently ignore songs.
 * Scenes: Defines the text and logic for each scene.
@@ -50,8 +51,9 @@ It has tabs to edit the game sections:
 * Web: Runs the mobile-first web runtime in an iframe; it can open in a new tab, export a self-contained
   `<game-folder>/web/` folder, or download that folder as a zip.
 * Emulator: The Emulator tab plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
-  EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for CPC, EmulatorJS/Gambatte for
-  Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64 and EmulatorJS/FCEUmm for NES. ZX Next is not bundled;
+  EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464,
+  EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64 and EmulatorJS/FCEUmm for NES.
+  ZX Next is not bundled;
   use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
@@ -101,8 +103,8 @@ python3 tools/build.py build <game> zx sms       # explicit
 python3 tools/build.py build <game> --all
 ```
 
-Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC), `.rom` (MSX2), `.gbc` (Game Boy Color),
-`.prg` (Commodore 64), `.nes` (NES).
+Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128), `.dsk` with the
+`-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES).
 
 The web runtime is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
 `<game-folder>/web/` folder (and the editor's Web tab does the same plus a zip download). See

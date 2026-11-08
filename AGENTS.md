@@ -40,7 +40,7 @@ constraints live in `docs/systems/zx128.md`.
     tools/gamestore.py       open/create/duplicate/rename game folders (demo-game/)
     tools/gen_scenes.py      game.md -> build/scene_data.h + port_data.h
                              + bankN.bin + *.asm
-    tools/targets/           pluggable build targets (zx128, zx48, next, sms, cpc, msx2, gb, c64, nes)
+    tools/targets/           pluggable build targets (zx128, zx48, next, sms, cpc, cpc464, msx2, gb, c64, nes)
     tools/smsart.py          SMS art preview/build conversion
     tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
@@ -100,7 +100,7 @@ Useful commands:
 
     python3 tools/build.py list-targets
     python3 tools/build.py build demo-game    # every system selected in game.md
-    python3 tools/build.py build demo-game sms cpc gb
+    python3 tools/build.py build demo-game sms cpc cpc464 gb
     python3 tools/build.py build demo-game c64 nes   # cc65 targets
     python3 tools/build.py list-targets              # shows cc65 availability
     python3 tools/build.py run   demo-game    # build then launch the ZX emulator
@@ -354,8 +354,9 @@ There is no test suite and no configured linter. Verify by:
   (`zxart.preprocess`), applied after `_fit_band` and before quantisation. They resolve per art over the `# Game`
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
   live `?dither=...` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
-- **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms`/`system_cpc`/`system_msx2`/
-  `system_gb`/`system_c64`/`system_nes` are reserved build-time pseudo-flags**
+- **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms` / `system_cpc` /
+  `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` are reserved build-time
+  pseudo-flags**
   (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and as
   all-false by the web export), never assigned a flag id or runtime state. Using one as a declaration, `start:`,
   `ending:`, effect or selectable-word flag is an error.
@@ -510,7 +511,7 @@ There is no test suite and no configured linter. Verify by:
   kills the server process tree with `taskkill /T` on Windows and picks `python`/`Scripts/python.exe`/`zcc.exe` there.
   For the desktop app the user supplies a z88dk built for the target OS/CPU (see the desktop notes).
 - **Build systems live in a `# Systems` section.** Each `## <id>` block selects that system and holds its options
-  (`zx`/`sms`/`cpc`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); ZX builds first when selected,
+  (`zx`/`sms`/`cpc`/`cpc464`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); ZX builds first when selected,
   then the others in block order, and each system's log is separated by a `==== name [id] ====` banner; the legacy
   `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
   tab edits the selection with one second-level sub-tab per platform; the Game tab keeps the shared settings
@@ -529,9 +530,10 @@ There is no test suite and no configured linter. Verify by:
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
 - **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX (a ZX
   game always lists both `zx128` and `zx48`, with the 48K option serving `<slug>-48k.tap`); local
-  iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS), CPC (`emulator/cpc`,
-  CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte), Commodore 64 (`emulator/c64`, EmulatorJS VICE
-  x64sc, direct keyboard input) and NES (`emulator/nes`, EmulatorJS FCEUmm). The SMS, GBC, C64 and NES pages share the
+  iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS),
+  CPC 6128/464 (`emulator/cpc`, CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte),
+  Commodore 64 (`emulator/c64`, EmulatorJS VICE x64sc, direct keyboard input) and NES (`emulator/nes`,
+  EmulatorJS FCEUmm). The SMS, GBC, C64 and NES pages share the
   pinned EmulatorJS data in `emulator/emulatorjs/data`. Built artifacts are served by
   `/api/artifact/<slug>/<file>`;
   `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
@@ -595,6 +597,17 @@ There is no test suite and no configured linter. Verify by:
   `PORT_OVERLAY_MENU=1`: the text uses every row below the art, the `SPACE` key opens/closes an options/items
   dialog over that pane, and the old pinned-option/inventory paths compile out. `cpc_mode`, `cpc_columns` and
   `cpc_art_rows` are emitted into `port_data.h`.
+- **CPC 464 runtime:** `tools/targets/cpc464.py` builds the same 6128-style disk but with the CRT loader disabled
+  (`CRT_DISABLELOADER=1`), because the 464 has 64K and no paging. `gen_port.py --cpc464` still packs the compressed
+  art/song blobs into the `BANK_4..BANK_7` (and optional `BANK_2`) files, but `appmake` writes them to the `.dsk`
+  instead of the runtime paging them in. `PORT_ART_FROM_DISK=1` makes `plat_cpc.c` decode art through
+  `cpc_disk.asm`: art uses `CAS_IN_DIRECT` to read the bank into the blank screen, copies the `[u16 length][ZX0]`
+  blob at `art_off` into `cpc_art_buf[CPC_ART_LOAD_SIZE]`, then decodes it over the screen. Songs use
+  `CAS_IN_CHAR` (with the song workspace as the 2K stream buffer) so a music toggle never disturbs the picture, and
+  the song workspace is reserved at least 2048 bytes. The resident image (including the load buffer) must end below
+  `CPC_WS_BASE`; the target checks `__BSS_END_tail`. Output is
+  `<slug>-cpc464.dsk` (`artifact_suffix="-cpc464"`), and the Emulator tab offers the 464 model next to the 6128 even
+  when only one CPC target is selected.
 - **MSX2 runtime:** `tools/gen_port.py --msx2` converts each band with `tools/msx2art.py` and stores the
   scenes/inventory blob in ASCII16 ROM bank 1; each art gets one 16K bank from 2 up and `port_art.asm` maps them with
   `SECTION BANK_NN`. `plat_msx2.c` uses V9938 Screen 7 (512x212, 4bpp): the full-width 512-pixel art band starts at x=0,

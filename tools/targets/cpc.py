@@ -1,9 +1,13 @@
-"""Amstrad CPC 6128 target.
+"""Amstrad CPC targets (464 and 6128).
 
 Mode 1 (320x200, four monochrome shades) is the default display.  Art is
 converted to CPC screen bytes and packed into the 6128's extra 16K banks
 (BANK_4..BANK_7); the runtime pages a bank, decodes it with the vendored ZX0
 decoder, and scatters the band to rows 1..cpc_art_rows.
+
+The CPC 464 has only 64K and no extra banks.  Its build writes the same packed
+bank files to the disk but starts with the CRT loader disabled and loads one
+compressed art/song blob at a time from the GAME.Bn files through AMSDOS.
 """
 from __future__ import annotations
 
@@ -131,13 +135,34 @@ def _guard_map(path, bdir):
                 % bss)
 
 
-def _build(ctx):
+def _guard_disk_map(path, bdir):
+    """The CPC 464 keeps the whole program and art buffer in base RAM."""
+    if not os.path.exists(path):
+        return
+    txt = open(path, encoding="utf-8", errors="replace").read()
+    ws_base = _define_int(bdir, "CPC_WS_BASE", CPC_SONG_WS)
+    art_load = _define_int(bdir, "CPC_ART_LOAD_SIZE", 2)
+    bss = None
+    m = re.search(r"^__BSS_END_tail\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
+    if m:
+        bss = int(m.group(1), 16)
+    if bss is not None and bss >= ws_base:
+        raise SystemExit(
+            "CPC 464 resident image reaches 0x%04X; the fixed workspaces "
+            "start at 0x%04X. Lower cpc464_art_rows, shorten the game, or "
+            "use the CPC 6128 target." % (bss, ws_base))
+    if art_load < 2:
+        raise SystemExit("CPC 464 art load buffer is missing from port_data.h")
+
+
+def build_cpc(ctx, target_id, gen_flag, out_ext, disk_stream=False):
+    """Build one CPC variant; ``disk_stream`` selects the 64K 464 layout."""
     import build
 
     slug = ctx.slug
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
-               ctx.gdir, "--cpc"], ctx.env)
-    td = tempfile.mkdtemp(prefix=f".cpc-{slug}-", dir=ctx.bdir)
+               ctx.gdir, gen_flag], ctx.env)
+    td = tempfile.mkdtemp(prefix=f".{target_id}-{slug}-", dir=ctx.bdir)
     try:
         # Stage all inputs in the game-folder build dir and run from there
         # with relative names: zcc mangles source paths that contain spaces
@@ -145,6 +170,11 @@ def _build(ctx):
         sources = [
             os.path.join(ctx.root, "src", "cpc", "cpc_paging.asm"),
             os.path.join(ctx.root, "src", "cpc", "cpc_ink.asm"),
+        ]
+        if disk_stream:
+            sources.append(os.path.join(ctx.root, "src", "cpc",
+                                        "cpc_disk.asm"))
+        sources += [
             os.path.join(ctx.root, "src", "z80", "zx0_wrap.asm"),
             os.path.join(ctx.root, "vendor", "zx0", "zx0.asm"),
             *portable_sources(ctx.root),
@@ -164,19 +194,31 @@ def _build(ctx):
                "-Ca-DZX0_LOW", "-DPLAT_ROWS=25", "-I."]
         cmd.append("-pragma-define:CRT_MAX_HEAP_ADDRESS=%d"
                    % _define_int(ctx.bdir, "CPC_WS_BASE", CPC_SONG_WS))
+        if disk_stream:
+            # The 464 cannot page the bank files at boot; they are read on
+            # demand by cpc_disk.asm instead.
+            cmd.append("-pragma-define:CRT_DISABLELOADER=1")
         cmd += [*names, "-o", "GAME"]
         build.run(cmd, ctx.env, cwd=td)
         produced = os.path.join(td, "GAME.dsk")
         if not os.path.exists(produced):
             raise SystemExit("CPC build produced no .dsk file")
-        _guard_map(os.path.join(td, "GAME.map"), ctx.bdir)
-        path = os.path.join(ctx.gdir, slug + ".dsk")
+        if disk_stream:
+            _guard_disk_map(os.path.join(td, "GAME.map"), ctx.bdir)
+        else:
+            _guard_map(os.path.join(td, "GAME.map"), ctx.bdir)
+        path = os.path.join(ctx.gdir, slug + out_ext)
         shutil.copyfile(produced, path)
     finally:
         shutil.rmtree(td, ignore_errors=True)
-    result = BuildResult(target="cpc")
-    result.add_output(path, "cpc-dsk", os.path.getsize(path))
+    result = BuildResult(target=target_id)
+    result.add_output(path, "cpc464-dsk" if disk_stream else "cpc-dsk",
+                      os.path.getsize(path))
     return result
+
+
+def _build(ctx):
+    return build_cpc(ctx, "cpc", "--cpc", ".dsk")
 
 
 def _validate(ctx):
@@ -212,20 +254,15 @@ def _validate(ctx):
     return issues
 
 
-TARGET = Target(
-    id="cpc",
-    label="Amstrad CPC 6128",
-    description="Amstrad CPC Mode 0/1/2 text runtime with compressed art in "
-                "the extra 16K banks; Mode 0 uses the under-art action dialog.",
-    outputs=(".dsk",),
-    options=(
+def cpc_options(default_rows=12):
+    return (
         TargetOption("mode", "Video mode", "choice", 1, (0, 1, 2),
                      "CPC video mode: 0 (160px/16 inks), 1 (320px mono, "
                      "black/grey/white ramp), 2 (640px/2 inks)."),
         TargetOption("columns", "Text columns", "choice", 32, (32, 40, 62),
                      "32 shares the SMS layout; 40 is native Mode 1; 62 uses "
                      "a compact 4px font."),
-        TargetOption("art_rows", "Art rows", "choice", 12,
+        TargetOption("art_rows", "Art rows", "choice", default_rows,
                      (8, 10, 12, 14, 16),
                      "Character rows of picture above the scrolling text pane. "
                      "14 and 16 need Mode 2 (fewer text rows remain).",
@@ -235,7 +272,16 @@ TARGET = Target(
                           "pinned options and the inventory row. Mode 0 "
                           "always uses the dialog.",
                      on_value="popup", off_value="inline"),
-    ),
+    )
+
+
+TARGET = Target(
+    id="cpc",
+    label="Amstrad CPC 6128",
+    description="Amstrad CPC Mode 0/1/2 text runtime with compressed art in "
+                "the extra 16K banks; Mode 0 uses the under-art action dialog.",
+    outputs=(".dsk",),
+    options=cpc_options(12),
     build=_build,
     validate=_validate,
     preview=_preview,

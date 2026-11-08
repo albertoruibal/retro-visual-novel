@@ -12,6 +12,9 @@ Per-target art handling:
   * SMS ``--sms``: 4bpp planar tiles, one art per Sega-mapper ROM bank
     (``port_banks.asm``).
   * CPC ``--cpc``: CPC screen bytes in the 6128's extra 16K banks.
+  * CPC 464 ``--cpc464``: the same bank files are written to the disk, but the
+    runtime loads one compressed art/song blob at a time through AMSDOS instead
+    of paging the extra 16K banks (the 464 has no extra RAM).
   * MSX2 ``--msx2``: V9938 Screen 7 4bpp bitmap bands with a per-art palette,
     one per ASCII16 bank; scene data in bank 1.
   * GB ``--gb``: raw 2bpp tile/map blobs in MBC1 banks; scene data is split
@@ -89,6 +92,10 @@ def _bank_pack(blobs, start_bank):
 
 def _cpc_pack(packed, bank_max, allow_bank2=True):
     """Pack compressed CPC art/song blobs into the 6128's banks.
+
+    The CPC 464 build uses the same packed bank files, but writes them to the
+    disk and loads one blob at a time through AMSDOS (it cannot map the extra
+    banks).
 
     Returns ``(bank_data, banks, offsets)`` in blob order, or ``None`` when the
     blobs do not fit.  Best-fit decreasing is the fast path; a bounded
@@ -294,7 +301,8 @@ def main():
     arg = args[0] if args else None
     if not arg:
         sys.exit("usage: gen_port.py <game-dir-or-slug> "
-                 "[--sms|--cpc|--msx2|--gb|--next|--c64|--nes|--target <id>]")
+                 "[--sms|--cpc|--cpc464|--msx2|--gb|--next|--c64|--nes|"
+                 "--target <id>]")
     if os.path.isdir(arg):
         gdir = os.path.abspath(arg)
     else:
@@ -324,6 +332,7 @@ def main():
     system = target_id
     if not system:
         for flag, name in (("--sms", "sms"), ("--cpc", "cpc"),
+                           ("--cpc464", "cpc464"),
                            ("--msx2", "msx2"), ("--gb", "gb"),
                            ("--next", "next"), ("--c64", "c64"),
                            ("--nes", "nes")):
@@ -341,7 +350,8 @@ def main():
         item_list, flag_map, doc.get("item_meta") or {}, ui,
         int(game.get("carry", 0) or 0), idmap, system)
     use_sms = "--sms" in raw or target_id == "sms"
-    use_cpc = "--cpc" in raw or target_id == "cpc"
+    use_cpc464 = "--cpc464" in raw or target_id == "cpc464"
+    use_cpc = "--cpc" in raw or target_id == "cpc" or use_cpc464
     use_msx2 = "--msx2" in raw or target_id == "msx2"
     use_gb = "--gb" in raw or target_id == "gb"
     use_next = "--next" in raw or target_id == "next"
@@ -377,6 +387,11 @@ def main():
                 song_ws_size = max(map(len, song_blobs), default=0)
             else:
                 song_ws_size = gen_scenes.max_song_size(song_blobs)
+            # The CPC 464 loader lends its 2K stream buffer to CAS_IN_OPEN when
+            # reading a song; reserve at least that much in the workspace (the
+            # decoded module itself is usually smaller).
+            if use_cpc464 and song_ws_size:
+                song_ws_size = max(song_ws_size, 2048)
             song_packed = [gen_scenes.pack_blob(
                                gen_scenes.zx0_compress(b, gdir))
                            for b in song_blobs]
@@ -396,6 +411,7 @@ def main():
     art_bank = []
     art_off = []
     cpc_options = {}
+    cpc_art_load_size = 2
     c64_options = {}
     c64_art_data = b""
     nes_options = {}
@@ -492,11 +508,13 @@ def main():
             nesart.text_colours(game)
     if use_cpc:
         import targets
-        target = targets.get_target("cpc")
+        cpc_target_id = "cpc464" if use_cpc464 else "cpc"
+        target = targets.get_target(cpc_target_id)
         if target is None:
-            sys.exit("CPC target is not registered")
+            sys.exit(f"{cpc_target_id} target is not registered")
         cpc_options = targets.target_options(doc, target)
-        art_rows = int(cpc_options.get("art_rows") or 12)
+        art_rows = int(cpc_options.get("art_rows") or
+                       (8 if use_cpc464 else 12))
         cpc_ws_base, cpc_song_addr = _cpc_ws_layout(
             max(1, max(map(len, scene_raw), default=1)),
             max(1, len(inv_raw) if inv_raw else 1),
@@ -595,8 +613,13 @@ def main():
             art_ntiles.append(0)
         packed_all = packed_arts + song_packed
         packed_result = _cpc_pack(packed_all, bank_max,
-                                  allow_bank2=not songs)
+                                  allow_bank2=(use_cpc464 or not songs))
         if packed_result is None:
+            if use_cpc464:
+                sys.exit(f"CPC 464 art/song data does not fit the disk banks "
+                         f"({sum(len(v) for v in packed_all)}B packed); "
+                         "lower cpc464_art_rows, remove arts or shorten the "
+                         "songs")
             if songs:
                 sys.exit(f"CPC art/song data does not fit the 6128's four "
                          f"extra 16K banks ({sum(len(v) for v in packed_all)}B "
@@ -605,6 +628,7 @@ def main():
             sys.exit(f"CPC art data does not fit the 6128's art banks "
                      f"({sum(len(v) for v in packed_all)}B packed); lower "
                      "cpc_art_rows or use fewer arts")
+        cpc_art_load_size = max(2, max(map(len, packed_all), default=2))
         bank_data, all_bank, all_off = packed_result
         art_bank = all_bank[:len(packed_arts)]
         art_off = all_off[:len(packed_arts)]
@@ -1109,6 +1133,8 @@ def main():
         defines.append(("CPC_WS_BASE", cpc_ws_base))
         defines.append(("PORT_EXTERN_WS", 1))
         defines.append(("PORT_INV_OVERWRITES_ART", 1))
+        defines.append(("PORT_ART_FROM_DISK", 1 if use_cpc464 else 0))
+        defines.append(("CPC_ART_LOAD_SIZE", cpc_art_load_size))
     if use_msx2:
         defines.append(("PORT_DATA_BANK", 1))
         defines.append(("MSX2_FONT_BANK", msx2_font_bank))
