@@ -3,7 +3,8 @@
 The runtime is the shared portable story engine on the Oric Atmos HIRES
 bitmap (240x200 at $A000, 6 pixels per byte): the title is on character row 0,
 the picture on rows 1..art_rows and the text pane below.  Text is drawn in
-software with a 6x8 glyph table; the options and held items use the portable
+software with a 6x8 glyph table; the options and held items are pinned above
+the row-24 inventory unless ``## oric menu: popup`` selects the portable
 overlay dialog.  Story and art blobs are resident and ZX0-compressed (the
 Atmos has no banked memory), decoded by the shared 6502 decoder.
 
@@ -110,6 +111,27 @@ def _build(ctx):
     return result
 
 
+def _rows(text, width):
+    """Rows the runtime wraps ``text`` into at ``width`` columns."""
+    n = 0
+    s = text or ""
+    while s:
+        k = last = 0
+        while k < len(s) and k < width:
+            if s[k] == " ":
+                last = k
+            k += 1
+        if k < len(s) and last:
+            k = last
+        if not k:
+            k = 1
+        s = s[k:]
+        while s.startswith(" "):
+            s = s[1:]
+        n += 1
+    return n
+
+
 def _validate(ctx):
     rows = int(ctx.options.get("art_rows") or 8)
     if rows not in ART_ROWS:
@@ -117,14 +139,40 @@ def _validate(ctx):
                  "target": "oric",
                  "msg": f"Oric Atmos art_rows must be 4, 6, 8, 10 or 12 "
                         f"(got {rows})"}]
-    return []
+    issues = []
+    if not bool(ctx.options.get("menu")):
+        # The pinned options share rows PORT_TEXT_TOP..23 with the scrolling
+        # text; row 24 is the inventory band.  Warn when the worst case leaves
+        # them no room, since the engine then draws them over the art.
+        avail = 23 - rows
+        for scene in (ctx.doc or {}).get("scenes") or []:
+            used = 0
+            for raw in scene.get("opts") or []:
+                rest = str(raw).split("->", 1)[1] if "->" in str(raw) else ""
+                if scenefile.filter_system_conditions(
+                        scenefile.option_conditions(rest), "oric") is None:
+                    continue
+                label = str(raw).split("->", 1)[0].strip()
+                used += _rows(label, 38)
+            if used >= avail:
+                sid = scene.get("id", "?")
+                issues.append({
+                    "level": "warn", "section": "scene", "id": sid,
+                    "target": "oric",
+                    "msg": (f"Oric Atmos: scene {sid!r} needs {used} option "
+                            f"rows but the pinned {rows}-row layout leaves "
+                            f"{avail} above the inventory row; use "
+                            "'## oric menu: popup' or shorter labels"),
+                })
+    return issues
 
 
 TARGET = Target(
     id="oric",
     label="Oric Atmos",
     description="Oric Atmos HIRES runtime: 240x200 monochrome dithered art, "
-                "40-column software text and a SPACE action dialog.",
+                "40-column software text and pinned options or a SPACE "
+                "action dialog.",
     outputs=(".tap",),
     artifact_suffix="-oric",
     options=(
@@ -136,6 +184,11 @@ TARGET = Target(
                      help="The 1-bit screen cannot honour off, so an off choice "
                           "becomes a 2x2 Bayer dither. Every ordered and "
                           "error-diffusion scheme is available."),
+        TargetOption("menu", "Pop-up options", "bool", False,
+                     help="Show scene options and held items in a SPACE-key "
+                          "dialog instead of the pinned option list and "
+                          "row-24 inventory band.",
+                     on_value="popup", off_value="inline"),
     ),
     build=_build,
     validate=_validate,

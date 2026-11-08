@@ -1104,9 +1104,10 @@ def main():
                  int(msx2_options.get("columns") or 64) if use_msx2 else
                  int(cpc_options.get("columns") or 32) if use_cpc else 32)
     port_art_mode = int(cpc_options.get("mode") or 0) if use_cpc else 0
-    # SMS, Game Boy Color and CPC Mode 0 always use the dialog; ZX/MSX2 and CPC
-    # Modes 1/2 opt in with their system's `menu: popup` setting.
-    overlay_menu = (use_sms or use_gb or use_c64 or use_nes or use_oric
+    # SMS, Game Boy Color, C64, NES and CPC Mode 0 always use the dialog;
+    # ZX/MSX2/Oric and CPC Modes 1/2 opt in with their system's `menu: popup`.
+    overlay_menu = (use_sms or use_gb or use_c64 or use_nes
+                    or (use_oric and bool(oric_options.get("menu")))
                     or (use_cpc and (port_art_mode == 0
                                      or bool(cpc_options.get("menu"))))
                     or (use_msx2 and bool(msx2_options.get("menu")))

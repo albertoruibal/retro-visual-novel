@@ -7,8 +7,9 @@
  * bitmap band.  The three text rows below the bitmap are blanked at startup.
  *
  * Story data is resident and ZX0-compressed (the Atmos has no banked memory).
- * Art is decoded straight into the bitmap band.  The portable overlay dialog
- * provides the options/items screen; there is no pinned menu or inventory row.
+ * Art is decoded straight into the bitmap band.  The shared engine draws the
+ * pinned option list and row-24 inventory, or `## oric menu: popup` puts the
+ * options/items in the portable overlay dialog.
  */
 #include <conio.h>
 

@@ -1,13 +1,18 @@
 # Oric Atmos
 
 - **Display:** the 240 x 200 HIRES bitmap at `$A000`. The title is on character row 0, the art band occupies rows
-  1..`art_rows`, and the text pane runs from row `art_rows + 1` through row 24. `art_rows` is 4, 6, 8, 10 or 12
-  (default 8). Text is drawn in software with a 6x8 glyph table: 40 columns of 8-pixel rows, so a scene has
-  `24 - art_rows` text rows. The three text rows below the bitmap are kept blank, and `plat_init` clears the ROM
-  status cursor bit so its flashing text cursor does not blink there.
-- **Options and items:** the portable action dialog. `SPACE` opens and closes it, the cursor keys or `W`/`A`/`S`/`D`
-  move and scroll the list, and `RETURN` confirms. A long scene body scrolls with `UP`/`DOWN`; there is no pinned
-  menu or inventory row. The dialog lists scene options first and then held items (prefixed `*`).
+  1..`art_rows`, and the text pane runs from row `art_rows + 1` through row 23 (row 24 is the inventory band). With
+  `## oric menu: popup` the text owns rows `art_rows + 1`..24 instead. `art_rows` is 4, 6, 8, 10 or 12 (default 8).
+  Text is drawn in software with a 6x8 glyph table: 40 columns of 8-pixel rows, so the pinned layout leaves
+  `23 - art_rows` rows above the inventory, and the pop-up layout leaves `24 - art_rows`. The three text rows below
+  the bitmap are kept blank, and `plat_init` clears the ROM status cursor bit so its flashing text cursor does not
+  blink there.
+- **Options and items:** by default the options are pinned to the bottom of the text pane and held items occupy the
+  row-24 inventory band; press `DOWN` off the last option to enter the band, `UP` off the first item to return, and
+  `RETURN` to open the selected item. `## oric menu: popup` instead uses the portable action dialog: `SPACE` opens and
+  closes it, the cursor keys or `W`/`A`/`S`/`D` move and scroll the list, and `RETURN` confirms. The dialog lists scene
+  options first and then held items (prefixed `*`). A long scene body scrolls with `UP`/`DOWN`; with pinned options
+  `LEFT`/`RIGHT` (or `A`/`D`) scroll it instead.
 - **Colours:** monochrome. HIRES is one ink and one paper colour for the whole screen, and the Oric's serial
   attributes cost a screen cell each time they change a colour, so the target uses white ink on black paper for the
   picture and text. Selection and highlighted words use inverse video; the `>` marker is still drawn.
@@ -25,7 +30,8 @@
   the shared `src/6502/zx0.c`. The cc65 `atmos` layout loads at `$0501`, keeps the image and BSS below the 2K C stack
   at `$97FF`, and reserves `$A000-$BF3F` for HIRES. `tools/targets/oric.py` checks the linker map and reports a clear
   overflow message; lower `oric art_rows`, remove arts or shorten the story if it does not fit.
-- **Controls:** cursor keys or `W` `A` `S` `D` move; `RETURN` confirms; `SPACE` opens/closes the action dialog.
+- **Controls:** cursor keys or `W` `A` `S` `D` move; `RETURN` confirms; `SPACE` opens/closes the action dialog when
+  `## oric menu: popup` is set (with the pinned layout, `DOWN` from the last option enters the inventory band).
 - **Sound:** not implemented yet. The Atmos has an AY-3-8912, but there is no 6502 PT3 player in the repository, so the
   build ignores the game's `songs:`/`music:` settings.
 - **Build:** `cl65 -t atmos -C atmos.cfg -Oirs ...`, output `<slug>-oric.tap`. cc65 is required (z88dk has no Oric

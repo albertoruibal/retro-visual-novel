@@ -184,8 +184,9 @@ overrides the prompt line above the input ("Enter the password:" by default).
     art_rows: 10            # 6|8|10 (default 10); NES action dialog
     dither: floyd           # off|floyd only
     ## oric
-    art_rows: 8             # 4|6|8|10|12 (default 8); Oric action dialog
+    art_rows: 8             # 4|6|8|10|12 (default 8)
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
+    menu: popup             # optional: options/items in a SPACE dialog
 
 A build compiles the ZX targets first (128K before 48K), then the other systems in block order; each system's log is
 separated
@@ -204,11 +205,12 @@ occupy rows `art_rows+1..22`, and the inventory band lives on row 23. Even numbe
 2 rows — and 8..16, default 10 (the classic 256x80 band). A taller band races more of the screen for the picture and
 leaves less room for text; see [Screen budgets](#screen-budgets).
 
-`menu: popup` (ZX, CPC and MSX2; default `inline`) moves the scene options and held items out of the text band and
-into the action dialog: `SPACE` on ZX and CPC, and `SPACE` or joystick button 2 on MSX2. The scene text then
-owns every row below the art (rows `art_rows+1..23` on ZX/MSX2) and the permanent inventory row disappears. The dialog
-is **always** used on the Master System, Game Boy Color and CPC Mode 0, which have no pinned-option layout; the CPC
-checkbox is shown checked and disabled in Mode 0. The editor's **Systems** tab sets this per system.
+`menu: popup` (ZX, CPC, MSX2 and Oric; default `inline`) moves the scene options and held items out of the text band
+and into the action dialog: `SPACE` on ZX, CPC and Oric, and `SPACE` or joystick button 2 on MSX2. The scene text then
+owns every row below the art (rows `art_rows+1..23` on ZX/MSX2, and rows `art_rows+1..24` on Oric) and the permanent
+inventory row disappears. The dialog is **always** used on the Master System, Game Boy Color, Commodore 64, NES and CPC
+Mode 0, which have no pinned-option layout; the CPC checkbox is shown checked and disabled in Mode 0. The editor's
+**Systems** tab sets this per system.
 
 `title_ink:` (ZX only; default `text`) colours the scene title on row 0 and the item screen's title. `text` follows
 the Game tab's `text_ink:`; any colour token from the [text colours](#game-settings) — `black`…`white` for the bright

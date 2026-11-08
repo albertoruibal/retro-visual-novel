@@ -57,6 +57,7 @@ art_rows: 10
 
 ## oric
 art_rows: 10
+menu: popup
 
 ## zx48
 title_ink: white

@@ -693,7 +693,8 @@ There is no test suite and no configured linter. Verify by:
 - **Oric Atmos runtime:** `tools/targets/oric.py` builds a cc65 `atmos` `.tap` (the Oric is the third 6502 target).
   The HIRES bitmap is 240x200 at `$A000`; text is software-rendered with a generated 6x8 font, the title is row 0,
   the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 4/6/8/10/12 (default 8), `PLAT_ROWS=25`,
-  `PORT_COLS=40`, `PORT_OVERLAY_MENU=1`, `PORT_KEEP_ART=1` and `N_SONGS=0`. The build is non-banked: scene,
+  `PORT_COLS=40`, `PORT_KEEP_ART=1` and `N_SONGS=0`; `PORT_OVERLAY_MENU` follows `## oric menu:` (default inline:
+  pinned options plus the row-24 inventory; `popup` uses the action dialog). The build is non-banked: scene,
   inventory and art blobs are resident ZX0-compressed data decoded by `src/6502/zx0.c`. Art is decoded directly
   into the bitmap band; `tools/oricart.py` emits `[u8 ink][u8 paper][ZX0 pixels]` so no art workspace is needed.
   `src/oric/plat_oric.c` switches to HIRES via the `$BB80` mode attribute (the boot wait must cover the ULA's
@@ -717,14 +718,14 @@ There is no test suite and no configured linter. Verify by:
 - **Portable under-art dialog:** `PORT_OVERLAY_MENU` makes `show_scene` give the text every row from `PORT_TEXT_TOP`
   to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color, Commodore
   64, NES and CPC mode 0;
-  ZX, MSX2 and CPC modes 1/2 opt in with the system's `menu: popup` target option (ZX/CPC `SPACE`, MSX2 `SPACE` or
-  joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text` also clears row 23 when it
-  is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane: visible
-  scene options first, then held items prefixed `*`, labels wrapped, `>` marker on the selection and `^`/`v` when the
-  list scrolls. Moving the cursor repaints only the old and new entry, falling back to a full pane redraw when the
-  scroll window shifts. `B`/Enter/button 2 (CPC: Enter/Space/fire) activates an entry (or sets a highlighted word when
-  the dialog is closed); selecting an item opens `drop_screen`, where A also closes. On these targets a long scene body
-  scrolls with UP/DOWN (LEFT/RIGHT moves between highlighted words, or scrolls when the scene has none), and
+  ZX, MSX2, Oric and CPC modes 1/2 opt in with the system's `menu: popup` target option (ZX/CPC/Oric `SPACE`, MSX2
+  `SPACE` or joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text` also clears row 23
+  when it is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane:
+  visible scene options first, then held items prefixed `*`, labels wrapped, `>` marker on the selection and `^`/`v`
+  when the list scrolls. Moving the cursor repaints only the old and new entry, falling back to a full pane redraw
+  when the scroll window shifts. `B`/Enter/button 2 (CPC: Enter/Space/fire) activates an entry (or sets a highlighted
+  word when the dialog is closed); selecting an item opens `drop_screen`, where A also closes. On these targets a long
+  scene body scrolls with UP/DOWN (LEFT/RIGHT moves between highlighted words, or scrolls when the scene has none), and
   `drop_screen` scrolls an overlong item description with UP/DOWN while the cursor is on the first entry.
   `collect_options`/`collect_items` rebuild the list on each open, so item effects and flag changes are reflected; the
   old pinned-option/inventory code is compiled out on these targets. `PORT_SIMPLE_OPTIONS` now only affects CPC modes

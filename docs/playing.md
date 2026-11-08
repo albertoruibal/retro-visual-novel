@@ -22,7 +22,7 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 | Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
 | Commodore 64 | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
 | NES | D-pad | A | B or Select opens/closes the action dialog |
-| Oric Atmos | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
+| Oric Atmos | Cursor keys or W/A/S/D | Return | Bottom inventory row, or `SPACE` dialog |
 | Web runtime | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
 The editor's **Emulator** tab runs the C64 in VICE, the NES in FCEUmm and the Oric Atmos in Oricutron. Click the Oric
@@ -145,9 +145,12 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 ## Oric Atmos
 
 - **Movement:** cursor keys or `W` `A` `S` `D`; `RETURN` confirms.
-- **Options and items:** `SPACE` opens and closes the action dialog. It lists the scene options first and then the
-  held items (prefixed `*`); the cursor keys move and scroll the list and `RETURN` confirms. On a long item description,
-  `UP`/`DOWN` scroll the description while the cursor is on the first entry.
+- **Options and items:** with the default pinned layout, the options sit at the bottom of the text pane and held items
+  on the row-24 inventory band; press `DOWN` off the last option to enter the band, `UP` off the first item to return,
+  and `RETURN` to open the selected item. With `## oric menu: popup`, `SPACE` opens and closes the action dialog: it
+  lists the scene options first and then the held items (prefixed `*`), the cursor keys move and scroll the list, and
+  `RETURN` confirms. On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first
+  entry.
 - The picture is a monochrome HIRES band; selection uses inverse video. Text is 40 columns.
 - **Music:** not implemented yet on the Oric Atmos build.
 - There is no boot-password screen.
