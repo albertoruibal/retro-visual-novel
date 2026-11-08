@@ -527,7 +527,8 @@ There is no test suite and no configured linter. Verify by:
   so top-level `let`/`const`/`function` names must stay **unique across files** and each file needs its own `"use
   strict";`. CSS is likewise split (`base.css`…`responsive.css`, linked in that order; the cascade is the same as one
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
-- **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX; local
+- **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX (a ZX
+  game always lists both `zx128` and `zx48`, with the 48K option serving `<slug>-48k.tap`); local
   iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS), CPC (`emulator/cpc`,
   CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte), Commodore 64 (`emulator/c64`, EmulatorJS VICE
   x64sc, direct keyboard input) and NES (`emulator/nes`, EmulatorJS FCEUmm). The SMS, GBC, C64 and NES pages share the

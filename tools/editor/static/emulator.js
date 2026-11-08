@@ -44,11 +44,19 @@ function emuTargetMeta(id) {
 }
 function emuTargets() {
   const selected = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
+  /* A ZX game can run either tape even when only one is in the build
+   * selection: offer both 128K and 48K emulators, and let the Play button
+   * report the chosen artifact as "not built yet" until it exists. */
+  const ids = selected.slice();
+  if (ids.includes("zx128") || ids.includes("zx48")) {
+    for (const id of ["zx128", "zx48"])
+      if (!ids.includes(id)) ids.push(id);
+  }
   const rank = (id) => {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
   };
-  return selected.map(emuTargetMeta).filter(
+  return ids.map(emuTargetMeta).filter(
     (t) => t && EMU_KINDS.includes(t.emulator))
     .sort((a, b) => rank(a.id) - rank(b.id));
 }
@@ -227,6 +235,9 @@ function updateEmuHint() {
   if (gameTargets().includes("next"))
     hint.innerHTML += "<br>ZX Next builds a <code>.nex</code>; run it with ZEsarUX " +
       "(<code>python3 tools/build.py run &lt;game&gt; next</code>).";
+  if (meta.id === "zx48" && !gameTargets().includes("zx48"))
+    hint.innerHTML += "<br>48K is not in the build selection; enable " +
+      "<b>ZX Spectrum 48K</b> in Systems and Build to create the tape.";
 }
 
 async function refreshRunButton() {
