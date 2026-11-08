@@ -129,17 +129,19 @@ game.md format (author-facing):
     # Systems              # each ## block selects a system; order = build order
     ## zx128
     art_rows: <even 8..16> # optional: art band height in 8px rows (10)
+    dither: <scheme>       # optional: dither for this system (off)
     menu: popup            # optional: options/items in a SPACE dialog (inline)
     title_ink: <colour>    # optional: scene/item title (text = inherit text_ink)
     ## sms
     art_rows: 8|10|12      # optional: SMS picture rows (12)
+    dither: off|floyd      # optional: dither for this system (off)
 
     # Art
     ## <art-id>
     prompt: <subject prompt>  # may span lines; 4-space-indented lines keep breaks
     [seed/steps/cfg/width/height overrides]
     crop: <x> <y> <w> <h> # optional: source rect in % (default = centred band window)
-    [dither/match/palette/palette_colors/saturation/contrast/brightness/gamma]
+    [match/palette/palette_colors/saturation/contrast/brightness/gamma]
                           # optional conversion overrides (else the # Game value)
 
     # Items                # optional: display names + inventory descriptions
@@ -669,10 +671,9 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None):
     ``legacy_dir`` (``assets/gen``). ``conv`` is the art's resolved conversion
     settings (scenefile.conversion_options): the per-art ``crop`` rectangle
     selects the part of the source that maps to the art band (None = centred
-    band-aspect window), the dither scheme assigns pixels to each cell's two
-    colours, and match / palette / colour adjustments are applied before
-    quantisation. ``rows`` is the band height in 16px tile rows (from
-    the ZX `art_rows` option).
+    band-aspect window), the system's dither scheme assigns pixels, and match /
+    palette / colour adjustments are applied before quantisation. ``rows`` is the band
+    height in 16px tile rows (from the ZX `art_rows` option).
     """
     conv = conv or {}
     path = scenefile.resolve_art_image(art_root, a, legacy_dir)
@@ -1377,7 +1378,7 @@ def main():
     # the editor's preview always agree with the build.
     art_blobs, missing = [], []
     for i, a in enumerate(arts):
-        conv = scenefile.conversion_options(a, doc["game"])
+        conv = scenefile.conversion_options(a, doc["game"], target_id)
         blob, path = load_art_blob(a, art_root, conv, tile_rows, gen_dir)
         if blob is None:
             missing.append(a["id"])

@@ -15,6 +15,7 @@ import shutil
 import tempfile
 
 import cc65path
+import scenefile
 from .base import BuildResult, Target, TargetOption, portable_sources
 
 ART_ROWS = (4, 6, 8, 10)
@@ -110,6 +111,10 @@ TARGET = Target(
         TargetOption("art_rows", "Art rows", "choice", 6, ART_ROWS,
                      "Character rows of picture; 6 leaves 18 text rows.",
                      minimum=4, maximum=10),
+        TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+                     scenefile.DITHER_BINARY_MODES,
+                     help="off uses a hard four-colour snap; floyd uses "
+                          "Floyd-Steinberg error diffusion."),
     ),
     build=_build,
     validate=_validate,

@@ -20,9 +20,10 @@ The `# Systems` id remains `gb` for compatibility with existing games.
   art_rows]`, with map entries offset by 96 and attribute bytes holding the palette index. Tiles are deduplicated;
   excess cells reuse the nearest kept tile and its palette. Palettes are ordered light-to-dark for the DMG fallback.
 - **Conversion:** `tools/gbart.py` crops/fits to the 160px band, adjusts the source, quantises each 8x8 tile to four
-  colours and clusters those tile palettes into at most six shared art palettes. `dither:` selects hard snapping
-  (`off`) or Floyd-Steinberg. An explicit `crop:` keeps its full width and re-centres the vertical window to the band
-  aspect, so the picture is not stretched. The editor preview and the ROM use the same converter.
+  colours and clusters those tile palettes into at most six shared art palettes. The `## gb` system block chooses
+  `dither: off` (hard snapping) or `dither: floyd` (Floyd-Steinberg). An explicit `crop:` keeps its full width and
+  re-centres the vertical window to the band aspect, so the picture is not stretched. The editor preview and the ROM
+  use the same converter.
 - **Text colours:** `text_ink:`, `highlight_ink:` and `text_bg:` are resolved to GBC RGB555 values and loaded into
   palettes 6/7. The art converter reserves those two palettes, so the authored text colours never depend on the
   picture's colours.

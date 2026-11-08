@@ -80,6 +80,12 @@ TARGET = Target(
             "default 10 = 256x80).",
             minimum=8, maximum=16, game_key="art_lines"),
         TargetOption(
+            "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+            scenefile.DITHER_MODES,
+            help="The 1-bit band cannot honour off, so an off choice becomes "
+                 "a 2x2 Bayer dither. Every ordered and error-diffusion scheme "
+                 "is available; coarser ordered schemes compress best."),
+        TargetOption(
             "menu", "Pop-up options", "bool", False,
             help="Show scene options and held items in a SPACE-key dialog "
                  "instead of the pinned option list and row-23 inventory band.",

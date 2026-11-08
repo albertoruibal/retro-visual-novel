@@ -83,6 +83,7 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     GET    /api/preview/<slug>/<art>/bifrost  same, Bifrost* 8x1 attributes
            ?file= &crop= &lines= &dither= &match= &palette= &palette_colors= &saturation= ...
            pick a candidate / override the art's saved band height and conversion settings
+           (dither is the preview target's live ## <id> value)
     POST   /api/upload_art            {"art","data"} -> new asset in assets/art/<id>/
     POST   /api/upload_ref            {"ref","data"} -> new asset in assets/refs/<id>/
     POST   /api/upload_song           {"song","data"} -> store a .pt3 module

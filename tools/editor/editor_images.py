@@ -691,10 +691,11 @@ def _png_bytes(img):
 def _preview_overrides(qs):
     """Pull live conversion values from the preview query string.
 
-    Recognises ``crop`` (handled by the caller), the ``dither``/``match``/
-    ``palette``/``palette_colors`` names and the four colour adjustments. The
-    Art tab passes the art's unsaved control values so the previews track the
-    controls before a save; the crop keeps its own ``?crop=`` parameter.
+    Recognises the ``match``/``palette``/``palette_colors`` names, the four
+    colour adjustments and a preview-only ``dither``. The Art tab passes the
+    art's unsaved control values and the Systems tab's live dither so the
+    previews track them before a save; the crop keeps its own ``?crop=``
+    parameter. The dither value is still a system setting, never an art one.
     """
     out = {}
     for key in ("dither", "match", "palette", "palette_colors") \
@@ -706,7 +707,8 @@ def _preview_overrides(qs):
 
 
 
-def _preview_context(slug, art_id, crop, file, lines, overrides):
+def _preview_context(slug, art_id, crop, file, lines, overrides,
+                     target_id=None):
     """Resolve (src, conv, doc, art) for an Art-tab preview query."""
     game = _game_or_error(slug)
     doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
@@ -717,7 +719,8 @@ def _preview_context(slug, art_id, crop, file, lines, overrides):
         src = _art_image_path(game, art) if art else None
     if not src or not os.path.exists(src):
         return None, None, doc, art, None
-    conv = scenefile.conversion_options(art or {}, doc["game"])
+    conv = scenefile.conversion_options(art or {}, doc["game"],
+                                        target_id or "zx128")
     if lines is not None:
         try:
             lines = scenefile.art_lines({"art_lines": int(lines)})
@@ -760,7 +763,7 @@ def target_art_preview_bytes(slug, art_id, target_id, crop=None, file=None,
     if target is None or target.preview is None:
         return None
     src, conv, doc, _art, _rows = _preview_context(
-        slug, art_id, crop, file, lines, overrides)
+        slug, art_id, crop, file, lines, overrides, target.id)
     if not src:
         return None
     options = targets.target_options(doc, target)
@@ -797,13 +800,14 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
     returned at its native size; the UI shows it next to the source
     without distorting either (see ``art.js``).
 
-    The art's conversion settings (dither, colour match, palette and colour
+    The art's conversion settings (colour match, palette and colour
     adjustments) are resolved with ``scenefile.conversion_options`` so the
-    preview matches the build; ``overrides`` layers the Art tab's unsaved
-    control values (from ``_preview_overrides``) on top.
+    preview matches the build, and the dither comes from the ``zx128`` system
+    block; ``overrides`` layers the Art tab's unsaved control values (from
+    ``_preview_overrides``) on top.
     """
     src, conv, doc, _art, rows = _preview_context(
-        slug, art_id, crop, file, lines, overrides)
+        slug, art_id, crop, file, lines, overrides, "zx128")
     if not src:
         return None
     from PIL import Image

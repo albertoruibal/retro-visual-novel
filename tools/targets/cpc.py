@@ -17,6 +17,8 @@ import re
 import shutil
 import tempfile
 
+import scenefile
+
 from .base import BuildResult, Target, TargetOption, portable_sources
 
 # Keep in sync with tools/gen_port.py: the resident AY song workspace. Music
@@ -267,6 +269,11 @@ def cpc_options(default_rows=12):
                      "Character rows of picture above the scrolling text pane. "
                      "14 and 16 need Mode 2 (fewer text rows remain).",
                      minimum=8, maximum=16),
+        TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+                     scenefile.DITHER_BINARY_MODES,
+                     help="Modes 0/2: off snaps to the nearest colour, floyd "
+                          "uses Floyd-Steinberg. Mode 1 is monochrome and "
+                          "always ordered-dithers its grey ramp."),
         TargetOption("menu", "Pop-up options", "bool", False,
                      help="Modes 1/2 only: use the SPACE-key dialog instead of "
                           "pinned options and the inventory row. Mode 0 "

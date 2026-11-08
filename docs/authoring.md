@@ -42,7 +42,6 @@ inherits sit here so you write each art's own settings only when it differs.
     items: <item, ...>               # items that exist before any use
     songs: <id, ...>                 # PT3 songs; each needs assets/music/<id>.pt3
     music: off|<song-id>|on          # default song (off if absent)
-    dither: off|bayer2|bayer4|bayer8|noise|floyd|atkinson|jarvis|stucki|sierra
     match: rgb|perceptual            # colour-distance metric
     palette: none|spectrum|adaptive  # pre-reduce the source
     palette_colors: <n>              # colours for palette: adaptive (16)
@@ -101,14 +100,9 @@ override `seed`/`steps`/`cfg`/`width`/`height` with its own lines.
 ### Converting art to the Spectrum
 
 The conversion from a source PNG to the 256-wide art band happens at build time, and these settings bake into its
-result, so the engine carries no state. Each is a `# Game` default that any art may override:
+result, so the engine carries no state. Each is a `# Game` default that any art may override (dithering is chosen per
+build system instead — see [Build systems](#build-systems)):
 
-- `dither:` picks how a pixel chooses between its cell's two colours. `off` (default) snaps to the nearest;
-  `bayer2`/`bayer4`/`bayer8` are ordered matrices from coarsest to finest, `noise` is plain grain, and `floyd`,
-  `atkinson`, `jarvis`, `stucki` and `sierra` are error-diffusion kernels (jarvis smoothest, atkinson highest
-  contrast). Error diffusion can push the unique-tile count up a little. Monochrome targets cannot honour `off`
-  (a hard threshold would leave only black and white), so they substitute an ordered dither: Oric Atmos uses 2x2
-  Bayer, and CPC Mode 1 always ordered-dithers its black/grey/white ramp.
 - `match:` picks the distance metric used to pick colours: `rgb` (default) or `perceptual`, a redmean approximation
   that weighs hues the way the eye does.
 - `palette:` pre-reduces the source before the cell search: `none`, `spectrum` (snap to the 16 hardware colours) or
@@ -148,39 +142,50 @@ overrides the prompt line above the input ("Enter the password:" by default).
     # Systems
     ## zx128
     art_rows: 10            # art band rows, even (default 10)
+    dither: bayer4          # optional, per system (default off)
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour (default: text_ink)
     ## zx48
     art_rows: 10            # shares the 128K band; no music on 48K
+    dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
     menu: popup             # optional: options/items in a SPACE dialog
     ## next
     art_rows: 10            # even 8..16 (default 10); Layer 2 256-colour band
+    dither: floyd           # off|floyd only
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour
     ## sms
     art_rows: 12            # default 12; always uses the action dialog
+    dither: floyd           # off|floyd only
     ## cpc
     mode: 1                 # video mode 0|1|2 (default 1)
     columns: 32             # text columns 32|40|62 (default 32)
     art_rows: 12            # default 12; 14/16 need mode 2
+    dither: off             # off|floyd in modes 0/2; mode 1 always dithers
     menu: popup             # optional in modes 1/2; mode 0 always uses it
     ## cpc464
     mode: 1                 # same mode/columns/art_rows options as cpc
     columns: 32
     art_rows: 8             # default 8; art is streamed from the disk
+    dither: off             # off|floyd in modes 0/2; mode 1 always dithers
     menu: popup             # optional in modes 1/2; mode 0 always uses it
     ## msx2
     columns: 64             # text columns 64|80 (default 64)
     art_rows: 12            # default 12
+    dither: floyd           # off|floyd only
     menu: popup             # optional: options/items in a SPACE/button-2 dialog
     ## gb
     art_rows: 6             # 4|6|8 (default 6); Game Boy Color action dialog
+    dither: floyd           # off|floyd only
     ## c64
     art_rows: 6             # 4|6|8|10 (default 6); C64 action dialog
+    dither: floyd           # off|floyd only
     ## nes
     art_rows: 10            # 6|8|10 (default 10); NES action dialog
+    dither: floyd           # off|floyd only
     ## oric
     art_rows: 8             # 4|6|8|10|12 (default 8); Oric action dialog
+    dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
 
 A build compiles the ZX targets first (128K before 48K), then the other systems in block order; each system's log is
 separated
@@ -210,6 +215,16 @@ the Game tab's `text_ink:`; any colour token from the [text colours](#game-setti
 variant or `dim_black`…`dim_white` — selects an exact Spectrum ink. The boot password screen's game title uses the
 same colour.
 
+`dither:` (default `off`) picks how each pixel chooses between its cell's colours, per build system. The ZX 128K/48K and
+Oric targets accept the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered matrices from
+coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
+error-diffusion kernels (jarvis smoothest, atkinson highest contrast). The other targets accept `off` or `floyd`
+(Floyd-Steinberg). Monochrome targets cannot honour `off` (a hard threshold would leave only black and white), so
+`zx48` and `oric` substitute a 2x2 Bayer dither, and CPC Mode 1 always ordered-dithers its black/grey/white ramp. Set
+it in each system's block so one game can use an ordered pattern on ZX and Floyd-Steinberg where the palette is
+richer. Older files with a single `# Game dither:` line migrate it to each selected system on load; a per-art
+`dither:` is dropped, because art no longer owns that setting.
+
 ## Art
 
 `# Art` declares the game's images. One `## <id>` block per art:
@@ -221,7 +236,6 @@ same colour.
     refs: boat captain              # reference images to condition on
     crop: 12 0 76 100               # source rect, percent of the source
     seed: 41                        # optional overrides of the # Game defaults
-    dither: bayer4                  # optional conversion overrides
 
 The id is what a scene's `art:` names, and many scenes may share one art — reuse it rather than packing near-duplicates.
 
@@ -244,10 +258,10 @@ re-fitted and re-saved when the art is next shown.
 
 ### Conversion overrides
 
-Each art may override any of the `# Game` conversion defaults — `dither:`, `match:`, `palette:`, `palette_colors:`,
+Each art may override any of the `# Game` conversion defaults — `match:`, `palette:`, `palette_colors:`,
 `saturation:`, `contrast:`, `brightness:`, `gamma:` — plus the generation settings (`crop:` aside, they behave exactly
-as described above). Write a line only when the art differs from the game default; the serialiser drops lines that
-would just repeat it.
+as described above). Dithering has no per-art override; it belongs to each build system. Write a line only when the art
+differs from the game default; the serialiser drops lines that would just repeat it.
 
 ## References
 

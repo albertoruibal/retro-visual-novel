@@ -315,8 +315,8 @@ There is no test suite and no configured linter. Verify by:
   `width*scale` x `height*scale`), and `refine_denoise:`. The Art/Reference panes' **Refine 2x** (`POST /api/refine_art`
   / `/api/refine_ref`, or `gen_images.py --refine`/`--refine-refs`) runs img2img on the selected image at 2x, preserving
   its composition. Both paths send the game's negative prompt and use the shared seed/steps/cfg. The current game uses a
-  bright detailed pixel-art prompt, `hires: 2x`, and `dither: off`; keep dark gradients out of the prompt because the
-  NIRVANA+ band only has two colours per 8x2 cell.
+  bright detailed pixel-art prompt and `hires: 2x`; keep dark gradients out of the prompt because the NIRVANA+ band
+  only has two colours per 8x2 cell.
 - **Reference images are separate `# References` entries, not art.** Each `## <ref-id>` has its own `prompt:` (and
   optional `image:`/`seed`/`steps`/`cfg`/`width`/`height`) and renders into `<game>/assets/refs/<id>/` exactly like art
   candidates. An `# Art` entry names them in `refs: <id>...`; the generator sends their selected images to the SD API as
@@ -343,8 +343,11 @@ There is no test suite and no configured linter. Verify by:
   too. `assets/gen` still holds the songs' `song_<id>.wav` previews, so the two roots are distinct.
 - **NIRVANA+ art conversion is dithered** (`zxart.nirvana_band`, used by both the build and the editor preview): after
   each 8x2 cell's ink/paper are chosen, pixels are assigned to them by a dither scheme, not a hard nearest test. The
-  `dither:` setting (a `# Game` default any art may override; `scenefile.conversion_options`) selects it: `off` (hard
-  snap), the pointwise `bayer2`/`bayer4`/`bayer8`/`noise` (threshold schemes in `zxart.DITHER_MODES`) or an
+  `dither:` setting is **per build system** (`## <id>` under `# Systems`, resolved by `scenefile.system_dither` and
+  passed through `scenefile.conversion_options(..., target_id)`); it is no longer a `# Game` or per-art option. A
+  legacy global `dither:` migrates to each selected system on parse; per-art dithers are dropped. It selects `off`
+  (hard snap), the pointwise `bayer2`/`bayer4`/`bayer8`/`noise` (threshold schemes in
+  `zxart.DITHER_MODES`) or an
   error-diffusion kernel listed in `zxart._DIFFUSE` — `floyd`, `atkinson`, `jarvis`, `stucki`, `sierra` (floyd keeps its
   original tap order, so existing art is unchanged). `bayer2` is the coarsest/roughest; `bayer8` the finest. Measured to
   keep the unique-tile count at or near the 64-tile cap, so the paged-bank budget is unaffected. Keep the numpy and
@@ -358,7 +361,7 @@ There is no test suite and no configured linter. Verify by:
   `adaptive`, `zxart._apply_palette`) and the `saturation`/`contrast`/`brightness`/`gamma` source adjustments
   (`zxart.preprocess`), applied after `_fit_band` and before quantisation. They resolve per art over the `# Game`
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
-  live `?dither=...` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
+  live `?match=`/`?palette=` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
 - **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms` / `system_cpc` /
   `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` / `system_oric` are reserved build-time
   pseudo-flags**

@@ -10,7 +10,7 @@
 - **Colours:** monochrome. HIRES is one ink and one paper colour for the whole screen, and the Oric's serial
   attributes cost a screen cell each time they change a colour, so the target uses white ink on black paper for the
   picture and text. Selection and highlighted words use inverse video; the `>` marker is still drawn.
-- **Art:** `tools/oricart.py` fits the source to 240 x `8 * art_rows`, applies the shared `dither:` scheme and source
+- **Art:** `tools/oricart.py` fits the source to 240 x `8 * art_rows`, applies the `## oric dither:` scheme and source
   adjustments, and packs 40 bytes per row (bit 6 set, bit 5 the leftmost pixel). Because HIRES is 1-bit,
   `dither: off` is forced to a 2x2 Bayer dither (an explicit scheme is honoured); a hard threshold would throw away
   every mid-tone, and the coarse matrix keeps the resident blobs small enough to fit. Each art blob is

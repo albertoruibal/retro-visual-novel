@@ -11,6 +11,8 @@ import importlib.util
 import os
 import re
 
+import scenefile
+
 from .base import BuildResult, Target, TargetOption, portable_sources
 
 
@@ -188,6 +190,10 @@ TARGET = Target(
         TargetOption("art_rows", "Art rows", "choice", 12, (8, 10, 12),
                      "Character rows of picture above the text pane.",
                      minimum=8, maximum=12),
+        TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+                     scenefile.DITHER_BINARY_MODES,
+                     help="off uses a hard nearest-colour snap; floyd uses "
+                          "Floyd-Steinberg error diffusion."),
         TargetOption("columns", "Text columns", "choice", 64, (64, 80),
                      "64 uses 8x8 glyphs across the full 512-pixel width; "
                      "80 uses 6-pixel cells."),

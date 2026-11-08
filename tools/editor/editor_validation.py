@@ -21,10 +21,6 @@ def _conv_issues(entry, g, section, sid, issues, need_field):
             it["need"] = key
         issues.append(it)
 
-    d = entry.get("dither")
-    if d not in (True, False, None) and d not in scenefile.DITHER_MODES:
-        add("dither", f"unknown dither '{d}'; using "
-                      f"{scenefile.conversion_options(entry, g)['dither']}")
     m = entry.get("match")
     if m is not None and (not isinstance(m, str)
                           or m not in scenefile.MATCH_MODES):
@@ -562,10 +558,10 @@ def _validate(doc, slug):
     if slug:
         check_music(g.get("music"), "game", "")
 
-    # Conversion settings (dither scheme, colour match, source palette and
-    # colour adjustments) accept named/range values; an unrecognised one
-    # silently reverts at build time, so flag it rather than let the author
-    # think it took effect. Each art may override the game's values.
+    # Conversion settings (colour match, source palette and colour
+    # adjustments) accept named/range values; an unrecognised one silently
+    # reverts at build time, so flag it rather than let the author think it
+    # took effect. Each art may override the game's values.
     _conv_issues(g, g, "game", "", issues, False)
     for a in arts:
         _conv_issues(a, g, "art", a["id"], issues, True)
@@ -617,6 +613,28 @@ def _validate(doc, slug):
                            "id": "title_ink", "target": tgt.id,
                            "msg": f"unknown title colour '{val}'; using the "
                                   "text colour"})
+
+    # Dither is selected per build system. A value outside that system's
+    # supported list silently falls back (or is treated as Floyd-Steinberg by
+    # the binary targets), so report it against the system's block.
+    for sid in selected_systems:
+        tgt = targets.get_target(sid)
+        option = next((o for o in (tgt.options if tgt else ())
+                       if o.key == "dither"), None)
+        if option is None:
+            continue
+        raw = (g.get("extras") or {}).get(f"{sid}_dither")
+        val = str(raw or "").strip().lower()
+        if not val:
+            continue
+        allowed = {str(c).strip().lower() for c in option.choices}
+        if val in allowed:
+            continue
+        effective = "off" if val not in scenefile.DITHER_MODES else "floyd"
+        issues.append({"level": "warn", "section": "game", "id": "dither",
+                       "target": sid,
+                       "msg": f"dither '{val}' is not available on "
+                              f"{tgt.label}; using {effective}"})
 
     # `password:` drives the boot screen shown before the first scene. The
     # engine types it on the ZX keyboard and compares ASCII, so it must be a
@@ -1066,6 +1084,8 @@ def _annotate_lines(issues, text):
         elif line < 0 and section == "item" and sid:
             head = heading("item", sid)
             line = first(field_within(head, "desc:") if head >= 0 else -1, head)
+        elif line < 0 and section == "game" and it.get("target"):
+            line = heading("system", it["target"])
         elif line < 0 and section == "game" and sid:
             line = first(declared("flags:", sid), declared("items:", sid),
                          declared("songs:", sid), key_line(sid))
@@ -1073,8 +1093,6 @@ def _annotate_lines(issues, text):
             head = heading("song", sid)
             line = first(field_within(head, "prompt:") if head >= 0 else -1,
                          head, declared("songs:", sid))
-        elif line < 0 and section == "game" and it.get("target"):
-            line = heading("system", it["target"])
         if line < 0:
             line = next((i for i, ln in enumerate(lines)
                          if ln.strip() in ("# game", "# Game")), 0)

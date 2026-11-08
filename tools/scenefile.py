@@ -81,10 +81,13 @@ SYSTEM_FLAGS = {
     "system_nes": "nes",
     "system_oric": "oric",
 }
-# Accepted values for `# Game dither:`, mirroring zxart.DITHER_MODES.
+# Accepted values for a system's `dither:` option, mirroring zxart.DITHER_MODES.
 DITHER_MODES = ("off", "bayer2", "bayer4", "bayer8", "noise", "floyd",
                 "atkinson", "jarvis", "stucki", "sierra")
 _DITHER_MODES = DITHER_MODES
+# Targets without a per-pixel ordered/error-diffusion choice only distinguish
+# a hard snap from Floyd-Steinberg (see their target options).
+DITHER_BINARY_MODES = ("off", "floyd")
 DEFAULT_DITHER = "off"
 # Colour-distance metric for the NIRVANA+ cell search, mirroring zxart.
 MATCH_MODES = ("rgb", "perceptual")
@@ -110,7 +113,8 @@ DEFAULT_ADJUST = {"saturation": 1.0, "contrast": 1.0, "brightness": 1.0,
 ADJUST_RANGES = {"saturation": (0.0, 3.0), "contrast": (0.0, 3.0),
                  "brightness": (0.0, 3.0), "gamma": (0.25, 4.0)}
 # The per-art / `# Game` conversion keys (a `# Art` value wins over the game's).
-CONV_KEYS = ("dither", "match", "palette", "palette_colors") + ADJUST_KEYS
+# Dither is deliberately absent: it is chosen per build system (`## <id>`).
+CONV_KEYS = ("match", "palette", "palette_colors") + ADJUST_KEYS
 # Each `## <art-id>` under `# Art` owns a folder of candidate source images,
 # <game>/assets/art/<id>/, holding one PNG per generation/upload/edit (named
 # with a `<action>-<epoch>` prefix). The per-art `image:` line names the chosen
@@ -492,7 +496,7 @@ def parse(md):
 
     game:   {"title", "prompt", "seed", "steps", "cfg", "size", "width",
              "height", "art_lines", "start", "flags", "items", "songs",
-             "music", "dither", "match", "palette", "palette_colors",
+             "music", "match", "palette", "palette_colors",
              "saturation", "contrast", "brightness", "gamma", "password",
              "password_label", "popup_hint", "carry", "inventory_drop",
              "inventory_back", "text_ink", "highlight_ink", "text_bg",
@@ -521,7 +525,7 @@ def parse(md):
             "art_lines": ART_LINES_DEFAULT,
             "start": [], "targets": [], "extras": {},
             "flags": [], "items": [], "songs": [], "music": None,
-            "dither": "off", "password": "", "carry": 0,
+            "password": "", "carry": 0,
             "password_label": "", "popup_hint": "",
             "inventory_drop": "", "inventory_back": "",
             "text_ink": "", "highlight_ink": "", "text_bg": "",
@@ -539,6 +543,7 @@ def parse(md):
     section, style = None, None
     _, game_opts = _target_meta()
     system_order, system_options = [], {}
+    legacy_dither = None
 
     for raw in text.splitlines():
         line = raw.rstrip("\n")
@@ -711,8 +716,11 @@ def parse(md):
             elif s.startswith("music:"):
                 cur["music"] = s[6:].strip()
             elif s.startswith("dither:") and cur.get("kind") in ("game", "art"):
+                # Legacy global/per-art setting. Dither is now selected per
+                # system; keep a global value for migration, drop art ones.
                 mode = None
-                cur["dither"] = s[7:].strip().lower() or "off"
+                if cur is game:
+                    legacy_dither = s[7:].strip().lower() or DEFAULT_DITHER
             elif s.startswith("match:") and cur.get("kind") in ("game", "art"):
                 mode = None
                 cur["match"] = s[6:].strip().lower() or DEFAULT_MATCH
@@ -855,6 +863,14 @@ def parse(md):
             game["extras"][f"{sid}_{key}"] = val
     if system_order:
         game["targets"] = system_order
+    # Migrate a legacy global dither to every selected system that has no
+    # per-system value yet. A per-art dither cannot map to systems and is dropped.
+    if legacy_dither in _DITHER_MODES and legacy_dither != DEFAULT_DITHER:
+        selected = system_order or [
+            canonical_target_id(t) for t in (game.get("targets") or [])
+            if str(t).strip()] or ["zx128"]
+        for sid in selected:
+            game["extras"].setdefault(f"{sid}_dither", legacy_dither)
 
     for a in arts + refs:
         for k in PARAM_KEYS:
@@ -1508,20 +1524,23 @@ def art_crop(entry, game=None):
     return None
 
 
-def dither_mode(game):
-    """Resolve a game's NIRVANA+ dithering mode (see ``zxart.DITHER_MODES``).
+def system_dither(game, target_id):
+    """Resolve one build system's dither mode (see ``zxart.DITHER_MODES``).
 
-    Canonical modes: ``off`` (default), ``bayer2``, ``bayer4``, ``bayer8``,
-    ``noise``, ``floyd``. A game without the key, or one still carrying a legacy
-    boolean (``True``/``False``), maps to the default/``off`` so old files keep
-    working.
+    Dither is stored in the system's ``## <id>`` block as ``dither:`` (the
+    legacy ``<id>_dither`` extra). A missing, legacy-boolean or unknown value
+    maps to ``off`` so a hand-edited file still builds.
     """
-    d = (game or {}).get("dither", "off")
+    sid = canonical_target_id(target_id)
+    if not sid:
+        return DEFAULT_DITHER
+    d = ((game or {}).get("extras") or {}).get(f"{sid}_dither")
     if d is False:
-        return "off"
-    if d is True or d is None:
-        return "off"
-    return d if d in _DITHER_MODES else "off"
+        return DEFAULT_DITHER
+    if not isinstance(d, str):
+        return DEFAULT_DITHER
+    return d.strip().lower() if d.strip().lower() in _DITHER_MODES \
+        else DEFAULT_DITHER
 
 
 def _as_float(v, default):
@@ -1535,16 +1554,17 @@ def _clamp(v, lo, hi):
     return lo if v < lo else hi if v > hi else v
 
 
-def conversion_options(entry, game=None):
-    """Resolve an art's complete conversion settings against the game default.
+def conversion_options(entry, game=None, target_id=None):
+    """Resolve an art's complete conversion settings for one build system.
 
     Returns ``{"crop", "dither", "match", "palette", "palette_colors",
     "adjust"}`` where ``adjust`` is ``{saturation, contrast, brightness,
-    gamma}``. Each value comes from ``entry`` (an art) when set, else from
-    ``game`` (the ``# Game`` section), else the built-in default. Invalid or
-    out-of-range values fall back to the default (the editor's validator
-    reports them) so a hand-edited file still builds. The build and the editor
-    previews share this one resolver.
+    gamma}``. ``dither`` comes from ``target_id``'s ``## <id>`` block (see
+    ``system_dither``); the other values come from ``entry`` (an art) when set,
+    else from ``game`` (the ``# Game`` section), else the built-in default.
+    Invalid or out-of-range values fall back to the default (the editor's
+    validator reports them) so a hand-edited file still builds. The build and
+    the editor previews share this one resolver.
     """
     g = game or {}
 
@@ -1552,13 +1572,7 @@ def conversion_options(entry, game=None):
         v = (entry or {}).get(key)
         return g.get(key) if v is None else v
 
-    dither = pick("dither")
-    if dither is False:
-        dither = "off"
-    elif dither is True or dither is None:
-        dither = DEFAULT_DITHER
-    elif dither not in DITHER_MODES:
-        dither = DEFAULT_DITHER
+    dither = system_dither(g, target_id)
 
     match = pick("match")
     if not isinstance(match, str) or match not in MATCH_MODES:
@@ -1745,8 +1759,6 @@ def serialize(doc):
     if g.get("music"):
         out.append(f"music: {str(g['music']).strip()}")
     gconv = conversion_options(g, g)
-    if gconv["dither"] != DEFAULT_DITHER:
-        out.append(f"dither: {gconv['dither']}")
     if gconv["match"] != DEFAULT_MATCH:
         out.append(f"match: {gconv['match']}")
     if gconv["palette"] != DEFAULT_PALETTE:
@@ -1823,8 +1835,6 @@ def serialize(doc):
         if cr is not None:
             out.append("crop: " + " ".join(str(int(round(x))) for x in cr))
         aconv = conversion_options(a, g)
-        if a.get("dither") is not None and aconv["dither"] != gconv["dither"]:
-            out.append(f"dither: {aconv['dither']}")
         if a.get("match") is not None and aconv["match"] != gconv["match"]:
             out.append(f"match: {aconv['match']}")
         if a.get("palette") is not None and aconv["palette"] != gconv["palette"]:

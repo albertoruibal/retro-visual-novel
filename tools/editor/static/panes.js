@@ -32,10 +32,6 @@ function renderPane() {
   wirePane();
 }
 
-/* Resolve the game's NIRVANA+ dither mode; mirrors scenefile.dither_mode so a
- * legacy boolean (true/false) or an unknown value maps to the default. */
-const DITHER_MODES = ["off", "bayer2", "bayer4", "bayer8", "noise", "floyd",
-                      "atkinson", "jarvis", "stucki", "sierra"];
 /* Source conversion options, mirroring scenefile. `rgb`/`none`/1.0 are the
  * defaults and are omitted from game.md on save. */
 const MATCH_MODES = ["rgb", "perceptual"];
@@ -58,13 +54,6 @@ const DITHER_LABELS = {
   stucki: "Stucki (crisp)",
   sierra: "Sierra (smooth, light)",
 };
-function ditherMode() {
-  const d = P && P.game ? P.game.dither : null;
-  if (d === false) return "off";
-  if (d === true || d == null) return "off";
-  return DITHER_MODES.includes(d) ? d : "off";
-}
-
 /* Resolve a conversion key for an entry (an `# Art`, or null for the game):
  * the entry's own value when set, else the game default, else `def`. Mirrors
  * scenefile.conversion_options so the previews and the build agree. */
@@ -119,7 +108,6 @@ function convAdjust(a, key) {
  * unsaved) values, so the previews track the controls before a save. */
 function convQuery(a) {
   const parts = [`lines=${artLines()}`,
-                 `dither=${encodeURIComponent(ditherModeFor(a))}`,
                  `match=${encodeURIComponent(convMatch(a))}`];
   const pal = convPalette(a);
   parts.push(`palette=${encodeURIComponent(pal)}`);
@@ -130,11 +118,6 @@ function convQuery(a) {
   }
   return parts.join("&");
 }
-function ditherModeFor(a) {
-  const v = convVal(a, "dither", "off");
-  return DITHER_MODES.includes(v) ? v : "off";
-}
-
 /* Markup for a per-art override slider: a checkbox turns the override on; when
  * off the slider is disabled and shows the inherited game value. */
 function ovRange(id, label, min, max, step, value, isSet, inherited) {
@@ -282,10 +265,12 @@ function systemCard(t) {
         let field = "";
         if (o.kind === "choice") {
           field = `<select id="topt-${esc(o.key)}">${targetOptionChoices(t, o).map(c => {
-            const label = o.suffix === "title_ink"
-              ? (String(c) === "text" ? "Same as text (default)"
-                : String(c).replace("_", " "))
-              : c;
+            const label = o.suffix === "dither"
+              ? (DITHER_LABELS[c] || c)
+              : o.suffix === "title_ink"
+                ? (String(c) === "text" ? "Same as text (default)"
+                  : String(c).replace("_", " "))
+                : c;
             return optionTag(esc(c), String(v) === String(c), esc(label));
           }).join("")}</select>`;
         } else if (o.kind === "bool") {
@@ -378,13 +363,8 @@ function paneGame() {
   </div>
   <div class="card">
     <h3>Art conversion <span class="pill">sliders: tick to enable; unticked = default</span></h3>
-    <label>Dithering</label>
-    <select id="gdither">
-      ${DITHER_MODES.map((v) => optionTag(v, ditherMode() === v, DITHER_LABELS[v])).join("")}
-    </select>
-    <div class="hint">Blends each cell's two colours so flat mid-tones dither
-      instead of collapsing to one colour. Error diffusion is smoothest but can
-      use a few more unique tiles. Affects every art and the previews.</div>
+    <div class="hint">Dithering is chosen per build system on the
+      <b>Systems</b> tab.</div>
     <label>Colour matching</label>
     <select id="gmatch">
       <option value="rgb"${gameMatch() === "rgb" ? " selected" : ""}>Plain RGB (default)</option>
@@ -844,11 +824,8 @@ function paneArt(id) {
   </div>
   <div class="card">
     <h3>Conversion overrides <span class="pill">blank / unticked = game default</span></h3>
-    <label>Dithering</label>
-    <select id="adither">
-      <option value="">Game default (${ditherMode()})</option>
-      ${DITHER_MODES.map((v) => optionTag(v, a.dither === v, DITHER_LABELS[v])).join("")}
-    </select>
+    <div class="hint">Dithering is chosen per build system on the
+      <b>Systems</b> tab.</div>
     <label>Colour matching</label>
     <select id="amatch">
       <option value="">Game default (${gameMatch()})</option>

@@ -179,7 +179,6 @@ function wirePane() {
     bindVal("gcfg", (v) => P.game.cfg = +v, "input");
     bindVal("gwidth", (v) => P.game.width = +v, "input");
     bindVal("gheight", (v) => P.game.height = +v, "input");
-    bindVal("gdither", (v) => P.game.dither = v, "change");
     bindVal("gmatch", (v) => P.game.match = v, "change");
     bindVal("gpalette", (v) => P.game.palette = v, "change");
     /* Global colour sliders: a checkbox enables the option. Unticked it clears
@@ -355,7 +354,6 @@ function wirePane() {
       if (f) uploadArt(f, a);
     };
     const refresh = () => { drawArtView(a.id, "all"); markDirty(); };
-    bindVal("adither", (v) => { a.dither = v || null; refresh(); }, "change");
     bindVal("amatch", (v) => { a.match = v || null; refresh(); }, "change");
     bindVal("apalette", (v) => { a.palette = v || null; refresh(); }, "change");
     const wireOv = (id, key, inherited, transform) => {

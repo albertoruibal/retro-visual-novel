@@ -10,6 +10,8 @@ import importlib.util
 import os
 import re
 
+import scenefile
+
 from .base import BuildResult, Target, TargetOption, portable_sources
 
 
@@ -126,6 +128,10 @@ TARGET = Target(
         TargetOption("art_rows", "Art rows", "choice", 12, (8, 10, 12),
                      "SMS character rows of picture; 12 leaves 11 rows below it.",
                      minimum=8, maximum=12),
+        TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+                     scenefile.DITHER_BINARY_MODES,
+                     help="off uses a hard nearest-colour snap; floyd uses "
+                          "Floyd-Steinberg error diffusion."),
     ),
     build=_build,
     validate=_validate,

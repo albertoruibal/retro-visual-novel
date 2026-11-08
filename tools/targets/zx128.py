@@ -57,6 +57,14 @@ TARGET = Target(
             "valid (256x8*rows pixels, default 10 = 256x80).",
             minimum=8, maximum=16, game_key="art_lines"),
         TargetOption(
+            "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+            scenefile.DITHER_MODES,
+            help="How each 8x2 cell mixes its ink/paper colours: off snaps to "
+                 "the nearest, ordered Bayer schemes are coarsest (2x2) to "
+                 "finest (8x8), noise adds grain, and the error-diffusion "
+                 "kernels (floyd, atkinson, jarvis, stucki, sierra) smooth "
+                 "flat gradients."),
+        TargetOption(
             "menu", "Pop-up options", "bool", False,
             help="Show scene options and held items in a SPACE-key dialog "
                  "instead of the pinned option list and row-23 inventory band.",

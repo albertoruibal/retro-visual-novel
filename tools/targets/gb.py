@@ -18,6 +18,8 @@ import re
 import shutil
 import tempfile
 
+import scenefile
+
 from .base import BuildResult, Target, TargetOption, portable_sources
 
 CGB_ENHANCED_FLAG = 0x80
@@ -136,6 +138,10 @@ TARGET = Target(
         TargetOption("art_rows", "Art rows", "choice", 6, (4, 6, 8),
                      "Character rows of picture; 6 leaves 11 rows below it.",
                      minimum=4, maximum=8),
+        TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+                     scenefile.DITHER_BINARY_MODES,
+                     help="off uses a hard four-colour snap; floyd uses "
+                          "Floyd-Steinberg error diffusion."),
     ),
     build=_build,
     validate=_validate,

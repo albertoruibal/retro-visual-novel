@@ -128,10 +128,24 @@ function previewTargetEngine(id) {
                    c64: "VIC-II MCM", nes: "NES PPU",
                    oric: "Oric HIRES" }[id] || "");
 }
+/* The system's live (possibly unsaved) dither choice. It is a Systems-tab
+ * setting, not an art override, but the preview follows the dropdown before a
+ * save. Mirrors the target option's default/choices and falls back like the
+ * server's coercion. */
+function previewDither(id) {
+  const m = previewTargetMeta(id);
+  const opt = ((m && m.options) || []).find((o) => o.suffix === "dither");
+  const choices = ((opt && opt.choices) || ["off"]).map(String);
+  const def = opt && opt.default != null ? String(opt.default) : "off";
+  const ex = (P && P.game && P.game.extras) || {};
+  const v = String(ex[id + "_dither"] ?? def);
+  return choices.includes(v) ? v : def;
+}
 function targetPreviewQuery(id, q) {
-  if (id === "zx128" || id === "zx48") return q;
+  const dither = "dither=" + encodeURIComponent(previewDither(id));
+  if (id === "zx128" || id === "zx48") return q + (q ? "&" : "?") + dither;
   return q + (q ? "&" : "?") + "target=" + encodeURIComponent(id)
-           + "&rows=" + previewTargetRows(id);
+           + "&rows=" + previewTargetRows(id) + "&" + dither;
 }
 function targetPreviewFig(id, g, aid, q, bust) {
   const src = `/api/preview/${g}/${aid}${targetPreviewQuery(id, q)}`;

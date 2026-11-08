@@ -70,6 +70,11 @@ TARGET = Target(
             "pixels, default 10 = 256x80).",
             minimum=8, maximum=16),
         TargetOption(
+            "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+            scenefile.DITHER_BINARY_MODES,
+            help="off uses a hard nearest-colour snap; floyd uses "
+                 "Floyd-Steinberg error diffusion."),
+        TargetOption(
             "menu", "Pop-up options", "bool", False,
             help="Show scene options and held items in a SPACE-key dialog "
                  "instead of the pinned option list and row-23 inventory band.",
