@@ -1171,6 +1171,7 @@ def main():
         ("PORT_NO_TEXT_SCROLL", 1 if (use_msx2 or (use_next and not overlay_menu)) else 0),
         ("PORT_NO_DESC_SCROLL", 1 if (use_next and not overlay_menu) else 0),
         ("PORT_NO_ENTRY_WRAP", 1 if (use_next and not overlay_menu) else 0),
+        ("PORT_ENTRY_STRIDE", 2 if use_nes else 1),
         ("PORT_OVERLAY_MENU", 1 if overlay_menu else 0),
         ("PORT_BANKED_SCENES", 1 if (use_gb or use_next) else 0),
         ("GB_ART_TILE_BASE", 96 if use_gb else 0),

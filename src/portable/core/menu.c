@@ -7,7 +7,7 @@
 void show_message(const char *text)
 {
     unsigned char top = PORT_TEXT_TOP;
-    unsigned char hint_row = (unsigned char)(PLAT_ROWS - 1);
+    unsigned char hint_row = (unsigned char)(PLAT_ROWS - PORT_ENTRY_STRIDE);
     unsigned char body_rows = (unsigned char)(hint_row - top);
     unsigned int first = 0;
     for (;;) {
@@ -310,6 +310,11 @@ static unsigned char menu_entry_rows(unsigned char nopt, unsigned char i)
 #endif
 }
 
+static unsigned char menu_entry_span(unsigned char nopt, unsigned char i)
+{
+    return (unsigned char)PORT_ENTRY_SPAN(menu_entry_rows(nopt, i));
+}
+
 /* Keep the selected entry (and its wrapped lines) inside the pane. */
 static void menu_clamp(unsigned char nopt, unsigned char sel,
                        unsigned char *first)
@@ -321,7 +326,7 @@ static void menu_clamp(unsigned char nopt, unsigned char sel,
     for (;;) {
         rows = 0;
         for (i = *first; i <= sel; i++)
-            rows += menu_entry_rows(nopt, i);
+            rows += menu_entry_span(nopt, i);
         if (rows <= text_rows || *first >= sel)
             break;
         (*first)++;
@@ -354,7 +359,7 @@ static void draw_menu_move(unsigned char nopt, unsigned char first,
             draw_menu_entry(nopt, j, row, 0);
         if (j == sel)
             draw_menu_entry(nopt, j, row, 1);
-        row = (unsigned char)(row + menu_entry_rows(nopt, j));
+        row = (unsigned char)(row + menu_entry_span(nopt, j));
     }
 }
 
@@ -364,7 +369,8 @@ static void draw_menu(unsigned char nopt, unsigned char total,
     unsigned char i, row = text_top;
     plat_clear_pane();
     for (i = first; i < total && row < PLAT_ROWS; i++)
-        row = (unsigned char)(row + draw_menu_entry(nopt, i, row, i == sel));
+        row = (unsigned char)(
+            row + PORT_ENTRY_SPAN(draw_menu_entry(nopt, i, row, i == sel)));
     if (first)
         plat_text_at(text_top, PORT_SCROLL_COL, PORT_SCROLL_UP, 0);
     if (i < total)

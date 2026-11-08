@@ -682,8 +682,10 @@ There is no test suite and no configured linter. Verify by:
   B/Select opens/closes the dialog). The NES background pattern table is only 256 tiles, so the normal 96-glyph font
   (0..95) and up to 160 art tiles (96..255) share it; highlighted text uses attribute palette 1 and body text
   palette 0, while art uses palettes 2/3. The even art-band start and height align it with the 2x2-tile attribute
-  quadrants; `nesart` emits the full 64-byte attribute table per art and the runtime keeps a RAM shadow so selected
-  text can switch its quadrant to palette 1. Each art gets one 8KB CHR bank after bank 0 (font + blanks); MMC1 8KB CHR
+  quadrants; the action dialog and item screen space entries every other row (`PORT_ENTRY_STRIDE=2`) so a selection
+  cannot tint the next entry, while scene-text highlights still share a quadrant with the row beside them. `nesart`
+  emits the full 64-byte attribute table per art and the runtime keeps a RAM shadow so selected text can switch its
+  quadrant to palette 1. Each art gets one 8KB CHR bank after bank 0 (font + blanks); MMC1 8KB CHR
   mode addresses 16 banks, so a game may have at most 15 arts. `src/nes/nes_mmc1.s` writes the MMC1 registers
   serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
   directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer

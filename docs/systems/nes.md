@@ -8,9 +8,9 @@
 - **Pattern table:** the NES background pattern table is only 256 tiles (4KB), so the normal 96-glyph font (indices
   0..95) and up to 160 art tiles (96..255) share it. Highlighted text does not use a second font: the attribute
   palette selects palette 0 (body) or palette 1 (highlight) for the 2x2-tile quadrant. Palettes 2 and 3 are the art
-  palettes. The highlight palette is applied per 2x2-tile quadrant, so adjacent text rows can share it; the `>` marker
-  is the reliable selection indicator (and keeps working if the palette is overwritten by the neighbouring body
-  text).
+  palettes. List entries in the action dialog and item screen are spaced every other row (`PORT_ENTRY_STRIDE=2`) so
+  each owns a whole quadrant; scene body text still shares a quadrant with the row beside it, so the `>` marker
+  remains the reliable selection indicator there.
 - **Colours:** the PPU has four background palettes of four colours; entry 0 is the shared universal background,
   fixed to the game's `text_bg:`. Palette 0 is body text, palette 1 is highlighted text and palettes 2/3 carry three
   art colours each. `tools/nesart.py` clusters each art's 2x2-tile block palettes into the two art palettes and emits
@@ -39,7 +39,7 @@
   `Enter` = Start; remap it in the emulator's Control Settings. The ROM also runs in FCEUX, Mesen, Nestopia or another
   MMC1-capable NES emulator.
 - **Limitations:** no boot-password screen; the 32KB PRG is the main size limit (shorten the story or reduce
-  `art_rows` if the linker overflows); highlights use the coarser 2x2-tile attribute granularity.
+  `art_rows` if the linker overflows); body-text highlights still use the coarser 2x2-tile attribute granularity.
 
 Key files: `tools/targets/nes.py`, `tools/nesart.py`, `src/nes/plat_nes.c`, `src/nes/nes_mmc1.s`, `src/6502/zx0.c`,
 `tools/gen_port.py`.

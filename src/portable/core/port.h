@@ -60,6 +60,18 @@
 #ifndef PORT_NO_ENTRY_WRAP
 #define PORT_NO_ENTRY_WRAP 0
 #endif
+/* NES attributes select a palette per 2x2-tile cell, so its lists leave the
+   partner row blank to keep a selection off the next entry. */
+#ifndef PORT_ENTRY_STRIDE
+#define PORT_ENTRY_STRIDE 1
+#endif
+#if PORT_ENTRY_STRIDE > 1
+#define PORT_ENTRY_SPAN(n) \
+    ((unsigned char)((((n) + PORT_ENTRY_STRIDE - 1) \
+                      / PORT_ENTRY_STRIDE) * PORT_ENTRY_STRIDE))
+#else
+#define PORT_ENTRY_SPAN(n) (n)
+#endif
 #ifndef PORT_MARKER_MATCH_CELL
 #define PORT_MARKER_MATCH_CELL 0
 #endif
