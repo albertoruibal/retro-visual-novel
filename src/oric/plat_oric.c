@@ -19,6 +19,7 @@
 #define HIRES ((volatile unsigned char *)0xA000)
 #define TEXT ((volatile unsigned char *)0xBB80)
 #define BOTTOM_TEXT ((volatile unsigned char *)0xBF68)
+#define STATUS ((volatile unsigned char *)0x026A) /* bit 0: cursor enable */
 #define HIRES_ATTR 30                 /* 50 Hz HIRES */
 
 extern void port_unpack(const void *src, void *dst);
@@ -58,6 +59,10 @@ void plat_init(void)
        the bitmap shows blank paper, so no ROM charset garbage leaks in. */
     for (i = 0; i < 3 * 40; i++)
         BOTTOM_TEXT[i] = 0x00;
+    /* The ROM IRQ keeps flashing the text cursor in those bottom rows.  Its
+       HIRES routine clears STATUS bit 0, so do the same (the cc65 getc path
+       leaves it untouched because the cursor variable defaults to off). */
+    *STATUS &= 0xFE;
 }
 
 void plat_clear(void)

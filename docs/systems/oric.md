@@ -3,7 +3,8 @@
 - **Display:** the 240 x 200 HIRES bitmap at `$A000`. The title is on character row 0, the art band occupies rows
   1..`art_rows`, and the text pane runs from row `art_rows + 1` through row 24. `art_rows` is 4, 6, 8, 10 or 12
   (default 8). Text is drawn in software with a 6x8 glyph table: 40 columns of 8-pixel rows, so a scene has
-  `24 - art_rows` text rows. The three text rows below the bitmap are kept blank.
+  `24 - art_rows` text rows. The three text rows below the bitmap are kept blank, and `plat_init` clears the ROM
+  status cursor bit so its flashing text cursor does not blink there.
 - **Options and items:** the portable action dialog. `SPACE` opens and closes it, the cursor keys or `W`/`A`/`S`/`D`
   move and scroll the list, and `RETURN` confirms. A long scene body scrolls with `UP`/`DOWN`; there is no pinned
   menu or inventory row. The dialog lists scene options first and then held items (prefixed `*`).
