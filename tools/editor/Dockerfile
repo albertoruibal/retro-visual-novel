@@ -1,6 +1,6 @@
 FROM z88dk/z88dk:latest
 
-# cc65 supplies the 6502 toolchain for the Commodore 64 and NES targets
+# cc65 supplies the 6502 toolchain for the Commodore 64, NES and Oric Atmos targets
 # (z88dk has no C64/NES target). It lives in Alpine's edge/testing repository.
 RUN apk add --no-cache \
         --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing cc65=2.19-r0

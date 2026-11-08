@@ -105,7 +105,7 @@ def start_build(slug, requested=None):
         if str(t).strip())
     if not ids:
         ids = targets.ordered_targets(targets.selected_targets(doc))
-    cc65_targets = ("c64", "nes")
+    cc65_targets = ("c64", "nes", "oric")
     if any(t not in cc65_targets for t in ids):
         missing = z88dk_missing_tools()
         if missing:

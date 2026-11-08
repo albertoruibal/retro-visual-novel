@@ -755,7 +755,7 @@ def _zx0_tool():
     ``Z88DK`` points at the toolchain root, its ``bin`` directory is checked;
     the directory holding the ``zcc`` on PATH is checked as a last resort for
     installs that keep the host tools together.  A missing tool is not fatal:
-    ``zx0_compress`` then uses the built-in encoder, so a C64/NES-only build
+    ``zx0_compress`` then uses the built-in encoder, so a C64/NES/Oric-only build
     does not need z88dk at all.
     """
     from shutil import which

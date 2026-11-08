@@ -4,7 +4,7 @@ One page per build system. The shared runtime (`src/portable/core/`) handles sce
 and the inventory on **every** target, including the Spectrum; each page records the display, art conversion, storage
 and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `src/next/plat_next.c`,
 `src/sms/plat_sms.c`, `src/cpc/plat_cpc.c` (shared by the 6128 and 464), `src/msx2/plat_msx2.c`,
-`src/gb/plat_gb.c`, `src/c64/plat_c64.c` and `src/nes/plat_nes.c`.
+`src/gb/plat_gb.c`, `src/c64/plat_c64.c`, `src/nes/plat_nes.c` and `src/oric/plat_oric.c`.
 
 | System | Page | Output |
 |---|---|---|
@@ -18,6 +18,7 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 | Nintendo Game Boy Color | [gb.md](gb.md) | `.gbc` |
 | Commodore 64 | [c64.md](c64.md) | `.prg` |
 | Nintendo Entertainment System | [nes.md](nes.md) | `.nes` |
+| Oric Atmos | [oric.md](oric.md) | `<slug>-oric.tap` |
 
 Targets are discovered from `tools/targets/` and selected under `## Systems` in `game.md`:
 
@@ -30,6 +31,8 @@ Targets are discovered from `tools/targets/` and selected under `## Systems` in 
     art_rows: 6
     ## nes
     art_rows: 10
+    ## oric
+    art_rows: 8
 
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.

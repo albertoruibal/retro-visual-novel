@@ -1,0 +1,8 @@
+Oricutron web build (Oricutron.js / Oricutron.wasm / Oricutron.data)
+from https://github.com/jumpjack/oricutronJS, a web build of
+https://github.com/pete-gordon/oricutron.
+
+Oricutron is Copyright (C) 2009-2014 Peter Gordon and is distributed under the
+GNU General Public License version 2.  The Oricutron.data asset bundle includes
+the Oric Atmos ROM and support assets; keep the upstream notices with any
+redistribution.  The editor serves this build offline from /emulator/oric/.

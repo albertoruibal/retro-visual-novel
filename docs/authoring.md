@@ -106,7 +106,9 @@ result, so the engine carries no state. Each is a `# Game` default that any art 
 - `dither:` picks how a pixel chooses between its cell's two colours. `off` (default) snaps to the nearest;
   `bayer2`/`bayer4`/`bayer8` are ordered matrices from coarsest to finest, `noise` is plain grain, and `floyd`,
   `atkinson`, `jarvis`, `stucki` and `sierra` are error-diffusion kernels (jarvis smoothest, atkinson highest
-  contrast). Error diffusion can push the unique-tile count up a little.
+  contrast). Error diffusion can push the unique-tile count up a little. Monochrome targets cannot honour `off`
+  (a hard threshold would leave only black and white), so they substitute an ordered dither: Oric Atmos uses 4x4
+  Bayer, and CPC Mode 1 always ordered-dithers its black/grey/white ramp.
 - `match:` picks the distance metric used to pick colours: `rgb` (default) or `perceptual`, a redmean approximation
   that weighs hues the way the eye does.
 - `palette:` pre-reduces the source before the cell search: `none`, `spectrum` (snap to the 16 hardware colours) or
@@ -177,12 +179,14 @@ overrides the prompt line above the input ("Enter the password:" by default).
     art_rows: 6             # 4|6|8|10 (default 6); C64 action dialog
     ## nes
     art_rows: 10            # 6|8|10 (default 10); NES action dialog
+    ## oric
+    art_rows: 8             # 4|6|8|10|12 (default 8); Oric action dialog
 
 A build compiles the ZX targets first (128K before 48K), then the other systems in block order; each system's log is
 separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
 (`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
-`.nes`). An absent `# Systems`
+`.nes`, `<slug>-oric.tap`). An absent `# Systems`
 means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
 `<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
@@ -274,7 +278,7 @@ game default, and a scene's `music:` overrides the game default for that scene â
 The player only restarts when the chosen song actually changes, so adjacent scenes with the same song play
 continuously. PT3 plays directly on the ZX, ZX Next, CPC 6128/464 and MSX2 (all AY-compatible). The Master System build
 converts it to an SN76489 PSG stream and the Game Boy Color build to a Game Boy APU register stream at build time.
-The Commodore 64 and NES builds currently ignore songs; they still build when `songs:`/`music:` are present.
+The Commodore 64, NES and Oric Atmos builds currently ignore songs; they still build when `songs:`/`music:` are present.
 
 The Music tab converts into `assets/music/`: **Convert MIDI â†’ PT3** keeps the uploaded source as `<id>.mid` next to
 the module, so a re-conversion with a different cut or style does not need a re-upload.
@@ -327,9 +331,9 @@ A condition (here and everywhere in the format) only *tests* a name; see
 #### Build-time system flags
 
 `system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_cpc464`, `system_msx2`,
-`system_gb`, `system_c64` and `system_nes` are reserved pseudo-flags that are true only while generating that
-target. `system_zx` is a legacy any-Spectrum flag true for both `zx128` and `zx48`, and `system_cpc` is true for
-both `cpc` and `cpc464`. They are folded at build time: on a matching build an `if system_zx`
+`system_gb`, `system_c64`, `system_nes` and `system_oric` are reserved pseudo-flags that are true only while
+generating that target. `system_zx` is a legacy any-Spectrum flag true for both `zx128` and `zx48`, and
+`system_cpc` is true for both `cpc` and `cpc464`. They are folded at build time: on a matching build an `if system_zx`
 token disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
 `unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in
 `if`/`unless`

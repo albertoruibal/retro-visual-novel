@@ -3,7 +3,7 @@
 #define PORT_PLAT_H
 
 #if defined(__CC65__)
-/* cc65 (Commodore 64 / NES) has no z88dk compiler attributes. */
+/* cc65 (Commodore 64 / NES / Oric Atmos) has no z88dk compiler attributes. */
 #define __smallc
 #define __z88dk_fastcall
 #else

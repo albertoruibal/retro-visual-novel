@@ -1,6 +1,6 @@
-"""Locate an installed cc65 toolchain (Commodore 64 and NES targets).
+"""Locate an installed cc65 toolchain (Commodore 64, NES and Oric Atmos).
 
-cc65 is the 6502 C toolchain used by the two 6502 build targets.  An explicit
+cc65 is the 6502 C toolchain used by the 6502 build targets.  An explicit
 ``$CC65``/``$RVN_CC65`` or a saved ``cc65_path`` wins; callers apply that
 precedence themselves.  This module answers "where is cc65?" and "which host
 tools are present?".

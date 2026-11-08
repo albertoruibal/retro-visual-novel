@@ -1,7 +1,8 @@
 "use strict";
 // ------------------------------------------------------------- web emulators
 /* Target-aware Emulator tab. ZX uses the vendored JSSpeccy inline; SMS, MSX2,
- * CPC, Game Boy Color, Commodore 64 and NES load pinned offline emulator pages
+ * CPC, Game Boy Color, Commodore 64, NES and Oric Atmos load pinned offline
+ * emulator pages
  * in a same-origin iframe. The target registry (GET /api/targets) supplies the
  * adapter id and artifact extensions, so adding a target does not hard-code
  * anything here. */
@@ -10,7 +11,7 @@ let jsspeccy = null;        // the JSSpeccy instance (ZX only)
 let emuFitObserver = null;  // refits an iframe emulator when the tab resizes
 
 const EMU_KINDS = ["jsspeccy", "emulatorjs", "emulatorjs-c64",
-  "emulatorjs-nes", "webmsx", "cpcjs", "cpc464", "gambatte"];
+  "emulatorjs-nes", "webmsx", "cpcjs", "cpc464", "gambatte", "oricutron"];
 const EMU_EXT = {
   jsspeccy: ".tap",
   emulatorjs: ".sms",
@@ -20,11 +21,13 @@ const EMU_EXT = {
   cpcjs: ".dsk",
   cpc464: ".dsk",
   gambatte: ".gbc",
+  oricutron: ".tap",
 };
 const EMU_PAGES = {
   emulatorjs: "sms",
   "emulatorjs-c64": "c64",
   "emulatorjs-nes": "nes",
+  oricutron: "oric",
 };
 /* Native display aspect per target, so an iframe is sized to its picture
  * instead of filling the tab height and leaving black bands inside it. */
@@ -38,6 +41,7 @@ const EMU_ASPECT = {
   msx2: (544 * 1.14) / 456,
   c64: 4 / 3,
   nes: 4 / 3,
+  oric: 640 / 720,
 };
 
 function emuTargetMeta(id) {
@@ -301,8 +305,10 @@ async function runEmulator() {
   const name = encodeURIComponent(game || "game");
   /* Bust caches in the embedded emulators (WebMSX keeps cartridges keyed by
    * their URL), while leaving the ZX tape URL extension intact for JSSpeccy. */
-  const fresh = meta.emulator === "jsspeccy" ? url
-    : url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
+  /* Oricutron uses the URL as the on-disk tape name, so it must keep its
+   * `.tap` suffix; the server sends Cache-Control: no-store anyway. */
+  const fresh = (meta.emulator === "jsspeccy" || meta.emulator === "oricutron")
+    ? url : url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
   const encoded = encodeURIComponent(fresh);
 
   watchEmuFit();

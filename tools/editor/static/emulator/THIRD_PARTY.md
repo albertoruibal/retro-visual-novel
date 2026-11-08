@@ -20,10 +20,15 @@ offline.
 - **Amstrad CPC 6128 / 464:** CPCJS / Caprice32 WASM
   (`https://github.com/smichea/cpcjs`, `https://github.com/ColinPitrat/caprice32`); GPL-2.0; Caprice32 ROM packaging
   notices in `cpc/NOTICE`.
+- **Oric Atmos:** Oricutron WASM (`https://github.com/jumpjack/oricutronJS`,
+  upstream `https://github.com/pete-gordon/oricutron`); GPL-2.0. The asset bundle embeds the Atmos ROM; see
+  `oric/NOTICE`. The page feeds the built `.tap` through Oricutron's `ENV.FILE` loader, which types `CLOAD""` and
+  starts the auto-run tape.
 - **ZX Spectrum 128K:** JSSpeccy 3 (`jsspeccy/jsspeccy.js.LICENSE.txt`); GPL-3.0 / upstream notices.
 - **ZX Spectrum Next:** no web emulator is bundled. Run the `.nex` with an external ZEsarUX (TBBlue); the editor's
   Emulator tab intentionally does not list Next.
 
 The EmulatorJS data (`emulatorjs/data`), including the smsplus, gambatte, vice_x64sc and fceumm cores, is shared by
-the SMS, Game Boy Color, Commodore 64 and NES pages. The editor's server serves these files through
-`/emulator/<path>`; the game artifacts are fetched from `/api/artifact/<slug>/<name>`.
+the SMS, Game Boy Color, Commodore 64 and NES pages; the Oric page uses its own `oric/` bundle. The editor's server
+serves these files through `/emulator/<path>`; the game artifacts are fetched from
+`/api/artifact/<slug>/<name>`.

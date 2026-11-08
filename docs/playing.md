@@ -22,9 +22,12 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 | Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
 | Commodore 64 | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
 | NES | D-pad | A | B or Select opens/closes the action dialog |
+| Oric Atmos | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
 | Web runtime | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
-The editor's **Emulator** tab runs the C64 in VICE and the NES in FCEUmm. Click the C64 picture first; the page
+The editor's **Emulator** tab runs the C64 in VICE, the NES in FCEUmm and the Oric Atmos in Oricutron. Click the Oric
+picture first so the canvas takes keyboard focus; the cursor keys, `RETURN` and `SPACE` are forwarded to the emulated
+machine. Click the C64 picture first; the page
 forwards the physical keyboard (cursor keys/`W` `A` `S` `D`, `RETURN`, `SPACE`). For the NES, EmulatorJS's defaults
 are arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and `Enter` = Start; remap them in
 its Control Settings.
@@ -137,6 +140,16 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
   held items (prefixed `*`); the cursor keys move and scroll the list and `RETURN` confirms. On a long item description,
   `UP`/`DOWN` scroll the description while the cursor is on the first entry.
 - **Music:** not implemented yet on the C64 build.
+- There is no boot-password screen.
+
+## Oric Atmos
+
+- **Movement:** cursor keys or `W` `A` `S` `D`; `RETURN` confirms.
+- **Options and items:** `SPACE` opens and closes the action dialog. It lists the scene options first and then the
+  held items (prefixed `*`); the cursor keys move and scroll the list and `RETURN` confirms. On a long item description,
+  `UP`/`DOWN` scroll the description while the cursor is on the first entry.
+- The picture is a monochrome HIRES band; selection uses inverse video. Text is 40 columns.
+- **Music:** not implemented yet on the Oric Atmos build.
 - There is no boot-password screen.
 
 ## NES

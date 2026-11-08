@@ -160,7 +160,7 @@ def targets_json(doc: dict | None = None) -> dict:
 
 
 DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx2", "sms",
-                 "gb", "c64", "nes")
+                 "gb", "c64", "nes", "oric")
 
 
 def _display_rank(target: Target) -> int:

@@ -15,6 +15,7 @@ and other 8-bit targets, with a shared engine and authoring UI.
 - [Nintendo Game Boy Color](docs/systems/gb.md) (alpha)
 - [Commodore 64](docs/systems/c64.md) (alpha)
 - [Nintendo Entertainment System](docs/systems/nes.md) (alpha)
+- [Oric Atmos](docs/systems/oric.md) (alpha)
 - [Web runtime](docs/web-runtime.md) (mobile-first standalone SPA)
 
 See [playing the games](docs/playing.md) for the controls on each target.
@@ -40,7 +41,8 @@ It has tabs to edit the game sections:
 * Art: Allows to generate and upload images and previews them for every selected system.
 * Music: Imports PT3, converts from MIDI with spectrumizer, and plays on the AY targets (ZX Spectrum, CPC 6128/464 and
   MSX2); the Master System build converts PT3 to SN76489 PSG data and the Game Boy Color build to Game Boy APU
-  register data, so songs play there too. The Commodore 64 and NES builds currently ignore songs.
+  register data, so songs play there too. The Commodore 64, NES and Oric Atmos builds currently ignore
+  songs.
 * Scenes: Defines the text and logic for each scene.
 * Flags: Flags are game-wide and can be enabled/disabled, some scene lines and options ara available when a certain flag is set.
 * Items: Carried by the player, each item can be selected, and it has options that can be enabled only for certain scenes. 
@@ -52,8 +54,8 @@ It has tabs to edit the game sections:
   `<game-folder>/web/` folder, or download that folder as a zip.
 * Emulator: The Emulator tab plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
   EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464,
-  EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64 and EmulatorJS/FCEUmm for NES.
-  ZX Next is not bundled;
+  EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64,
+  EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos. ZX Next is not bundled;
   use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
@@ -62,9 +64,9 @@ To make the build work, the editor needs a complete z88dk toolchain (a folder co
 the `z88dk-zx0` host compressor) configured in the top-bar **Settings**.
 On Linux a z88dk Snap install (`snap install z88dk --beta`, the tree at`/snap/z88dk/current`) is detected automatically.
 For Windows and Mac, download a nightly build from `http://nightly.z88dk.org`.
-The Commodore 64 and NES targets use **cc65** instead (z88dk has no C64/NES target); install cc65 for your host
-(`bin/cl65`, `bin/ca65`, `bin/ld65`, `bin/cc65`) and point the same **Build toolchain** card at it. The editor Docker
-image already contains cc65.
+The Commodore 64, NES and Oric Atmos targets use **cc65** instead (z88dk has no target for them); install cc65 for
+your host (`bin/cl65`, `bin/ca65`, `bin/ld65`, `bin/cc65`) and point the same **Build toolchain** card at it.
+The editor Docker image already contains cc65.
 
 The editor generates images with [local models](docs/models.md).
 
@@ -104,7 +106,8 @@ python3 tools/build.py build <game> --all
 ```
 
 Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128), `.dsk` with the
-`-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES).
+`-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES) and
+`<slug>-oric.tap` (Oric Atmos).
 
 The web runtime is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
 `<game-folder>/web/` folder (and the editor's Web tab does the same plus a zip download). See

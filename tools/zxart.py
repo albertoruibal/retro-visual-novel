@@ -63,6 +63,11 @@ def map_len(rows):
 DITHER_MODES = ("off", "bayer2", "bayer4", "bayer8", "noise", "floyd",
                 "atkinson", "jarvis", "stucki", "sierra")
 DEFAULT_DITHER = "off"
+# A 1-bit monochrome screen has no mid-tone, so `off` would hard-threshold the
+# luminance and throw the shading away. Monochrome converters substitute this
+# ordered scheme when the resolved mode is `off`; an explicit scheme still
+# applies. Bayer packs far better than error diffusion in the resident blobs.
+DEFAULT_MONO_DITHER = "bayer4"
 
 # Error-diffusion kernels sharing one table: (divisor, [(dx, dy, weight)]).
 # The tap order matters for exact numpy/pure-Python parity; ``floyd`` keeps the
@@ -144,6 +149,16 @@ def dither_mode(d):
     if d is True or d is None:
         return DEFAULT_DITHER
     return d if d in DITHER_MODES else DEFAULT_DITHER
+
+
+def mono_dither(d):
+    """Normalise a dither request for a 1-bit target, never returning ``off``.
+
+    A monochrome picture needs dithering to resolve tones above two levels, so
+    ``off`` (the default) becomes ``DEFAULT_MONO_DITHER``.
+    """
+    mode = dither_mode(d)
+    return DEFAULT_MONO_DITHER if mode == "off" else mode
 
 
 def _noise_value(x, y):

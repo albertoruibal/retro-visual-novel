@@ -46,7 +46,7 @@ let systemsTab = "";        // active platform sub-tab in the Systems view
 let webTransition = false;  // saving pending edits before entering the Web tab
 const EDIT_MODES = ["settings", "systems", "art", "music", "scenes", "flags",
                     "items"];
-const VIEWS = [...EDIT_MODES, "graph", "raw", "build", "web", "emu"];
+const VIEWS = [...EDIT_MODES, "graph", "raw", "web", "build", "emu"];
 
 /* Remember the last game + tab across reloads (browser localStorage). */
 const SESSION_KEY = "rvn.editor.session";

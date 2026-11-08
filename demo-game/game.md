@@ -24,7 +24,6 @@ height: 256
 # Systems
 
 ## zx128
-art_rows: 12
 title_ink: white
 
 ## next
@@ -55,6 +54,12 @@ art_rows: 6
 
 ## nes
 art_rows: 10
+
+## oric
+art_rows: 10
+
+## zx48
+title_ink: white
 
 # Art
 

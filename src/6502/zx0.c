@@ -1,5 +1,5 @@
 /*
- * Standard ZX0 decoder for the 6502 targets (Commodore 64 and NES).
+ * Standard ZX0 decoder for the 6502 targets (Commodore 64, NES and Oric Atmos).
  *
  * This is a small C port of ``gen_scenes.zx0_decompress`` (the same standard
  * stream that ``z88dk-zx0`` emits and the vendored Z80 decoder reads).  It

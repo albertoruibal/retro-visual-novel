@@ -53,7 +53,7 @@ function fitCropToBand(rect, natW, natH) {
 
 /* Selected build systems for Art-tab previews. The Systems tab is the
  * source of truth; ZX is the backward-compatible default. */
-const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx2", "sms", "gb", "c64", "nes"];
+const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx2", "sms", "gb", "c64", "nes", "oric"];
 function previewTargets() {
   const list = typeof gameTargets === "function" ? gameTargets() : ["zx128"];
   const rank = (id) => {
@@ -75,7 +75,8 @@ function previewTargetLabel(id) {
                           cpc: "Amstrad CPC 6128", cpc464: "Amstrad CPC 464",
                           msx2: "MSX2 (V9938)",
                           gb: "Nintendo Game Boy Color",
-                          c64: "Commodore 64", nes: "Nintendo NES" }[id] || id);
+                          c64: "Commodore 64", nes: "Nintendo NES",
+                          oric: "Oric Atmos" }[id] || id);
 }
 function isCpcTarget(id) { return id === "cpc" || id === "cpc464"; }
 function previewTargetRows(id) {
@@ -117,14 +118,15 @@ function previewTargetColors(id) {
   const n = m ? +m.colors : NaN;
   if (n > 0) return n;
   return ({ zx128: 16, zx48: 16, next: 256, sms: 16, msx2: 16, gb: 32,
-              c64: 16, nes: 16 }[id] || 0);
+              c64: 16, nes: 16, oric: 2 }[id] || 0);
 }
 /* The display engine the target's preview emulates, shown under its name. */
 function previewTargetEngine(id) {
   const m = previewTargetMeta(id);
   const e = m ? m.engine : "";
   return e || ({ zx128: "NIRVANA+", zx48: "NIRVANA+", next: "Layer 2",
-                   c64: "VIC-II MCM", nes: "NES PPU" }[id] || "");
+                   c64: "VIC-II MCM", nes: "NES PPU",
+                   oric: "Oric HIRES" }[id] || "");
 }
 function targetPreviewQuery(id, q) {
   if (id === "zx128" || id === "zx48") return q;

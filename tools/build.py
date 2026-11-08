@@ -101,7 +101,7 @@ def _settings_z88dk():
 
 
 def _settings_cc65():
-    """The editor's saved cc65_path (Commodore 64 / NES builds)."""
+    """The editor's saved cc65_path (Commodore 64 / NES / Oric builds)."""
     return _settings_value("cc65_path")
 
 
@@ -724,7 +724,7 @@ def _target_ids(doc, requested=None, build_all=False):
     return targets.ordered_targets(targets.selected_targets(doc))
 
 
-CC65_TARGETS = ("c64", "nes")
+CC65_TARGETS = ("c64", "nes", "oric")
 
 
 def _needs_z88dk(ids):

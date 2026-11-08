@@ -8,7 +8,7 @@ Retro Visual Novel is an 8-bit visual novel authoring + build system for the **Z
 48K**, **ZX Spectrum Next** and six portable targets. The story engine is shared by every target
 (`src/portable/core/`); each platform
 supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`,
-`src/c64/`, `src/nes/`). The two 6502 targets share `src/6502/zx0.c`.
+`src/c64/`, `src/nes/`, `src/oric/`). The three 6502 targets share `src/6502/zx0.c`.
 NIRVANA+ is vendored under `vendor/`. A game
 is a self-contained folder whose story lives in `game.md`; this repository ships a single demo game in `demo-game/`.
 A stdlib-only Python editor (`tools/editor/server.py`) serves a browser UI to author games, generate art with local
@@ -25,10 +25,11 @@ constraints live in `docs/systems/zx128.md`.
     src/portable/core/       shared story engine + music player for every target
     src/portable/plat.h      platform surface implemented by each src/<target>/
     src/z80/zx0_wrap.asm     shared Z80 C wrapper for the vendored ZX0 decoder
-    src/6502/zx0.c           shared 6502 C ZX0 decoder (C64 + NES)
+    src/6502/zx0.c           shared 6502 C ZX0 decoder (C64 + NES + Oric)
     src/sms/ src/cpc/        platform layers and paging/vram asm
     src/msx2/ src/gb/        platform layers (GB APU player in src/gb/gb_music.c)
     src/c64/ src/nes/        6502 platform layers (VIC-II MCM / NES PPU, MMC1 asm)
+    src/oric/                Oric Atmos HIRES platform layer + atmos.cfg
     vendor/zx0/              pinned ZX0 decoder (69-byte standard, BSD-3)
     vendor/pixeloperator8/   pinned CC0 8x8 font for GBC/SMS/MSX2 text
     demo-game/assets/music/  per-game PT3 modules (assets/music/<id>.pt3)
@@ -48,7 +49,8 @@ constraints live in `docs/systems/zx128.md`.
     tools/cpcart.py          CPC Mode 0/1/2 art preview/build conversion
     tools/c64art.py          C64 VIC-II multicolor art preview/build conversion
     tools/nesart.py          NES 4-colour tile art preview/CHR bank conversion
-    tools/cc65path.py        locate the cc65 6502 toolchain (C64/NES)
+    tools/oricart.py         Oric HIRES monochrome band preview/conversion
+    tools/cc65path.py        locate the cc65 6502 toolchain (C64/NES/Oric)
     tools/msx2art.py         MSX2 V9938 Screen 7 art preview/build conversion
     tools/gbart.py           Game Boy Color art preview/build conversion
     tools/gen_images.py      game.md art sections -> PNG via Qwen/SD server
@@ -85,7 +87,7 @@ the game root
 ## Build / run
 
 Native build needs z88dk (`Z88DK`, default: a detected Snap install, else `/tmp/z88dk`) and Pillow for `zxart.py`.
-The Commodore 64 and NES targets use **cc65** (`CC65`/`RVN_CC65` or the saved `cc65_path`), not z88dk. This dev box does
+The Commodore 64, NES and Oric Atmos targets use **cc65** (`CC65`/`RVN_CC65` or the saved `cc65_path`), not z88dk. This dev box does
 **not** have zcc installed, so builds normally run inside the editor Docker image (which now also contains cc65):
 
     docker compose up -d --build          # editor on http://localhost:8765
@@ -183,9 +185,10 @@ There is no test suite and no configured linter. Verify by:
 2. A full build (`python3 tools/build.py build demo-game` or the editor **Build** button) for anything touching
    `game.md` format, `gen_scenes.py`, the engine, or the editor's save path. The Game Boy Color target needs
    `z88dk-zsdcc`, so build it in the editor container
-   (`Z88DK=/opt/z88dk python3 tools/build.py build demo-game gb`) and check the `.gbc` header/ROM banks. The C64/NES
-   targets need cc65 in the container (`cl65 -t c64` / `cl65 -t nes`); check the `.prg` load address/size and the
-   `.nes` iNES header (PRG=2, mapper=1, CHR count) and CHR bank file.
+   (`Z88DK=/opt/z88dk python3 tools/build.py build demo-game gb`) and check the `.gbc` header/ROM banks. The C64/NES/Oric
+   targets need cc65 in the container (`cl65 -t c64` / `cl65 -t nes` / `cl65 -t atmos`); check the `.prg` load
+   address/size, the `.nes` iNES header (PRG=2, mapper=1, CHR count) and CHR bank file, and the Oric `.tap` map/BSS
+   bounds.
 4. **Headless screen check** for engine/art changes: `tools/spectrum.py` drives ZEsarUX-13.0 (in the repo) over ZRCP, no
    X server.
 3. For editor UI edits, start the server and exercise the affected tab; the UI is plain ES modules-free JS split by
@@ -347,7 +350,9 @@ There is no test suite and no configured linter. Verify by:
   keep the unique-tile count at or near the 64-tile cap, so the paged-bank budget is unaffected. Keep the numpy and
   pure-Python paths (`_nirvana_band_numpy`, `_nirvana_band_python`) byte-for-byte identical for every mode — the
   pointwise modes share `zxart._threshold_grid`, and error diffusion runs the shared `_DIFFUSE` tap order in the fixed
-  raster order in both.
+  raster order in both. **Monochrome targets force dithering**: `zxart.mono_dither()` maps `off` to
+  `zxart.DEFAULT_MONO_DITHER` (`bayer4`) for the 1-bit Oric HIRES converter (`tools/oricart.py`), because a hard
+  threshold would leave only black and white; CPC Mode 1 already ordered-dithers its mono ramp in `cpcart.py`.
 - **More source-conversion options keep colour** (all baked at conversion time, so the engine carries no state):
   `match:` (`rgb` or the `perceptual` redmean distance, `zxart._dist_py`/`_dist_rgb`), `palette:` (`none`/`spectrum`/
   `adaptive`, `zxart._apply_palette`) and the `saturation`/`contrast`/`brightness`/`gamma` source adjustments
@@ -355,7 +360,7 @@ There is no test suite and no configured linter. Verify by:
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
   live `?dither=...` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
 - **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms` / `system_cpc` /
-  `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` are reserved build-time
+  `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` / `system_oric` are reserved build-time
   pseudo-flags**
   (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and as
   all-false by the web export), never assigned a flag id or runtime state. Using one as a declaration, `start:`,
@@ -532,9 +537,9 @@ There is no test suite and no configured linter. Verify by:
   game always lists both `zx128` and `zx48`, with the 48K option serving `<slug>-48k.tap`); local
   iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS),
   CPC 6128/464 (`emulator/cpc`, CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte),
-  Commodore 64 (`emulator/c64`, EmulatorJS VICE x64sc, direct keyboard input) and NES (`emulator/nes`,
-  EmulatorJS FCEUmm). The SMS, GBC, C64 and NES pages share the
-  pinned EmulatorJS data in `emulator/emulatorjs/data`. Built artifacts are served by
+  Commodore 64 (`emulator/c64`, EmulatorJS VICE x64sc, direct keyboard input), NES (`emulator/nes`,
+  EmulatorJS FCEUmm) and Oric Atmos (`emulator/oric`, Oricutron WASM). The SMS, GBC, C64 and NES pages share the
+  pinned EmulatorJS data in `emulator/emulatorjs/data`; Oricutron has its own `emulator/oric/` bundle. Built artifacts are served by
   `/api/artifact/<slug>/<file>`;
   `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
   via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name.
@@ -682,6 +687,17 @@ There is no test suite and no configured linter. Verify by:
   (`src/nes/nes_ppu.s`) and its NMI flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19
   ppubuf API (the version in the editor Docker image). `art_rows` is 6/8/10 (default 10); the 32KB PRG is the main size
   limit. There is no boot password and no music yet.
+- **Oric Atmos runtime:** `tools/targets/oric.py` builds a cc65 `atmos` `.tap` (the Oric is the third 6502 target).
+  The HIRES bitmap is 240x200 at `$A000`; text is software-rendered with a generated 6x8 font, the title is row 0,
+  the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 4/6/8/10/12 (default 8), `PLAT_ROWS=25`,
+  `PORT_COLS=40`, `PORT_OVERLAY_MENU=1`, `PORT_KEEP_ART=1` and `N_SONGS=0`. The build is non-banked: scene,
+  inventory and art blobs are resident ZX0-compressed data decoded by `src/6502/zx0.c`. Art is decoded directly
+  into the bitmap band; `tools/oricart.py` emits `[u8 ink][u8 paper][ZX0 pixels]` so no art workspace is needed.
+  `src/oric/plat_oric.c` switches to HIRES via the `$BB80` mode attribute (the boot wait must cover the ULA's
+  latched line), clears the screen, blanks the three text rows at `$BF68` with ink attributes, and reads the Oric
+  ROM keyboard buffer (`cgetc`/`kbhit`). Output is `<slug>-oric.tap`; the tape is marked `__AUTORUN__=$C7`. There is no
+  music or boot-password screen. The editor's Emulator tab uses the vendored Oricutron WASM build
+  (`tools/editor/static/emulator/oric/`), which loads the tape through `ENV.FILE` and types `CLOAD""`.
 - **SMS runtime:** `tools/gen_port.py --sms` converts each art band to planar 4bpp tiles and writes one uncompressed
   blob per `BANK_02`.. ROM bank plus `port_banks.asm` (both gitignored). Songs are converted to a compressed
   SN76489 PSG stream and packed into the remaining data banks (`port_song.asm`); `plat_load(PLAT_LOAD_SONG)` maps the

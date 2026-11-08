@@ -118,7 +118,7 @@ optional dismiss label (the runtime falls back to **Continue** when it is blank)
 absent.
 
 The native `system_*` build-time flags (`system_zx`, `system_zx128`, `system_zx48`, `system_sms`, `system_cpc`,
-`system_msx2`, `system_gb`) are
+`system_cpc464`, `system_msx2`, `system_gb`, `system_c64`, `system_nes`, `system_oric`) are
 folded during export with the web target, so all of them are false: lines/options gated with `if system_zx` are
 omitted, and `unless system_zx` lines remain. No `system_*` condition reaches `game.js`; use a generic line for the
 web build when a native target needs extra text.

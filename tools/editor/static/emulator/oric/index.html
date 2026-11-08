@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Oric Atmos</title>
+<style>
+  html, body { margin:0; width:100%; height:100%; background:#000; overflow:hidden; }
+  #canvas { display:block; width:100vw; height:100vh; object-fit:contain; image-rendering:pixelated; background:#000; }
+  #status { position:fixed; left:12px; bottom:12px; color:#ccc; font:14px monospace; background:#000a; padding:6px 10px; border-radius:4px; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0"></canvas>
+<div id="status">Loading Oric Atmos…</div>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const rom = q.get('rom');
+  const status = document.getElementById('status');
+  const canvas = document.getElementById('canvas');
+  if (!rom) { status.textContent = 'No tape supplied'; return; }
+  window.Module = {
+    canvas: canvas,
+    preRun: [function () { ENV.FILE = rom; }],
+    print: function (text) { console.log(text); },
+    printErr: function (text) { console.error(text); },
+    setStatus: function (text) { if (text) status.textContent = text; },
+    monitorRunDependencies: function (left) {
+      if (!left) status.textContent = 'Click the picture, then use the cursor keys, RETURN and SPACE.';
+    }
+  };
+  canvas.addEventListener('click', function () { canvas.focus(); });
+  canvas.focus();
+})();
+</script>
+<script src="Oricutron.js"></script>
+<script>
+/* Oricutron's downloader saves ENV.FILE under /readwritefs using the URL as
+ * the path.  Create the intermediate directories before it opens the file. */
+(function () {
+  if (typeof ccall !== 'function') return;
+  const original = ccall;
+  ccall = function (ident, ret, argTypes, args) {
+    if (ident === 'www_async_dload' && typeof ENV !== 'undefined' && ENV.FILE) {
+      const clean = String(ENV.FILE).split('?')[0].replace(/^https?:\/\/[^/]+/, '');
+      const parts = clean.split('/').filter(Boolean).slice(0, -1);
+      let path = '/readwritefs';
+      for (const part of parts) {
+        path += '/' + part;
+        try { FS.mkdir(path); } catch (e) { /* already there */ }
+      }
+      /* Drop any tape cached by a previous run so a rebuild is picked up. */
+      try { FS.unlink('/readwritefs/' + clean); } catch (e) { /* not cached */ }
+    }
+    return original.apply(this, arguments);
+  };
+})();
+</script>
+</body>
+</html>
