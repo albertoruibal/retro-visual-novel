@@ -34,7 +34,7 @@ It is an electron app that allows to edit and build games. The engine and tools 
 It has tabs to edit the game sections:
 
 * Game: Global game settings.
-* Systems: Chooses the systems to build the game for and their specific options.
+* Systems: Chooses the systems to build the game for and their specific options; each platform has its own sub-tab.
 * Art: Allows to generate and upload images and previews them for every selected system.
 * Music: Imports PT3, converts from MIDI with spectrumizer, and plays on the AY targets (ZX Spectrum, CPC 6128 and
   MSX2); the Master System build converts PT3 to SN76489 PSG data and the Game Boy Color build to Game Boy APU

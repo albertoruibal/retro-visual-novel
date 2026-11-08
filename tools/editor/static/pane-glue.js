@@ -121,6 +121,12 @@ function wirePane() {
         renderAll();
       };
     });
+    document.querySelectorAll("#systems-tabs .subtab").forEach((b) => {
+      b.onclick = () => {
+        systemsTab = b.dataset.sys;
+        renderPane();
+      };
+    });
     document.querySelectorAll("[id^='topt-']").forEach((el) => {
       const key = el.id.slice(5);
       const target = TARGETS.targets?.find((t) => key.startsWith(t.id + "_"));

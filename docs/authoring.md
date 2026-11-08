@@ -176,7 +176,7 @@ by a `==== name [id] ====` banner and, where the target supports it, a playable 
 `targets:` list in
 `# Game`, or ZX only when that is absent too. Old hand-written `<target>_<option>` lines in `# Game` (and the old
 `## zx art_lines:` spelling) are still read and are rewritten into this section on save; the editor's **Systems** tab
-edits the selection.
+edits the selection with one second-level sub-tab per platform.
 
 `art_rows:` sets the ZX art band height in 8px character rows, so it is the single most content-visible setting: rows
 1..`art_rows` carry the picture (raced by NIRVANA+), the scene title renders on row 0 above it, scene text and options

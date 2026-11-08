@@ -229,64 +229,95 @@ function cpcMenuForced(target, o) {
   const ex = (P && P.game && P.game.extras) || {};
   return +(ex.cpc_mode ?? 1) === 0;
 }
-function targetSystemsCard() {
-  const list = (TARGETS && TARGETS.targets) || [];
+function systemTargets() {
+  return (TARGETS && TARGETS.targets) || [];
+}
+
+/* The platform shown in the Systems view: the remembered sub-tab when it still
+ * exists, else the first selected platform, else the first registered one. */
+function activeSystemId() {
+  const list = systemTargets();
   if (!list.length) return "";
-  return `<div class="card">
-    <h3>Platforms</h3>
-    <div class="hint">Tick the platforms to build. Each system's settings live
-      in its <code>## &lt;system-id&gt;</code> block under <code># Systems</code>, so the game builds the same way from
-      the CLI.</div>
-    ${list.map(t => `<div class="group" style="margin-top:8px">
-      <label style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" class="tgcheck" data-tg="${esc(t.id)}"
-               ${targetSelected(t.id) ? "checked" : ""}>
-        <b>${esc(t.label)}</b>
-        <span class="pill">${esc((t.outputs || []).join(" / "))}</span>
-      </label>
-      ${t.available === false
-        ? `<div class="hint" style="color:#ff9b55">unavailable: ` +
-          `${esc(t.unavailable_reason || "missing toolchain")}</div>`
-        : `<div class="hint">${esc(t.description || "")}</div>`}
-      <div class="tgopts" data-tg="${esc(t.id)}"
-           style="display:${targetSelected(t.id) ? "block" : "none"}">
-        ${(t.options || []).map(o => {
-          const v = targetOptionValue(t, o);
-          let field = "";
-          if (o.kind === "choice") {
-            field = `<select id="topt-${esc(o.key)}">${targetOptionChoices(t, o).map(c => {
-              const label = o.suffix === "title_ink"
-                ? (String(c) === "text" ? "Same as text (default)"
-                  : String(c).replace("_", " "))
-                : c;
-              return optionTag(esc(c), String(v) === String(c), esc(label));
-            }).join("")}</select>`;
-          } else if (o.kind === "bool") {
-            const forced = cpcMenuForced(t, o);
-            const on = forced || targetOptionOn(o, v);
-            field = `<input id="topt-${esc(o.key)}" type="checkbox"` +
-              `${on ? " checked" : ""}${forced ? " disabled" : ""}>`;
-          } else if (o.kind === "int") {
-            field = `<input id="topt-${esc(o.key)}" type="number" value="${esc(v)}"`;
-            if (o.minimum != null) field += ` min="${esc(o.minimum)}"`;
-            if (o.maximum != null) field += ` max="${esc(o.maximum)}"`;
-            field += ">";
-          } else {
-            field = `<input id="topt-${esc(o.key)}" value="${esc(v == null ? "" : v)}">`;
-          }
-          return `<div style="margin-top:6px"><label>${esc(o.label)}</label>${field}
-            ${o.help ? `<div class="hint">${esc(o.help)}</div>` : ""}</div>`;
-        }).join("")}
-        ${(t.options || []).length ? "" : `<div class="hint">No target-specific options.</div>`}
-      </div>
-    </div>`).join("")}
+  if (systemsTab && list.some((t) => t.id === systemsTab)) return systemsTab;
+  const picked = list.find((t) => targetSelected(t.id));
+  return (picked || list[0]).id;
+}
+
+function systemTabs() {
+  const active = activeSystemId();
+  return `<div id="systems-tabs" class="systems-tabs" role="tablist"
+    aria-label="Build systems">
+    ${systemTargets().map((t) => {
+      const on = t.id === active;
+      const selected = targetSelected(t.id);
+      return `<button type="button" class="subtab${on ? " active" : ""}"
+        role="tab" data-sys="${esc(t.id)}" aria-selected="${on ? "true" : "false"}"
+        title="${esc(t.label)}">${selected ? `<span class="tabdot"
+        aria-hidden="true"></span>` : ""}${esc(t.label)}</button>`;
+    }).join("")}
+  </div>`;
+}
+
+function systemCard(t) {
+  const selected = targetSelected(t.id);
+  return `<div class="card" id="systems-pane" role="tabpanel"
+    aria-label="${esc(t.label)}">
+    <label style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" class="tgcheck" data-tg="${esc(t.id)}"
+             ${selected ? "checked" : ""}>
+      <b>${esc(t.label)}</b>
+      <span class="pill">${esc((t.outputs || []).join(" / "))}</span>
+    </label>
+    ${t.available === false
+      ? `<div class="hint" style="color:#ff9b55">unavailable: ` +
+        `${esc(t.unavailable_reason || "missing toolchain")}</div>`
+      : `<div class="hint">${esc(t.description || "")}</div>`}
+    <div class="tgopts" data-tg="${esc(t.id)}"
+         style="display:${selected ? "block" : "none"}">
+      ${(t.options || []).map(o => {
+        const v = targetOptionValue(t, o);
+        let field = "";
+        if (o.kind === "choice") {
+          field = `<select id="topt-${esc(o.key)}">${targetOptionChoices(t, o).map(c => {
+            const label = o.suffix === "title_ink"
+              ? (String(c) === "text" ? "Same as text (default)"
+                : String(c).replace("_", " "))
+              : c;
+            return optionTag(esc(c), String(v) === String(c), esc(label));
+          }).join("")}</select>`;
+        } else if (o.kind === "bool") {
+          const forced = cpcMenuForced(t, o);
+          const on = forced || targetOptionOn(o, v);
+          field = `<input id="topt-${esc(o.key)}" type="checkbox"` +
+            `${on ? " checked" : ""}${forced ? " disabled" : ""}>`;
+        } else if (o.kind === "int") {
+          field = `<input id="topt-${esc(o.key)}" type="number" value="${esc(v)}"`;
+          if (o.minimum != null) field += ` min="${esc(o.minimum)}"`;
+          if (o.maximum != null) field += ` max="${esc(o.maximum)}"`;
+          field += ">";
+        } else {
+          field = `<input id="topt-${esc(o.key)}" value="${esc(v == null ? "" : v)}">`;
+        }
+        return `<div style="margin-top:6px"><label>${esc(o.label)}</label>${field}
+          ${o.help ? `<div class="hint">${esc(o.help)}</div>` : ""}</div>`;
+      }).join("")}
+      ${(t.options || []).length ? "" : `<div class="hint">No target-specific options.</div>`}
+    </div>
   </div>`;
 }
 
 function paneSystems() {
+  const list = systemTargets();
+  if (!list.length) {
+    return `<h2>Build systems <span class="pill">built by the Build button</span></h2>
+    <div class="card"><div class="hint">No build targets are registered.</div></div>`;
+  }
+  const t = list.find((x) => x.id === activeSystemId()) || list[0];
   return `<h2>Build systems <span class="pill">built by the Build button</span></h2>
-  ${targetSystemsCard() || `<div class="card"><div class="hint">No build targets
-    are registered.</div></div>`}
+  <div class="hint">Pick a platform's tab to configure it; tick its checkbox to
+    include it in the build.</div>
+  ${systemTabs()}
+  ${systemCard(t)}
   <div class="hint">Each system's options are stored in its
     <code>## &lt;system-id&gt;</code> block under <code># Systems</code> in <code>game.md</code>, so the same selection
     and settings apply on the command line.</div>`;

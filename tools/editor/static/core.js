@@ -42,6 +42,7 @@ let rawOutline = [];       // scene/art/song/item/flag links for Ctrl+click
 let rawCheckTimer = null;  // debounce handle for the live game.md checker
 // active view tab: settings | systems | art | scenes | flags | items | graph | raw | build | web | emu
 let view = "settings";
+let systemsTab = "";        // active platform sub-tab in the Systems view
 let webTransition = false;  // saving pending edits before entering the Web tab
 const EDIT_MODES = ["settings", "systems", "art", "music", "scenes", "flags",
                     "items"];

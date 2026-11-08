@@ -502,7 +502,8 @@ There is no test suite and no configured linter. Verify by:
   (`zx`/`sms`/`cpc`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); ZX builds first when selected,
   then the others in block order, and each system's log is separated by a `==== name [id] ====` banner; the legacy
   `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
-  tab edits the selection; the Game tab keeps the shared settings (including Text colours).
+  tab edits the selection with one second-level sub-tab per platform; the Game tab keeps the shared settings
+  (including Text colours).
 - Editor writes are atomic and keep `game.md.bak`; art files are migrated when an art id is renamed
   (`_migrate_art_files`).
 - `compose.yml` live-mounts an **absolute daemon-host path**, not `./`; update it if the checkout moves.
