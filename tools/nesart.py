@@ -277,13 +277,97 @@ def _tile_pattern(pixels, palette):
     return bytes(out)
 
 
-def _nearest_pattern(pattern, kept):
-    best, best_cost = 0, None
-    for i, other in enumerate(kept):
-        cost = sum(abs(a - b) for a, b in zip(pattern, other))
-        if best_cost is None or cost < best_cost:
-            best, best_cost = i, cost
-    return best
+def _tile_codes(pattern):
+    """Pack a 2bpp tile's 64 palette indices into 16 bytes (4 per byte)."""
+    out = bytearray(16)
+    for y in range(8):
+        lo = pattern[y]
+        hi = pattern[8 + y]
+        for half in range(2):
+            b = 0
+            for x in range(4):
+                px = half * 4 + x
+                v = ((lo >> (7 - px)) & 1) | (((hi >> (7 - px)) & 1) << 1)
+                b = (b << 2) | v
+            out[y * 2 + half] = b
+    return bytes(out)
+
+
+_DIFF8 = None
+
+
+def _diff_table():
+    """Squared distance between two 2bpp index bytes (four pixels each)."""
+    global _DIFF8
+    if _DIFF8 is None:
+        table = []
+        for a in range(256):
+            ac = ((a >> 6) & 3, (a >> 4) & 3, (a >> 2) & 3, a & 3)
+            row = bytearray(256)
+            for b in range(256):
+                bc = ((b >> 6) & 3, (b >> 4) & 3, (b >> 2) & 3, b & 3)
+                row[b] = sum((x - y) ** 2 for x, y in zip(ac, bc))
+            table.append(bytes(row))
+        _DIFF8 = table
+    return _DIFF8
+
+
+def _select_tiles(patterns):
+    """Choose up to ``MAX_ART_TILES`` representatives spread over the art.
+
+    Keeping the first N unique patterns biases the budget to the top of the
+    picture; farthest-point selection reserves representatives across the
+    whole image, then one medoid pass snaps each cluster to a real pattern.
+    """
+    unique = {}
+    order = []
+    for pattern in patterns:
+        if pattern not in unique:
+            unique[pattern] = 0
+            order.append(pattern)
+        unique[pattern] += 1
+    if len(order) <= MAX_ART_TILES:
+        return order, {pattern: i for i, pattern in enumerate(order)}
+
+    diff = _diff_table()
+    codes = [_tile_codes(pattern) for pattern in order]
+    n = len(order)
+    dist = [[0] * n for _ in range(n)]
+    for i in range(n):
+        ci = codes[i]
+        for j in range(i + 1, n):
+            cj = codes[j]
+            d = sum(diff[a][b] for a, b in zip(ci, cj))
+            dist[i][j] = dist[j][i] = d
+    counts = [unique[pattern] for pattern in order]
+
+    sel = [max(range(n), key=lambda i: counts[i])]
+    mind = [dist[i][sel[0]] for i in range(n)]
+    while len(sel) < MAX_ART_TILES:
+        j = max(range(n), key=lambda i: mind[i])
+        if mind[j] <= 0:
+            break
+        sel.append(j)
+        for i in range(n):
+            if dist[i][j] < mind[i]:
+                mind[i] = dist[i][j]
+
+    assign = [min(range(len(sel)), key=lambda s: dist[i][sel[s]])
+              for i in range(n)]
+    medoids = []
+    for s in range(len(sel)):
+        members = [i for i, a in enumerate(assign) if a == s]
+        if not members:
+            medoids.append(sel[s])
+            continue
+        medoids.append(min(members,
+                           key=lambda i: sum(dist[i][j] for j in members)))
+    sel = medoids
+    assign = [min(range(len(sel)), key=lambda s: dist[i][sel[s]])
+              for i in range(n)]
+    tiles = [order[sel[s]] for s in range(len(sel))]
+    index = {order[i]: assign[i] for i in range(n)}
+    return tiles, index
 
 
 def _plan(im, conv, art_rows, text_bg):
@@ -323,14 +407,13 @@ def _plan(im, conv, art_rows, text_bg):
         centers = [((0, 0, 0),) * 3]
     while len(centers) < ART_PALETTES:
         centers.append(centers[-1])
+    centers = [tuple(NES_PALETTE[_nearest(c, NES_PALETTE)] for c in pal)
+               for pal in centers]
     block_choice = [min(range(len(centers)),
                         key=lambda i: _pal_dist(pal, centers[i]))
                     for pal in block_pals]
 
-    tiles = []
-    pixels = []
-    lookup = {}
-    tilemap = [[0] * COLS for _ in range(art_rows)]
+    pattern_grid = [[None] * COLS for _ in range(art_rows)]
     for by in range(block_rows):
         for bx in range(16):
             bi = by * 16 + bx
@@ -343,18 +426,10 @@ def _plan(im, conv, art_rows, text_bg):
                     for y in range(8):
                         row = (typix * 8 + y) * WIDTH + txpix * 8
                         cell.extend(rgb[row:row + 8])
-                    pattern = _tile_pattern(cell, palette)
-                    idx = lookup.get(pattern)
-                    if idx is None:
-                        if len(tiles) < MAX_ART_TILES:
-                            idx = len(tiles)
-                            lookup[pattern] = idx
-                            tiles.append(pattern)
-                            pixels.append(pattern)
-                        else:
-                            idx = _nearest_pattern(pattern, pixels)
-                    tilemap[typix][txpix] = idx
-    tilemap = [idx for row in tilemap for idx in row]
+                    pattern_grid[typix][txpix] = _tile_pattern(cell, palette)
+    flat = [pattern for row in pattern_grid for pattern in row]
+    tiles, index = _select_tiles(flat)
+    tilemap = [index[pattern] for pattern in flat]
 
     attrs = bytearray(64)
     for by in range(8):
