@@ -117,7 +117,8 @@ ids, or `-` for the current scene. `popup` is an empty string or the option's `m
 optional dismiss label (the runtime falls back to **Continue** when it is blank). Music fields are intentionally
 absent.
 
-The native `system_*` build-time flags (`system_zx`, `system_sms`, `system_cpc`, `system_msx2`, `system_gb`) are
+The native `system_*` build-time flags (`system_zx`, `system_zx128`, `system_zx48`, `system_sms`, `system_cpc`,
+`system_msx2`, `system_gb`) are
 folded during export with the web target, so all of them are false: lines/options gated with `if system_zx` are
 omitted, and `unless system_zx` lines remain. No `system_*` condition reaches `game.js`; use a generic line for the
 web build when a native target needs extra text.

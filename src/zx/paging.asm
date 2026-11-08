@@ -24,8 +24,10 @@
 
 SECTION code_user
 
-PUBLIC _paged_unpack
 PUBLIC _crt_font64
+IFNDEF ZX48
+PUBLIC _paged_unpack
+ENDIF
 
 EXTERN _zx0_unpack
 EXTERN CRT_FONT_64
@@ -44,6 +46,7 @@ _crt_font64:
 defc  _stage_ws   = $6000
 defc  STAGE_CHUNK = 1024
 
+IFNDEF ZX48
 ; void paged_unpack(unsigned int bank, unsigned int src, unsigned int dst)
 ;
 ; sccz80 classic pushes args left-to-right, so from the stack pointer:
@@ -169,6 +172,7 @@ _paged_rem:
         defs    2
 _paged_dst:
         defs    2
+ENDIF
 
 ; Scene records (header + strings) are decompressed here before rendering.
 ; SCENE_WS_SIZE is the largest raw scene blob this game ships (tools/gen_scenes.py

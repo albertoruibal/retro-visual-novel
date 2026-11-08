@@ -5,7 +5,8 @@ and other 8-bit targets, with a shared engine and authoring UI.
 
 ## Supported targets
 
-- [ZX Spectrum 128K](docs/systems/zx.md)
+- [ZX Spectrum 128K](docs/systems/zx128.md)
+- [ZX Spectrum 48K](docs/systems/zx48.md)
 - [ZX Spectrum Next](docs/systems/next.md)
 - [Amstrad CPC 6128](docs/systems/cpc.md) (alpha)
 - [MSX2](docs/systems/msx2.md) (alpha)

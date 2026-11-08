@@ -20,7 +20,7 @@ __all__ = [
     "option_key", "coerce_option", "targets_json", "selection_issues",
 ]
 
-FIRST_TARGETS = ("zx",)
+FIRST_TARGETS = ("zx128", "zx48")
 SEPARATOR_WIDTH = 72
 
 _SKIP = {"__init__", "base", "common"}
@@ -53,11 +53,11 @@ def get_target(target_id: str) -> Target | None:
 
 
 def selected_targets(doc: dict) -> list[str]:
-    """The build selection, defaulting to ZX for old/unset games."""
+    """The build selection, defaulting to the 128K ZX target for old games."""
     game = (doc or {}).get("game") or {}
     raw = game.get("targets")
     if not raw:
-        return ["zx"]
+        return ["zx128"]
     if isinstance(raw, str):
         raw = raw.replace(",", " ").split()
     out: list[str] = []
@@ -71,18 +71,18 @@ def selected_targets(doc: dict) -> list[str]:
 
 
 def ordered_targets(ids: Iterable[str]) -> list[str]:
-    """Return target ids with ZX first, keeping the rest in input order."""
+    """Return canonical target ids with ZX first, keeping the rest in order."""
     out: list[str] = []
     for raw in ids:
-        target_id = str(raw).strip().lower()
+        raw_id = str(raw).strip().lower()
+        target = get_target(raw_id)
+        target_id = target.id if target else raw_id
         if target_id and target_id not in out:
             out.append(target_id)
 
     def rank(target_id: str) -> int:
-        target = get_target(target_id)
-        canonical = target.id if target else target_id
         try:
-            return FIRST_TARGETS.index(canonical)
+            return FIRST_TARGETS.index(target_id)
         except ValueError:
             return len(FIRST_TARGETS)
 
@@ -108,6 +108,11 @@ def target_options(doc: dict, target: Target) -> dict:
         else:
             key = option_key(target, option)
             raw = game.get(key, extras.get(key))
+            if raw is None:
+                for alias in target.aliases:
+                    raw = extras.get(f"{alias}_{option.key}")
+                    if raw is not None:
+                        break
         out[option.key] = coerce_option(option, raw)
     return out
 
@@ -132,6 +137,7 @@ def targets_json(doc: dict | None = None) -> dict:
             "colors": target.colors,
             "engine": target.engine,
             "band_width": target.band_width,
+            "artifact_suffix": target.artifact_suffix,
             "available": bool(avail),
             "unavailable_reason": reason,
             "selected": target.id in selected,
@@ -153,7 +159,8 @@ def targets_json(doc: dict | None = None) -> dict:
     return {"targets": items, "selected": selected}
 
 
-DISPLAY_ORDER = ("zx", "next", "cpc", "msx2", "sms", "gb", "c64", "nes")
+DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "msx2", "sms", "gb", "c64",
+                 "nes")
 
 
 def _display_rank(target: Target) -> int:

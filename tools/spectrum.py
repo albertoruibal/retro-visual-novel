@@ -171,7 +171,7 @@ def wait_prompt(z, sec=10.0):
     return False
 
 
-def start_fuse(source):
+def start_fuse(source, machine=None):
     if not os.path.isfile(ZESARUX):
         sys.exit("ZEsarUX not found (%s); set ZESARUX/RVN_ZESARUX or install "
                  "ZEsarUX 13.0; the emulator is not bundled." % ZESARUX)
@@ -188,7 +188,7 @@ def start_fuse(source):
         cmd += ["--machine", "TBBlue", "--tbblue-fast-boot-mode",
                 "--snap", os.path.abspath(str(source))]
     else:
-        cmd += ["--machine", "128k", str(source)]
+        cmd += ["--machine", machine or "128k", str(source)]
     log = open(os.path.join(OUTDIR, f"fuse_{port}.log"), "w")
     subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(ZESARUX)),
                      stdout=log, stderr=log)
@@ -387,7 +387,9 @@ def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
     if cmd == "run":
         tape = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "the-arousa-job.tap")
-        print("no fuse running: starting on port", start_fuse(tape))
+        machine = sys.argv[3] if len(sys.argv) > 3 else None
+        print("no fuse running: starting on port",
+              start_fuse(tape, machine))
         return
     if cmd == "off":
         if os.name != "nt":
@@ -420,7 +422,8 @@ def main():
     elif cmd == "run":
         z.close()
         tape = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "the-arousa-job.tap")
-        print("starting on port", start_fuse(tape))
+        machine = sys.argv[3] if len(sys.argv) > 3 else None
+        print("starting on port", start_fuse(tape, machine))
         return
     elif cmd == "pause":
         print(z.cmd("enter-cpu-step\r", 0.8))

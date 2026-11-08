@@ -15,7 +15,7 @@ async function save() {
 
 async function runBuild() {
   await loadServerSettings();
-  const tg = (typeof gameTargets === "function") ? gameTargets() : ["zx"];
+  const tg = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
   const needCc65 = tg.some((t) => t === "c64" || t === "nes");
   const needZ88dk = tg.some((t) => t !== "c64" && t !== "nes");
   if (needZ88dk && !SERVER.z88dk_available) {

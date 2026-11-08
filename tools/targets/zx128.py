@@ -2,6 +2,7 @@
 
 The byte-identical ZX pipeline still lives in tools/build.py; this module is
 the registry adapter so the same dispatcher can build it alongside SMS/CPC.
+The legacy ``zx`` id is accepted as an alias and canonicalised to ``zx128``.
 """
 from __future__ import annotations
 
@@ -21,8 +22,8 @@ def _available():
 def _build(ctx):
     import build  # lazy: avoids a circular import while build.py loads targets
 
-    results = build._build_zx(ctx.slug)
-    out = BuildResult(target="zx")
+    results = build._build_zx128(ctx.slug)
+    out = BuildResult(target="zx128")
     for item in results or []:
         out.add_output(item.get("path", ""), item.get("kind", ""),
                        item.get("size"))
@@ -37,14 +38,14 @@ def _validate(ctx):
     if missing:
         issues.append({
             "level": "error", "section": "game", "id": "targets",
-            "target": "zx",
-            "msg": "ZX Spectrum: z88dk is missing " + ", ".join(missing),
+            "target": "zx128",
+            "msg": "ZX Spectrum 128K: z88dk is missing " + ", ".join(missing),
         })
     return issues
 
 
 TARGET = Target(
-    id="zx",
+    id="zx128",
     label="ZX Spectrum 128K",
     description="Original NIRVANA+ engine, TAP and 128K SNA output.",
     outputs=(".tap", ".sna"),
@@ -72,6 +73,8 @@ TARGET = Target(
     validate=_validate,
     available=_available,
     emulator="jsspeccy",
+    machine="128",
     colors=16,
     engine="NIRVANA+",
+    aliases=("zx",),
 )

@@ -94,7 +94,14 @@ void plat_load(unsigned char bank, unsigned short off, void *dst,
        must leave the current picture's tile pointer alone. */
     if (kind == PLAT_LOAD_INV)
         *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)blank_tile;
+#ifdef ZX48
+    /* No paging: the compressed blob is resident in lower RAM; skip its u16
+       length prefix and decode straight into the workspace. */
+    (void)bank;
+    port_unpack((const void *)(FLAT_DATA_ADDR + (unsigned int)off + 2u), dst);
+#else
     paged_unpack(bank, 0xC000 + (unsigned int)off, (unsigned int)dst);
+#endif
 }
 
 void plat_draw_art(unsigned char id)
@@ -314,5 +321,7 @@ void plat_init(void)
 
     zx_clr_row(PLAT_ROWS - 1, ZX_BG_ATTR);
     zx_clr_row(0, ZX_BG_ATTR);
+#if N_SONGS > 0
     ay_vt2_stop();
+#endif
 }

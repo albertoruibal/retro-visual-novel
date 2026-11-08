@@ -205,16 +205,22 @@ def _validate(doc, slug):
     # The row budget below is the ZX layout. Next uses the same layout with its
     # own art_rows/menu options, so validate the tighter of the selected ZX
     # systems (and fold the matching system_* conditions).
-    selected_systems = targets.selected_targets(doc) or ["zx"]
-    fit_system = "zx"
-    zx_target = targets.get_target("zx")
+    selected_systems = targets.selected_targets(doc) or ["zx128"]
+    fit_system = "zx128"
+    zx_target = targets.get_target("zx128")
+    zx48_target = targets.get_target("zx48")
     next_target = targets.get_target("next")
-    zx_popup = bool(zx_target and "zx" in selected_systems
-                    and targets.target_options(doc, zx_target).get("menu"))
+    zx_family = [t for t in (zx_target, zx48_target)
+                 if t is not None and t.id in selected_systems]
+    # The pinned layout must fit if any selected ZX-family target uses it.
+    zx_popup = bool(zx_family) and all(
+        bool(targets.target_options(doc, t).get("menu")) for t in zx_family)
+    if zx_family and "zx128" not in selected_systems:
+        fit_system = "zx48"
     if next_target is not None and "next" in selected_systems:
         next_opts = targets.target_options(doc, next_target)
         next_rows = int(next_opts.get("art_rows") or 10)
-        if "zx" not in selected_systems or next_rows > band_lines:
+        if not zx_family or next_rows > band_lines:
             band_lines = next_rows
             fit_system = "next"
             zx_popup = bool(next_opts.get("menu"))
@@ -597,10 +603,10 @@ def _validate(doc, slug):
                            "msg": f"unknown colour '{val}'; using "
                                   f"{default}"})
 
-    # The ZX `## zx title_ink:` option takes the same colour tokens plus the
+    # The ZX `## zx128 title_ink:` option takes the same colour tokens plus the
     # `text` default (inherit the body colour). An unknown token silently
     # falls back to the text colour, so report it.
-    for tgt in (zx_target, next_target):
+    for tgt in (zx_target, zx48_target, next_target):
         if tgt is None or tgt.id not in selected_systems:
             continue
         raw_title = (g.get("extras") or {}).get(f"{tgt.id}_title_ink")

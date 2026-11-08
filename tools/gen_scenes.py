@@ -15,7 +15,7 @@ storage): the ``port_*`` names, struct aliases and ZX layout/feature flags.
     Art blob (before compression):
         map[8*L]  row-major 16x(L/2) tile indices into the tile area
         tiles[N]  48-byte 16x16 bicolor btiles (N <= 8*L)
-                  L = `## zx art_rows` (even 8..16, default 10 -> map[80])
+                  L = `## zx128 art_rows` (even 8..16, default 10 -> map[80])
     Scene blob (before compression):
         SceneHdr (102 bytes):
             u8   art          art index (into the art directory)
@@ -127,7 +127,7 @@ game.md format (author-facing):
     width/height: <output size, e.g. 512x256; `size` is a square fallback>
 
     # Systems              # each ## block selects a system; order = build order
-    ## zx
+    ## zx128
     art_rows: <even 8..16> # optional: art band height in 8px rows (10)
     menu: popup            # optional: options/items in a SPACE dialog (inline)
     title_ink: <colour>    # optional: scene/item title (text = inherit text_ink)
@@ -214,11 +214,29 @@ SONG_WS = 4158
 # 0x8000). Every compressed blob must fit here; checked below.
 STAGE_WS_MAX = 0x8000 - 0x6000
 
+# 48K flat build: every compressed blob lives in the lower-RAM window at
+# 0x6000. The top 1 KB (0x7C00-0x7FFF) is reserved for the stack, so the ROM
+# loader and the NIRVANA+ ISR never clobber the data. The linker check in
+# tools/build.py caps the main image below the engine at 0xDC03.
+FLAT_DATA_ADDR = 0x6000
+FLAT_DATA_MAX = 0x1C00          # 7168 bytes, leaving 1 KB for the stack
+
 # Home-bank arrays must fit alongside the engine. A full directory (256 scenes
 # + 128 arts, 3 x 2-byte arrays each) is ~2.3KB, well inside the fixed region.
 MAX_DIR_SCENES = 256
 MAX_DIR_ARTS = 128
 MAX_DIR_SONGS = 64
+
+
+def scene_target_id():
+    """The target being generated (``zx128`` or ``zx48``), canonicalised."""
+    raw = os.environ.get("SCENE_TARGET") or "zx128"
+    return scenefile.canonical_target_id(raw) or "zx128"
+
+
+def scene_flat():
+    """Whether to emit the non-paged 48K flat data layout."""
+    return str(os.environ.get("SCENE_FLAT") or "").strip() == "1"
 
 
 # Accented letters are stored one byte each by remapping them onto ASCII codes
@@ -292,7 +310,7 @@ def text_cond_header(conds, fid, where):
     return bytes(out)
 
 
-def build_scene_blob(b, idmap, artmap, flag_map, system="zx"):
+def build_scene_blob(b, idmap, artmap, flag_map, system="zx128"):
     def fid(name):
         if not name:
             return FLAG_NONE
@@ -437,7 +455,7 @@ def build_scene_blob(b, idmap, artmap, flag_map, system="zx"):
     return bytes(hdr) + bytes(strings) + bytes(cond_bytes)
 
 
-def _parse_item_opt(raw, flag_map, idmap, system="zx"):
+def _parse_item_opt(raw, flag_map, idmap, system="zx128"):
     """Parse an item option into the blob's fields.
 
     Syntax ``<label> -> <target> [if f]... [unless f]... [inscene s] [set f]
@@ -506,7 +524,7 @@ def _parse_item_opt(raw, flag_map, idmap, system="zx"):
 
 
 def build_inv_blob(item_list, flag_map, item_meta, ui, carry, idmap,
-                   system="zx"):
+                   system="zx128"):
     """Paged blob backing the inventory screen, or ``None`` when it never shows.
 
     The engine compiles the inventory screen only when ``carry:`` caps the pack,
@@ -1124,10 +1142,10 @@ def write_scene_data(header, out_h):
 
 
 def zx_popup_menu(doc):
-    """Whether the ZX system enables its optional pop-up options dialog."""
+    """Whether the active ZX system enables its optional pop-up dialog."""
     try:
         import targets
-        target = targets.get_target("zx")
+        target = targets.get_target(scene_target_id())
         if target is not None:
             return bool(targets.target_options(doc, target).get("menu"))
     except Exception:               # noqa: BLE001 - optional build registry
@@ -1146,7 +1164,7 @@ def zx_title_colours(doc):
     text = scenefile.text_colours(game)["text"]
     try:
         import targets
-        target = targets.get_target("zx")
+        target = targets.get_target(scene_target_id())
         token = (targets.target_options(doc, target).get("title_ink")
                  if target is not None else None)
     except Exception:               # noqa: BLE001 - optional build registry
@@ -1271,6 +1289,8 @@ def main():
     os.makedirs(banks_dir, exist_ok=True)
 
     doc = parse(md)
+    target_id = scene_target_id()
+    flat = scene_flat()
     scenes, arts = doc["scenes"], doc["arts"]
     item_meta = doc.get("item_meta") or {}
     have_messages = any(scenefile.split_option_msg(o)[1]
@@ -1304,6 +1324,11 @@ def main():
     declared_flags = doc["game"].get("flags", [])
     declared_items = scenefile.declared_items(doc["game"], item_meta)
     songs, songmap = song_setup(doc)
+    if flat and songs:
+        sys.stderr.write(
+            "WARNING: 48K has no AY sound chip; songs are ignored by this "
+            "build (" + ", ".join(songs) + ")\n")
+        songs, songmap = [], {}
     # Each item's display name (the `name:` of its `# Items` entry, else the
     # id). It is what the inventory band and item screen show; the id stays the
     # token in `pick`/`leave`/`if`. Validated here because the engine prints it
@@ -1360,7 +1385,7 @@ def main():
         art_blobs.append(blob)
 
     music_dir = os.path.join(gdir, "assets", "music")
-    song_blobs = load_song_blobs(songs, music_dir)
+    song_blobs = [] if flat else load_song_blobs(songs, music_dir)
     # The resident player buffer only has to hold the largest module this game
     # actually ships, not the 4158-byte ceiling: sizing it per game frees the
     # slack in the crowded home bank. 0 for a game with no songs.
@@ -1374,11 +1399,11 @@ def main():
     ui_strings = scenefile.inventory_strings(doc["game"])
     inv_blob, have_item_desc, have_item_opts = build_inv_blob(
         item_list, flag_map, item_meta, ui_strings,
-        int(doc["game"].get("carry", 0) or 0), idmap, "zx")
+        int(doc["game"].get("carry", 0) or 0), idmap, target_id)
 
     raw_art = [len(b) for b in art_blobs]
     max_art = max(raw_art, default=0)
-    scene_blobs = [build_scene_blob(b, idmap, artmap, flag_map, "zx")
+    scene_blobs = [build_scene_blob(b, idmap, artmap, flag_map, target_id)
                    for b in scenes]
     raw_scene = [len(b) for b in scene_blobs]
     max_scene = max(raw_scene)
@@ -1419,62 +1444,109 @@ def main():
                    max((len(c) for c in scene_comp), default=0),
                    max((len(c) for c in song_comp), default=0),
                    len(inv_comp)))
-    # _stage_ws (src/zx/paging.asm @0x6000) is free lower RAM up to 0x8000; every
-    # compressed blob must fit or the copy would overwrite the screen.
-    if biggest > STAGE_WS_MAX:
-        sys.exit(f"a compressed blob is {biggest}B, exceeding the {STAGE_WS_MAX}B "
-                 "_stage_ws staging buffer (src/zx/paging.asm)")
-    stage_ws_size = max(biggest, 64)
-    # The ZX staging buffer (0x6000) and the song workspace that follows it
-    # share the 8K lower-RAM window up to 0x8000.
-    if stage_ws_size + song_ws_size > STAGE_WS_MAX:
-        sys.exit(f"stage ({stage_ws_size}B) + song ({song_ws_size}B) workspaces "
-                 f"exceed the {STAGE_WS_MAX}B lower-RAM window at 0x6000; "
-                 "shorten the module or a compressed blob")
+    if flat:
+        # No staging buffer: the whole flat store is resident at 0x6000 and
+        # decoded straight into the main-image workspaces.
+        stage_ws_size = 0
+    else:
+        # _stage_ws (src/zx/paging.asm @0x6000) is free lower RAM up to 0x8000;
+        # every compressed blob must fit or the copy would overwrite the screen.
+        if biggest > STAGE_WS_MAX:
+            sys.exit(f"a compressed blob is {biggest}B, exceeding the "
+                     f"{STAGE_WS_MAX}B _stage_ws staging buffer "
+                     "(src/zx/paging.asm)")
+        stage_ws_size = max(biggest, 64)
+        # The ZX staging buffer (0x6000) and the song workspace that follows it
+        # share the 8K lower-RAM window up to 0x8000.
+        if stage_ws_size + song_ws_size > STAGE_WS_MAX:
+            sys.exit(f"stage ({stage_ws_size}B) + song ({song_ws_size}B) "
+                     f"workspaces exceed the {STAGE_WS_MAX}B lower-RAM window "
+                     "at 0x6000; shorten the module or a compressed blob")
 
-    # --- pack blobs into banks (nothing straddles a boundary) ------------
-    # Arts, scenes and songs share the same bank pool; each blob is placed
-    # whole. Best-fit-decreasing: largest blobs first into the emptiest bank
-    # that still fits, which keeps the banks evenly filled and recovers the
-    # slack a greedy next-fit pass would strand between large art blobs.
-    bank_img = {n: bytearray([BANK_MAGIC]) for n in BANKS}
     art_dir = [None] * len(arts)
     scene_dir = [None] * len(scenes)
     song_dir = [None] * len(songs)
     inv_dir = [None]
-    work = [(art_packed[i], art_dir, i) for i in range(len(arts))] + \
-           [(scene_packed[i], scene_dir, i) for i in range(len(scenes))] + \
-           [(song_packed[i], song_dir, i) for i in range(len(songs))]
-    if inv_blob is not None:
-        work.append((inv_packed, inv_dir, 0))
-    for blob, directory, idx in sorted(work, key=lambda w: len(w[0]),
-                                       reverse=True):
-        placed = False
-        for bn in sorted(BANKS, key=lambda n: len(bank_img[n])):
-            if len(bank_img[bn]) + len(blob) <= max_bank:
-                off = len(bank_img[bn])
-                bank_img[bn] += blob
-                directory[idx] = (bn, off)
-                placed = True
-                break
-        if not placed:
-            sys.exit("scene/art/song/item data exceeds available banks")
-
-    # --- write bank images + asm wrappers --------------------------------
     used = []
-    for bn in BANKS:
-        if len(bank_img[bn]) <= 1:
-            continue
-        used.append(bn)
-        with open(os.path.join(banks_dir, f"bank{bn}.bin"), "wb") as f:
-            f.write(bank_img[bn])
-        with open(os.path.join(asm_dir, f"scene_bank{bn}.asm"), "w") as f:
-            f.write(
-                "; generated by tools/gen_scenes.py - do not edit\n"
-                f"SECTION BANK_{bn}\n"
-                f"PUBLIC _scene_bank{bn}\n"
-                f"_scene_bank{bn}:\n"
-                f'    BINARY "{rel_banks}/bank{bn}.bin"\n')
+    flat_used = 0
+
+    if flat:
+        # --- flat 48K store: one resident blob at 0x6000 -----------------
+        # Every compressed blob keeps its [u16 length] prefix; the runtime
+        # decodes from FLAT_DATA_ADDR + off + 2. Bands are all zero because
+        # there is no paging; only the offsets matter.
+        parts = bytearray()
+
+        def place(blobs, directory):
+            for i, blob in enumerate(blobs):
+                directory[i] = (0, len(parts))
+                parts.extend(blob)
+
+        place(art_packed, art_dir)
+        place(scene_packed, scene_dir)
+        place(song_packed, song_dir)
+        if inv_blob is not None:
+            inv_dir[0] = (0, len(parts))
+            parts.extend(inv_packed)
+        flat_used = len(parts)
+        if flat_used > FLAT_DATA_MAX:
+            sys.exit(
+                f"48K build does not fit: compressed art/scene/inventory "
+                f"data is {flat_used}B but only {FLAT_DATA_MAX}B fits at "
+                "0x6000-0x7BFF (the top 1 KB of lower RAM is the stack). "
+                "Remove arts or scenes, shorten text, or use the 128K target.")
+        with open(os.path.join(bdir, "scene_flat.bin"), "wb") as f:
+            f.write(bytes(parts) + bytes(FLAT_DATA_MAX - flat_used))
+        # Remove bank wrappers from an earlier 128K run so a flat build never
+        # links stale paged data.
+        for name in ["scene_banks.asm"] + [
+                n for bn in BANKS for n in (
+                    f"scene_bank{bn}.asm",
+                    os.path.join("scene_banks", f"bank{bn}.bin"))]:
+            try:
+                os.remove(os.path.join(bdir, name))
+            except OSError:
+                pass
+    else:
+        # --- pack blobs into banks (nothing straddles a boundary) --------
+        # Arts, scenes and songs share the same bank pool; each blob is placed
+        # whole. Best-fit-decreasing: largest blobs first into the emptiest
+        # bank that still fits, which keeps the banks evenly filled and
+        # recovers the slack a greedy next-fit pass would strand between large
+        # art blobs.
+        bank_img = {n: bytearray([BANK_MAGIC]) for n in BANKS}
+        work = [(art_packed[i], art_dir, i) for i in range(len(arts))] + \
+               [(scene_packed[i], scene_dir, i) for i in range(len(scenes))] + \
+               [(song_packed[i], song_dir, i) for i in range(len(songs))]
+        if inv_blob is not None:
+            work.append((inv_packed, inv_dir, 0))
+        for blob, directory, idx in sorted(work, key=lambda w: len(w[0]),
+                                           reverse=True):
+            placed = False
+            for bn in sorted(BANKS, key=lambda n: len(bank_img[n])):
+                if len(bank_img[bn]) + len(blob) <= max_bank:
+                    off = len(bank_img[bn])
+                    bank_img[bn] += blob
+                    directory[idx] = (bn, off)
+                    placed = True
+                    break
+            if not placed:
+                sys.exit("scene/art/song/item data exceeds available banks")
+
+        # --- write bank images + asm wrappers ----------------------------
+        for bn in BANKS:
+            if len(bank_img[bn]) <= 1:
+                continue
+            used.append(bn)
+            with open(os.path.join(banks_dir, f"bank{bn}.bin"), "wb") as f:
+                f.write(bank_img[bn])
+            with open(os.path.join(asm_dir, f"scene_bank{bn}.asm"), "w") as f:
+                f.write(
+                    "; generated by tools/gen_scenes.py - do not edit\n"
+                    f"SECTION BANK_{bn}\n"
+                    f"PUBLIC _scene_bank{bn}\n"
+                    f"_scene_bank{bn}:\n"
+                    f'    BINARY "{rel_banks}/bank{bn}.bin"\n')
 
     # --- home-bank header ------------------------------------------------
     h = ["/* scene_data.h - generated by tools/gen_scenes.py - do not edit */",
@@ -1508,8 +1580,13 @@ def main():
          f"#define HAVE_INV_BLOB {1 if inv_blob is not None else 0}",
          f"#define HAVE_WORDS {1 if any_words else 0}",
          f"#define HAVE_MESSAGES {1 if have_messages else 0}",
-         "",
-         "typedef struct { unsigned short label_off, cond_off, msg_off; "
+         ""]
+    if flat:
+        h += [f"#define FLAT_DATA_ADDR {FLAT_DATA_ADDR}",
+              f"#define FLAT_DATA_SIZE {FLAT_DATA_MAX}",
+              f"#define FLAT_DATA_USED {flat_used}",
+              ""]
+    h += ["typedef struct { unsigned short label_off, cond_off, msg_off; "
          "unsigned char next,ncond,set,unset,pick,leave,clear; } OptHdr;",
          "typedef struct { unsigned short label_off, cond_off, msg_off; "
          "unsigned char scene,target,ncond,set,unset,pick,leave,clear; } "
@@ -1631,17 +1708,19 @@ def main():
         "\n".join(legend) + "\n")
 
     # --- bank manifest for the tape loader -------------------------------
-    a = ["; generated by tools/gen_scenes.py - do not edit",
-         "SECTION code_user",
-         "PUBLIC _scene_bank_list",
-         "PUBLIC _scene_bank_count",
-         "_scene_bank_count:",
-         f"    defb {len(used)}",
-         "_scene_bank_list:"]
-    for bn in used:
-        a.append(f"    defb {bn}")
-    a.append("    defb 0xFF")
-    open(os.path.join(bdir, "scene_banks.asm"), "w").write("\n".join(a) + "\n")
+    if not flat:
+        a = ["; generated by tools/gen_scenes.py - do not edit",
+             "SECTION code_user",
+             "PUBLIC _scene_bank_list",
+             "PUBLIC _scene_bank_count",
+             "_scene_bank_count:",
+             f"    defb {len(used)}",
+             "_scene_bank_list:"]
+        for bn in used:
+            a.append(f"    defb {bn}")
+        a.append("    defb 0xFF")
+        open(os.path.join(bdir, "scene_banks.asm"), "w").write(
+            "\n".join(a) + "\n")
 
     if missing:
         sys.stderr.write(
@@ -1651,12 +1730,22 @@ def main():
     raw_total = sum(raw_art) + sum(raw_scene) + sum(len(b) for b in song_blobs)
     packed_total = sum(len(b) for b in art_packed) + \
         sum(len(b) for b in scene_packed) + sum(len(b) for b in song_packed)
-    sys.stderr.write(
-        "scenes: %d scenes, %d arts, %d songs, %d flags, %d items, art_lines=%d "
-        "in banks %s; ws=%dB art_peak=%dB tiles=%d compressed=%dB/%dB\n"
-        % (len(scenes), len(arts), len(songs), len(flag_map), len(item_list),
-           lines, used, ws_size, art_blob_peak, tile_peak, packed_total,
-           raw_total))
+    if flat:
+        sys.stderr.write(
+            "scenes: %d scenes, %d arts, 0 songs, %d flags, %d items, "
+            "art_lines=%d flat; ws=%dB art_peak=%dB tiles=%d compressed=%dB "
+            "(%dB/%dB lower RAM)\n"
+            % (len(scenes), len(arts), len(flag_map), len(item_list), lines,
+               ws_size, art_blob_peak, tile_peak, packed_total, flat_used,
+               FLAT_DATA_MAX))
+    else:
+        sys.stderr.write(
+            "scenes: %d scenes, %d arts, %d songs, %d flags, %d items, "
+            "art_lines=%d in banks %s; ws=%dB art_peak=%dB tiles=%d "
+            "compressed=%dB/%dB\n"
+            % (len(scenes), len(arts), len(songs), len(flag_map),
+               len(item_list), lines, used, ws_size, art_blob_peak, tile_peak,
+               packed_total, raw_total))
 
 
 if __name__ == "__main__":

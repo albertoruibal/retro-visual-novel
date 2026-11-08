@@ -8,7 +8,8 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 
 | System | Page | Output |
 |---|---|---|
-| ZX Spectrum 128K | [zx.md](zx.md) | `.tap`, `.sna` |
+| ZX Spectrum 128K | [zx128.md](zx128.md) | `.tap`, `.sna` |
+| ZX Spectrum 48K | [zx48.md](zx48.md) | `.tap` |
 | ZX Spectrum Next | [next.md](next.md) | `.nex` |
 | Sega Master System | [sms.md](sms.md) | `.sms` |
 | Amstrad CPC 6128 | [cpc.md](cpc.md) | `.dsk` |
@@ -20,7 +21,7 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 Targets are discovered from `tools/targets/` and selected under `## Systems` in `game.md`:
 
     ## Systems
-    ## zx
+    ## zx128
     art_rows: 12
     ## gb
     art_rows: 6

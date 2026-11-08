@@ -631,7 +631,9 @@ class Handler(BaseHTTPRequestHandler):
                 qs = urllib.parse.parse_qs(
                     urllib.parse.urlparse(self.path).query)
                 target_id = (qs.get("target", [""])[0] or "").strip().lower()
-                if target_id and target_id != "zx":
+                target = targets.get_target(target_id)
+                canonical_id = target.id if target else target_id
+                if canonical_id and canonical_id not in ("zx128", "zx48"):
                     data = target_art_preview_bytes(
                         m.group(1), m.group(2), target_id,
                         crop=qs.get("crop", [None])[0],

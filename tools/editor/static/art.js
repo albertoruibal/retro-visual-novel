@@ -53,21 +53,24 @@ function fitCropToBand(rect, natW, natH) {
 
 /* Selected build systems for Art-tab previews. The Systems tab is the
  * source of truth; ZX is the backward-compatible default. */
-const SYSTEM_ORDER = ["zx", "next", "cpc", "msx2", "sms", "gb", "c64", "nes"];
+const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "msx2", "sms", "gb", "c64", "nes"];
 function previewTargets() {
-  const list = typeof gameTargets === "function" ? gameTargets() : ["zx"];
+  const list = typeof gameTargets === "function" ? gameTargets() : ["zx128"];
   const rank = (id) => {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
   };
-  return list.slice().sort((a, b) => rank(a) - rank(b));
+  /* The 48K shares the 128K band/conversion, so one preview is enough. */
+  const out = list.filter((id) => !(id === "zx48" && list.includes("zx128")));
+  return out.sort((a, b) => rank(a) - rank(b));
 }
 function previewTargetMeta(id) {
   return ((TARGETS && TARGETS.targets) || []).find((t) => t.id === id) || null;
 }
 function previewTargetLabel(id) {
   const m = previewTargetMeta(id);
-  return m ? m.label : ({ zx: "ZX Spectrum 128K", next: "ZX Spectrum Next",
+  return m ? m.label : ({ zx128: "ZX Spectrum 128K", zx48: "ZX Spectrum 48K",
+                          next: "ZX Spectrum Next",
                           sms: "Sega Master System",
                           cpc: "Amstrad CPC 6128", msx2: "MSX2 (V9938)",
                           gb: "Nintendo Game Boy Color",
@@ -98,7 +101,7 @@ function previewTargetWidth(id) {
   return width;
 }
 function previewTargetSize(id) {
-  if (id === "zx") return `256×${artBandH()}`;
+  if (id === "zx128" || id === "zx48") return `256×${artBandH()}`;
   return `${previewTargetWidth(id)}×${8 * previewTargetRows(id)}`;
 }
 /* Palette size the target's converter quantises to; CPC follows the selected
@@ -109,18 +112,18 @@ function previewTargetColors(id) {
   const m = previewTargetMeta(id);
   const n = m ? +m.colors : NaN;
   if (n > 0) return n;
-  return ({ zx: 16, next: 256, sms: 16, msx2: 16, gb: 32,
+  return ({ zx128: 16, zx48: 16, next: 256, sms: 16, msx2: 16, gb: 32,
               c64: 16, nes: 16 }[id] || 0);
 }
 /* The display engine the target's preview emulates, shown under its name. */
 function previewTargetEngine(id) {
   const m = previewTargetMeta(id);
   const e = m ? m.engine : "";
-  return e || ({ zx: "NIRVANA+", next: "Layer 2",
+  return e || ({ zx128: "NIRVANA+", zx48: "NIRVANA+", next: "Layer 2",
                    c64: "VIC-II MCM", nes: "NES PPU" }[id] || "");
 }
 function targetPreviewQuery(id, q) {
-  if (id === "zx") return q;
+  if (id === "zx128" || id === "zx48") return q;
   return q + (q ? "&" : "?") + "target=" + encodeURIComponent(id)
            + "&rows=" + previewTargetRows(id);
 }
@@ -174,7 +177,7 @@ function drawArtView(id, mode, viewId = "artview") {
          + systems.map((id) => targetPreviewFig(id, g, aid, q, bust)).join("")
          + `</div>`;
   } else {
-    const id = systems[0] || "zx";
+    const id = systems[0] || "zx128";
     html = targetPreviewFig(id, g, aid, q, bust);
   }
   v.innerHTML = html;

@@ -97,6 +97,7 @@ class Target:
     engine: str = ""
     band_width: int = 256
     aliases: tuple[str, ...] = ()
+    artifact_suffix: str = ""
 
     @property
     def option_prefix(self) -> str:

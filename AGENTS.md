@@ -5,7 +5,8 @@ Guidance for coding agents working in this repository.
 ## What this is
 
 Retro Visual Novel is an 8-bit visual novel authoring + build system for the **ZX Spectrum 128K**, **ZX Spectrum
-Next** and six portable targets. The story engine is shared by every target (`src/portable/core/`); each platform
+48K**, **ZX Spectrum Next** and six portable targets. The story engine is shared by every target
+(`src/portable/core/`); each platform
 supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`,
 `src/c64/`, `src/nes/`). The two 6502 targets share `src/6502/zx0.c`.
 NIRVANA+ is vendored under `vendor/`. A game
@@ -14,12 +15,12 @@ A stdlib-only Python editor (`tools/editor/server.py`) serves a browser UI to au
 models, and run the build.
 
 Read `README.md` first for the overview, authoring format, editor and model setup; the ZX memory map and NIRVANA+
-constraints live in `docs/systems/zx.md`.
+constraints live in `docs/systems/zx128.md`.
 
 ## Layout
 
     src/zx/                  ZX platform layer (plat_zx.c, engine.h)
-                             + paging/loader asm
+                             + paging/loader asm (loader48.asm for the flat 48K build)
     src/next/                ZX Next platform layer (Layer 2, Next MMU paging, IM1 AY)
     src/portable/core/       shared story engine + music player for every target
     src/portable/plat.h      platform surface implemented by each src/<target>/
@@ -39,7 +40,7 @@ constraints live in `docs/systems/zx.md`.
     tools/gamestore.py       open/create/duplicate/rename game folders (demo-game/)
     tools/gen_scenes.py      game.md -> build/scene_data.h + port_data.h
                              + bankN.bin + *.asm
-    tools/targets/           pluggable build targets (zx, sms, cpc, msx2, gb, c64, nes)
+    tools/targets/           pluggable build targets (zx128, zx48, next, sms, cpc, msx2, gb, c64, nes)
     tools/smsart.py          SMS art preview/build conversion
     tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
@@ -58,6 +59,7 @@ constraints live in `docs/systems/zx.md`.
     tools/requirements.txt   editor/build Python deps (Pillow, numpy, spectrumizer)
     docs/systems/            one page per target (particularities, memory, emulator)
     tools/make_tap.py        append raw bank blocks to the appmake TAP
+    tools/make_tap48.py      append the flat 48K lower-RAM block to the TAP
     tools/make_sna.py        pack a 128K SNA with every bank resident
     tools/editor/server.py   entry/state + HTTP API + static SPA
     tools/editor/editor_*.py feature modules (games, validation, images, music,
@@ -216,16 +218,16 @@ There is no test suite and no configured linter. Verify by:
   optional on read (prose is ignored).
 - **NIRVANA+ never touches rows 0 and 23** and races attribute rows `1..art_rows` (the art band). Row 0 sits above the
   art and carries the scene title (`show_scene` clears it with `clr_row(0, 0x00)` and draws `title_off` there); row 23
-  is the single-line inventory band. The title uses the `## zx title_ink` system option (`text` inherits `text_ink`,
+  is the single-line inventory band. The title uses the `## zx128 title_ink` system option (`text` inherits `text_ink`,
   emitted as `TITLE_INK`/`TITLE_BRIGHT` in `port_data.h`; it also colours the item screen and boot-screen title).
   `clr_inventory_bg` clears only row 23 so the title survives band redraws while the
   cursor is on the band (the item/Drop screen also clears it while its details show; the scene redraw on return restores
-  it). **`## zx art_rows` (even 8..16, default 10) sets the band height in character rows**: the engine is built with
+  it). **`## zx128 art_rows` (even 8..16, default 10) sets the band height in character rows**: the engine is built with
   `TOTAL_ROWS = art_rows`, `TEXT_TOP = 1 + ART_LINES`, `TEXT_BOT = 22`, so the text band is rows `art_rows+1..22` and
   the budget is `22 - art_rows`. Scene text and item descriptions may be any length and word-wrap at 62 columns;
   options/labels are <= 62 columns. Keep <= 8 logical text lines and <= 6 options. On the pinned layout the server
   validates the worst-case wrapped text rows + options over all flag/item combinations against `22 - art_rows`
-  (and the item screen's description + entries against `21 - art_rows`); with `## zx menu: popup` the text and item
+  (and the item screen's description + entries against `21 - art_rows`); with `## zx128 menu: popup` the text and item
   descriptions scroll and there is no fit limit. Scene text is top-aligned and the options are pinned to the
   bottom of the band (last option on `TEXT_BOT`); the item/drop (`ITEM_DESC_TOP`/`ITEM_DESC_ROWS`/`TEXT_BOT`) and
   boot-password screens are band-relative so they fit any height, and on the pinned layouts the item screen's
@@ -256,7 +258,7 @@ There is no test suite and no configured linter. Verify by:
   The Art tab overlays a box on the Original image that is dragged to move and whose corners are dragged to
   resize (the aspect stays the band's, so nothing distorts); only the box moves during the drag, and the Spectrum
   previews (`?crop=x,y,w,h` on `/api/preview`) plus the saved value refresh on pointer release. A stored crop whose
-  aspect no longer matches the band (after `## zx art_rows` changes) is re-fitted to the band aspect and re-saved when
+  aspect no longer matches the band (after `## zx128 art_rows` changes) is re-fitted to the band aspect and re-saved when
   the art is shown, and the previews carry the current band height as `?lines=` so they track the unsaved control. The
   value is persisted while `PARAM_KEYS` overrides are still dropped by `_drop_art_overrides`.
 - Every scene's `art:` must reference an existing `## <art-id>` under `# Art`; every scene must be reachable from the
@@ -281,6 +283,14 @@ There is no test suite and no configured linter. Verify by:
   addresses are `< 0xC000` after the build (the `.bin`-size check cannot see this — these routines are in the fixed
   region, not bank 0). The `_scene_ws`/`_art_ws` workspaces may spill into bank 0, but must not reach the NIRVANA+
   engine at `0xDC03`; the main-image size check covers that because they are part of `adventure.bin`.
+- **ZX Spectrum 48K (`## zx48`) is a non-paged target.** The canonical 128K target id is `zx128` (the old `zx`
+  spelling is an alias; a save rewrites `## zx` to `## zx128`). The 48K build stores every compressed art/scene/item blob
+  in one flat resident block at `0x6000-0x7BFF` (`FLAT_DATA_SIZE` = 7168 B, loaded by `src/zx/loader48.asm`); the top
+  1 KB of lower RAM is the stack (`REGISTER_SP=0x7FFE`) and the linked main image must stay below the NIRVANA+ engine at
+  `0xDC03` (23555 B from `0x8000`). `tools/gen_scenes.py` runs with `SCENE_FLAT=1` and emits `build/scene_flat.bin`
+  (padded) instead of banks; `plat_load` decodes from `FLAT_DATA_ADDR+off+2` with `port_unpack` (no paging). The build
+  fails with a `48K build does not fit: ...` message when either budget is exceeded. The 48K has no AY, so songs are
+  ignored with a warning (the Systems card says so), and the target outputs only `<slug>-48k.tap`.
 - **Selectable words** (`{{word}}` / `{{word|flag}}` in a `text:` line) are parsed only by `tools/scenefile.py`
   (`word_segments`/`parse_words`/`word_flag`); the generator emits a per-scene word table (`WordHdr`: line, col, len,
   flag) after the scene strings and sets `HAVE_WORDS`. The engine highlights each word, folds it into the option cursor
@@ -344,8 +354,8 @@ There is no test suite and no configured linter. Verify by:
   (`zxart.preprocess`), applied after `_fit_band` and before quantisation. They resolve per art over the `# Game`
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
   live `?dither=...` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
-- **`system_zx`/`system_sms`/`system_cpc`/`system_msx2`/`system_gb`/`system_c64`/`system_nes` are reserved
-  build-time pseudo-flags**
+- **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms`/`system_cpc`/`system_msx2`/
+  `system_gb`/`system_c64`/`system_nes` are reserved build-time pseudo-flags**
   (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and as
   all-false by the web export), never assigned a flag id or runtime state. Using one as a declaration, `start:`,
   `ending:`, effect or selectable-word flag is an error.

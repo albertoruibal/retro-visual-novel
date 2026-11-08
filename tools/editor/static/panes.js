@@ -188,7 +188,7 @@ function wordColour(key, def) {
 function gameTargets() {
   if (P && Array.isArray(P.game.targets) && P.game.targets.length)
     return P.game.targets.slice();
-  return ["zx"];
+  return ["zx128"];
 }
 function targetSelected(id) { return gameTargets().includes(id); }
 function targetOptionValue(target, o) {
@@ -583,7 +583,8 @@ function paneFlag(id) {
 function systemFlagNames() {
   const flags = P.system_flags && P.system_flags.length
     ? P.system_flags
-    : ["system_zx", "system_sms", "system_cpc", "system_msx2", "system_gb"];
+    : ["system_zx", "system_zx128", "system_zx48", "system_sms",
+       "system_cpc", "system_msx2", "system_gb"];
   return flags.slice();
 }
 function condNameOptions(selv) {

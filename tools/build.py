@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a game's 128K adventure (portable replacement for adventure.sh).
+"""Build a game's ZX adventure (portable replacement for adventure.sh).
 
 One shared engine builds any game under ``games/<slug>/``. The per-game inputs
 (``game.md``, ``assets/art``) live in the game folder and the generated
@@ -24,6 +24,7 @@ Usage:
             games/<slug>/build/scene_banks.asm ... -I games/<slug>/build \
             -o <game>/build/adventure.bin
     appmake -> <game>/<slug>.tap (tape) and <game>/<slug>.sna (128K snapshot)
+    # 48K: loader48.asm + scene_flat.bin -> <game>/<slug>-48k.tap
 """
 import json
 import os
@@ -223,7 +224,7 @@ def _scene_define(gdir, key):
 def _engine_config(rows):
     """The vendored NIRVANA+ config with ``__NIRVANAP_TOTAL_ROWS`` set to rows.
 
-    The engine races rows 1..TOTAL_ROWS, so a game's ``## zx`` ``art_rows:``
+    The engine races rows 1..TOTAL_ROWS, so a game's ``## zx128`` ``art_rows:``
     becomes TOTAL_ROWS (the internal scene_data.h name is ART_LINES). Both the
     z80asm ``defc`` and the m4 ``define`` line in config_private.inc are patched;
     the m4 line is what the Z88DK_FOR loops read (see vendor/nirvanap/README).
@@ -357,8 +358,21 @@ def memory_report(gdir):
           % (used, total, 100.0 * used / total))
 
 
-def _build_zx(slug):
-    """The original ZX 128K pipeline. Returns its artifact list."""
+def memory_report48(gdir, used, capacity):
+    """How full the 48K machine is once the flat game is resident."""
+    def size(path):
+        return os.path.getsize(path) if os.path.exists(path) else 0
+
+    main = size(os.path.join(gdir, gamestore.BUILD_NAME, "adventure.bin"))
+    print("memory: data %d/%d bytes (%.1f%%), main %d/%d bytes (%.1f%% of "
+          "0x8000-0xDC03), stack 1024 bytes at 0x7C00"
+          % (used, capacity, (100.0 * used / capacity) if capacity else 0,
+             main, 0xDC03 - 0x8000,
+             100.0 * main / (0xDC03 - 0x8000)))
+
+
+def _build_zx_model(slug, flat=False):
+    """Build the ZX model (banked 128K, or flat 48K). Returns its artifacts."""
     game = gamestore.resolve(slug)
     if game is None:
         raise SystemExit("no such game: %r (see 'games/')" % (slug,))
@@ -369,12 +383,14 @@ def _build_zx(slug):
     # Tell the child tools (gen_scenes/make_tap/make_sna) exactly which folder
     # to work on, so an opened game outside games/ resolves for all of them.
     env["RVN_GAME"] = gdir
+    env["SCENE_FLAT"] = "1" if flat else "0"
+    env["SCENE_TARGET"] = "zx48" if flat else "zx128"
     py = _py()
 
     # --- generate tables + banks ------------------------------------------
-    # Per-art Spectrum btiles are built from the art's selected source image
-    # (assets/art/<id>/, the `image:` candidate) straight into the paged
-    # scene/art banks; there is no resident tile blob.
+    # Flat mode (48K) concatenates the compressed blobs into one lower-RAM
+    # image; banked mode packs them into the 128K's paged banks. Either way the
+    # per-art Spectrum btiles come from each art's selected source image.
     run([py, os.path.join(ROOT, "tools", "gen_scenes.py"), gdir], env)
 
     # --- build the vendored NIRVANA+ engine -------------------------------
@@ -419,30 +435,40 @@ def _build_zx(slug):
         run(["z88dk-z80asm", "-d", "-Oobj", "-xnirvanap.lib",
              "-D__CLASSIC=1", engine_asm, *asm_sources], env, cwd=engdir)
 
-        # --- compile (128K banked classic model) --------------------------
-        # Scene banks are raw data (build/scene_banks/*.bin), loaded at
-        # runtime by src/zx/loader.asm; not linked in, so appmake only sees the
-        # main block. Stage every input in the game-folder build dir and run
-        # from there with relative names: zcc mangles source paths that contain
-        # spaces (AppImage mount paths and some game folders do).
-        # loader.asm/zx0.asm are listed first so the paging routines stay low.
-        # ART_WS_SIZE / SCENE_WS_SIZE right-size src/zx/paging.asm's workspaces
-        # to this game (the assembler has no .h include, so they go via -Ca).
-        # The song workspace is computed in plat_zx.c from STAGE_WS_SIZE and
-        # lives in lower RAM after _stage_ws, so it needs no assembler define.
-        inputs = [
-            os.path.join(ROOT, "src", "zx", "loader.asm"),
-            os.path.join(ROOT, "vendor", "zx0", "zx0.asm"),
-            os.path.join(bdir, "scene_banks.asm"),
-            *portable_sources(ROOT),
-            os.path.join(ROOT, "src", "portable", "plat.h"),
-            os.path.join(ROOT, "src", "zx", "plat_zx.c"),
-            os.path.join(ROOT, "src", "zx", "paging.asm"),
-            os.path.join(ROOT, "src", "zx", "engine.h"),
-            os.path.join(bdir, "scene_data.h"),
-            os.path.join(bdir, "scene_data.c"),
-            os.path.join(bdir, "port_data.h"),
-        ]
+        # --- compile ------------------------------------------------------
+        # Stage every input in the game-folder build dir and run from there
+        # with relative names: zcc mangles source paths that contain spaces
+        # (AppImage mount paths and some game folders do). Loader/zx0 sources
+        # are listed first so the low routines stay below the paged window on
+        # 128K; on 48K the flat loader reads one block into lower RAM.
+        if flat:
+            inputs = [
+                os.path.join(ROOT, "src", "zx", "loader48.asm"),
+                os.path.join(ROOT, "vendor", "zx0", "zx0.asm"),
+                os.path.join(ROOT, "src", "z80", "zx0_wrap.asm"),
+                *portable_sources(ROOT),
+                os.path.join(ROOT, "src", "portable", "plat.h"),
+                os.path.join(ROOT, "src", "zx", "plat_zx.c"),
+                os.path.join(ROOT, "src", "zx", "paging.asm"),
+                os.path.join(ROOT, "src", "zx", "engine.h"),
+                os.path.join(bdir, "scene_data.h"),
+                os.path.join(bdir, "scene_data.c"),
+                os.path.join(bdir, "port_data.h"),
+            ]
+        else:
+            inputs = [
+                os.path.join(ROOT, "src", "zx", "loader.asm"),
+                os.path.join(ROOT, "vendor", "zx0", "zx0.asm"),
+                os.path.join(bdir, "scene_banks.asm"),
+                *portable_sources(ROOT),
+                os.path.join(ROOT, "src", "portable", "plat.h"),
+                os.path.join(ROOT, "src", "zx", "plat_zx.c"),
+                os.path.join(ROOT, "src", "zx", "paging.asm"),
+                os.path.join(ROOT, "src", "zx", "engine.h"),
+                os.path.join(bdir, "scene_data.h"),
+                os.path.join(bdir, "scene_data.c"),
+                os.path.join(bdir, "port_data.h"),
+            ]
         for path in inputs:
             shutil.copyfile(path, os.path.join(srcdir, os.path.basename(path)))
         shutil.copyfile(os.path.join(engdir, "nirvanap.lib"),
@@ -454,10 +480,25 @@ def _build_zx(slug):
             val = _scene_define(gdir, key)
             if val is not None:
                 cmd.append("-Ca-D%s=%d" % (key, val))
-        cmd += ["loader.asm", "zx0.asm", "scene_banks.asm", "scene_data.c",
-                "state.c", "game.c", "render.c", "inventory.c", "scene.c",
-                "menu.c", "main.c", "plat_zx.c", "music.c",
-                "paging.asm", "-o", "adventure.bin", "-lndos", "-m"]
+        if flat:
+            # No paging: keep the stack above the flat store, leaving 1 KB
+            # (0x7C00-0x7FFF) between it and the data at 0x6000-0x7BFF.
+            flat_addr = _scene_define(gdir, "FLAT_DATA_ADDR") or 0x6000
+            flat_size = _scene_define(gdir, "FLAT_DATA_SIZE") or 0x1C00
+            cmd += ["-DZX48=1", "-Ca-DZX48=1",
+                    "-pragma-define:REGISTER_SP=0x7FFE",
+                    "-Ca-DFLAT_DATA_ADDR=%d" % flat_addr,
+                    "-Ca-DFLAT_DATA_SIZE=%d" % flat_size,
+                    "loader48.asm", "zx0.asm", "zx0_wrap.asm",
+                    "scene_data.c", "state.c", "game.c", "render.c",
+                    "inventory.c", "scene.c", "menu.c", "main.c",
+                    "plat_zx.c", "music.c", "paging.asm"]
+        else:
+            cmd += ["loader.asm", "zx0.asm", "scene_banks.asm",
+                    "scene_data.c", "state.c", "game.c", "render.c",
+                    "inventory.c", "scene.c", "menu.c", "main.c",
+                    "plat_zx.c", "music.c", "paging.asm"]
+        cmd += ["-o", "adventure.bin", "-lndos", "-m"]
         run(cmd, env, cwd=srcdir)
         for name in ("adventure.bin", "adventure.map"):
             src = os.path.join(srcdir, name)
@@ -470,39 +511,73 @@ def _build_zx(slug):
     finally:
         shutil.rmtree(builddir, ignore_errors=True)
 
-    guard_map(gdir)
+    if flat:
+        main_size = os.path.getsize(os.path.join(bdir, "adventure.bin"))
+        limit = 0xDC03 - 0x8000
+        if main_size > limit:
+            raise SystemExit(
+                "48K build does not fit: main image is %d B but only %d B "
+                "fits at 0x8000-0xDC03 before the NIRVANA+ engine. Shorten "
+                "scene text/options/item descriptions or use the 128K target."
+                % (main_size, limit))
+    else:
+        guard_map(gdir)
 
-    # --- tape + 128K snapshot ---------------------------------------------
-    # appmake can't put the fixed-address NIRVANAP+ engine or raw 0xC000 bank
-    # blocks on a tape, so merge the engine into the main image and let appmake
-    # produce the loader+main TAP, then append the scene banks; the SNA is
-    # packed directly with every bank resident.
+    # --- tape (+ snapshot on 128K) ----------------------------------------
+    # appmake can't put the fixed-address NIRVANAP+ engine (or raw 0xC000 bank
+    # blocks) on a tape, so merge the engine into the main image and let
+    # appmake produce the loader+main TAP. The 128K build then appends the
+    # scene banks and writes a resident SNA; the 48K build appends its flat
+    # lower-RAM block instead (and has no snapshot).
     merge_engine(gdir)
     run(["z88dk-appmake", "+zx", "-b",
          _fwd(os.path.join(bdir, "adventure_merged.bin")),
          "-o", _fwd(os.path.join(bdir, "advbase.tap")),
          "--org", "32768", "--blockname", "advmain"], env)
-    run([py, os.path.join(ROOT, "tools", "make_tap.py"),
-         os.path.join(bdir, "advbase.tap"),
-         os.path.join(gdir, game["slug"] + ".tap"), gdir], env)
-    run([py, os.path.join(ROOT, "tools", "make_sna.py"), gdir,
-         os.path.join(gdir, game["slug"] + ".sna")], env)
+    if flat:
+        out_tap = os.path.join(gdir, game["slug"] + "-48k.tap")
+        run([py, os.path.join(ROOT, "tools", "make_tap48.py"),
+             os.path.join(bdir, "advbase.tap"), out_tap, gdir], env)
+    else:
+        out_tap = os.path.join(gdir, game["slug"] + ".tap")
+        run([py, os.path.join(ROOT, "tools", "make_tap.py"),
+             os.path.join(bdir, "advbase.tap"), out_tap, gdir], env)
+    out_sna = os.path.join(gdir, game["slug"] + ".sna")
+    if not flat:
+        run([py, os.path.join(ROOT, "tools", "make_sna.py"), gdir, out_sna],
+            env)
     for tmp in ("advbase.tap", "adventure_merged.bin"):
         try:
             os.remove(os.path.join(bdir, tmp))
         except OSError:
             pass
 
-    tap = os.path.join(gdir, game["slug"] + ".tap")
-    sna = os.path.join(gdir, game["slug"] + ".sna")
+    if flat:
+        used = _scene_define(gdir, "FLAT_DATA_USED") or 0
+        size = _scene_define(gdir, "FLAT_DATA_SIZE") or 0x1C00
+        print("OK: %s (%d bytes)"
+              % (out_tap, os.path.getsize(out_tap)))
+        memory_report48(gdir, used, size)
+        return [{"path": out_tap, "kind": "zx48-tap",
+                 "size": os.path.getsize(out_tap)}]
     print("OK: %s (%d bytes), %s (%d bytes)"
-          % (tap, os.path.getsize(tap), sna, os.path.getsize(sna)))
+          % (out_tap, os.path.getsize(out_tap),
+             out_sna, os.path.getsize(out_sna)))
     memory_report(gdir)
     return [
-        {"path": tap, "kind": "zx-tap", "size": os.path.getsize(tap)},
-        {"path": sna, "kind": "zx-sna", "size": os.path.getsize(sna)},
+        {"path": out_tap, "kind": "zx128-tap", "size": os.path.getsize(out_tap)},
+        {"path": out_sna, "kind": "zx128-sna", "size": os.path.getsize(out_sna)},
     ]
 
+
+def _build_zx128(slug):
+    """The original banked ZX Spectrum 128K pipeline."""
+    return _build_zx_model(slug, flat=False)
+
+
+def _build_zx48(slug):
+    """The non-paged ZX Spectrum 48K pipeline (fails if the game does not fit)."""
+    return _build_zx_model(slug, flat=True)
 
 def _port_define(gdir, key):
     """Read an integer ``#define key N`` from the generated port_data.h."""
@@ -733,18 +808,25 @@ def run_game(slug, target_id=None):
     summary, failures = build_selected(slug, [target_id] if target_id else None)
     if failures:
         raise SystemExit("build failed; not starting the emulator")
-    target_id = target_id or (summary[0]["target"] if summary else "zx")
-    if target_id not in ("zx", "next"):
+    target_id = target_id or (summary[0]["target"] if summary else "zx128")
+    target = targets.get_target(target_id)
+    target_id = target.id if target else target_id
+    if target_id not in ("zx128", "zx48", "next"):
         print(f"{target_id}: build complete; use an external emulator "
               f"(outputs above)")
         return
     game, _ = _game_doc(slug)
     ext = ".nex" if target_id == "next" else ".tap"
-    image = os.path.join(game["dir"], game["slug"] + ext)
+    suffix = target.artifact_suffix if target else ""
+    image = os.path.join(game["dir"], game["slug"] + suffix + ext)
+    machine = "48k" if target_id == "zx48" else None
     env = build_env()
     run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "off"], env)
     time.sleep(1)
-    run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "run", image], env)
+    args = [_py(), os.path.join(ROOT, "tools", "spectrum.py"), "run", image]
+    if machine:
+        args.append(machine)
+    run(args, env)
 
 
 def list_targets():

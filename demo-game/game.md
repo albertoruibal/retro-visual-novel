@@ -23,7 +23,7 @@ height: 256
 
 # Systems
 
-## zx
+## zx128
 art_rows: 12
 title_ink: white
 

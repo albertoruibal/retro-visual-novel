@@ -30,15 +30,15 @@ def tap_file(slug, name):
 def artifact_file(slug, name):
     """Serve one built target artifact to the web emulators.
 
-    Only the game's own target outputs are exposed; the name must be
-    ``<slug>.<ext>`` and the extension must be a known build output.
+    Only the game's own target outputs are exposed; the name must be one a
+    registered target produces (``<slug><artifact_suffix><ext>``).
     """
     game = _game_or_error(slug)
-    allowed = (".tap", ".sna", ".sms", ".rom", ".dsk", ".gb", ".gbc", ".nex",
-               ".prg", ".nes")
-    if not name.endswith(allowed):
-        raise ValueError(f"unsupported artifact: {name}")
-    if name.rsplit(".", 1)[0] != game["slug"]:
+    allowed = set()
+    for target in targets.all_targets().values():
+        for ext in target.outputs:
+            allowed.add(f"{game['slug']}{target.artifact_suffix}{ext}")
+    if name not in allowed:
         raise ValueError(f"no such build output: {name}")
     path = os.path.join(game["dir"], name)
     if not os.path.exists(path):

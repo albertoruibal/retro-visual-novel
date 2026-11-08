@@ -27,10 +27,12 @@ DEFAULT_WIDTH, DEFAULT_HEIGHT = 512, 256
 ART_LINES_DEFAULT = 10
 ART_LINES_MIN = 8
 ART_LINES_MAX = 16
-# The ZX target used to store its band height as `art_lines`; keep reading the
-# old spelling (under `## zx` or as a `zx_art_lines` extra) and rewrite it as
-# `art_rows` on save.
-_SYSTEM_OPTION_ALIASES = {("zx", "art_lines"): ("art_lines", ART_LINES_DEFAULT)}
+# The ZX target used to be `zx` and used to store its band height as
+# `art_lines`; keep reading both old spellings and rewrite them canonically.
+_SYSTEM_OPTION_ALIASES = {
+    ("zx", "art_lines"): ("art_lines", ART_LINES_DEFAULT),
+    ("zx128", "art_lines"): ("art_lines", ART_LINES_DEFAULT),
+}
 # A `prompt:` value is written as a first line plus continuation lines. A
 # 2-space-indented continuation is a layout wrap and rejoins with a space; any
 # other continuation (the 4-space indent a save emits, or a legacy unindented
@@ -66,7 +68,9 @@ MAX_CONDITIONS = 8
 # target; generators fold an `if`/`unless` on one into "always" or "never" and
 # never assign it a runtime flag id. They are valid only in conditions.
 SYSTEM_FLAGS = {
-    "system_zx": "zx",
+    "system_zx": ("zx128", "zx48"),
+    "system_zx128": "zx128",
+    "system_zx48": "zx48",
     "system_sms": "sms",
     "system_cpc": "cpc",
     "system_msx2": "msx2",
@@ -172,7 +176,7 @@ DEFAULT_TEXT_BG = "black"
 DEFAULT_WORD_SEL_INK = "green"
 # Dismiss prompt shown at the bottom of an option's `msg` popup.
 DEFAULT_POPUP_HINT = "Press a key"
-# The ZX `## zx title_ink:` target option: the scene/item heading inherits the
+# The ZX `## zx128 title_ink:` target option: the scene/item heading inherits the
 # configured text colour unless the author picks a distinct Spectrum ink.
 TITLE_INK_INHERIT = "text"
 TITLE_INK_TOKENS = (TITLE_INK_INHERIT,) + tuple(WORD_INKS)
@@ -332,7 +336,7 @@ def is_system_flag(name):
 def system_condition_holds(kind, name, system):
     """Evaluate one condition if it names a system flag, else ``None``.
 
-    ``system`` is the target id being generated (`"zx"`, `"cpc"`, ...); the web
+    ``system`` is the target id being generated (`"zx128"`, `"cpc"`, ...); the web
     export uses `"web"`, so every native system flag is false there. A
     condition on an ordinary flag/item returns ``None`` and is left to the
     runtime engine.
@@ -340,7 +344,8 @@ def system_condition_holds(kind, name, system):
     target = SYSTEM_FLAGS.get(str(name or ""))
     if target is None:
         return None
-    holds = target == str(system or "").strip().lower()
+    wanted = target if isinstance(target, tuple) else (target,)
+    holds = str(system or "").strip().lower() in wanted
     return holds if kind == "if" else not holds
 
 
@@ -428,6 +433,23 @@ def _parse_params(rest, into):
         if v is not None:
             into[key] = v
     return into
+
+
+def canonical_target_id(target_id):
+    """Canonical target id for a (possibly legacy) system name.
+
+    The registry keeps old ids as aliases (``zx`` -> ``zx128``); without the
+    registry (standalone scenefile use) the name is returned unchanged.
+    """
+    name = str(target_id or "").strip().lower()
+    if not name:
+        return name
+    try:
+        import targets
+    except Exception:               # noqa: BLE001 - optional build registry
+        return name
+    target = targets.get_target(name)
+    return target.id if target is not None else name
 
 
 def _target_meta():
@@ -563,7 +585,7 @@ def parse(md):
                            "text": [], "opts": []}
                     scenes.append(cur)
                 elif section == "system":
-                    sid = ident.lower()
+                    sid = canonical_target_id(ident.lower())
                     if sid and sid not in system_options:
                         system_options[sid] = {}
                         system_order.append(sid)
@@ -616,7 +638,8 @@ def parse(md):
         elif line.startswith("# system "):
             section, style = "system", "legacy"
             words = line.split(None, 2)
-            sid = words[2].strip().lower() if len(words) > 2 else ""
+            sid = canonical_target_id(
+                words[2].strip().lower() if len(words) > 2 else "")
             if sid and sid not in system_options:
                 system_options[sid] = {}
                 system_order.append(sid)
@@ -1668,9 +1691,9 @@ def serialize(doc):
     # section; legacy `targets:` still reads). Every selected system gets a
     # block, and its non-default options move from `extras` into that block.
     selected = list(dict.fromkeys(
-        str(t).strip().lower() for t in (g.get("targets") or [])
+        canonical_target_id(t) for t in (g.get("targets") or [])
         if str(t).strip()))
-    selected = selected or ["zx"]
+    selected = selected or ["zx128"]
     target_ids, game_opts = _target_meta()
     system_opts = {sid: {} for sid in selected}
     leftover = {}
@@ -1679,13 +1702,14 @@ def serialize(doc):
         if val is None or str(val) == "":
             continue
         prefix, sep, suffix = key.partition("_")
+        prefix = canonical_target_id(prefix) if sep else prefix
         if sep and prefix in target_ids:
             if suffix in ("text_ink", "highlight_ink", "text_bg"):
                 continue
             if prefix in system_opts:
-                # The old `zx_art_lines` spelling is canonicalised to the
-                # shared `art_rows` key so a save never emits both.
-                if prefix == "zx" and suffix == "art_lines":
+                # The old `art_lines` spelling is canonicalised to the shared
+                # `art_rows` key so a save never emits both.
+                if suffix == "art_lines":
                     suffix = "art_rows"
                 system_opts[prefix][suffix] = val
         else:

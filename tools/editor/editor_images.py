@@ -780,7 +780,7 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
     """Return a band PNG preview of the art as the Spectrum will show it.
 
     The band is the source cropped to ``crop`` and scaled to 256 x (8*art_lines)
-    (the ZX ``## zx art_rows``; 256x80 for the default 10). ``lines``
+    (the ZX ``## zx128 art_rows``; 256x80 for the default 10). ``lines``
     overrides that height with the Art tab's current (possibly unsaved) value,
     so the previews track the control before a save; it is clamped to the valid
     even 8..16 range. ``crop``

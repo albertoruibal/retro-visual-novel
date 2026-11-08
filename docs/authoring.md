@@ -144,10 +144,13 @@ overrides the prompt line above the input ("Enter the password:" by default).
 `# Systems` selects what a build produces. Each `## <system-id>` block selects that system and holds its options:
 
     # Systems
-    ## zx
+    ## zx128
     art_rows: 10            # art band rows, even (default 10)
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour (default: text_ink)
+    ## zx48
+    art_rows: 10            # shares the 128K band; no music on 48K
+    menu: popup             # optional: options/items in a SPACE dialog
     ## next
     art_rows: 10            # even 8..16 (default 10); Layer 2 256-colour band
     menu: popup             # optional: options/items in a SPACE dialog
@@ -170,15 +173,17 @@ overrides the prompt line above the input ("Enter the password:" by default).
     ## nes
     art_rows: 10            # 6|8|10 (default 10); NES action dialog
 
-A build compiles ZX first when it is selected, then the other systems in block order; each system's log is separated
+A build compiles the ZX targets first (128K before 48K), then the other systems in block order; each system's log is
+separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
-(`<slug>.tap`, `.sna`, `.nex`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`). An absent `# Systems` means the legacy
-`targets:` list in
-`# Game`, or ZX only when that is absent too. Old hand-written `<target>_<option>` lines in `# Game` (and the old
-`## zx art_lines:` spelling) are still read and are rewritten into this section on save; the editor's **Systems** tab
-edits the selection with one second-level sub-tab per platform.
+(`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`). An absent `# Systems`
+means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
+`<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
+this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
+one second-level sub-tab per platform.
 
-`art_rows:` sets the ZX art band height in 8px character rows, so it is the single most content-visible setting: rows
+`art_rows:` sets the ZX art band height (shared by `zx128` and `zx48`) in 8px character rows, so it is the single most
+content-visible setting: rows
 1..`art_rows` carry the picture (raced by NIRVANA+), the scene title renders on row 0 above it, scene text and options
 occupy rows `art_rows+1..22`, and the inventory band lives on row 23. Even numbers only — one NIRVANA+ tile is 16px =
 2 rows — and 8..16, default 10 (the classic 256x80 band). A taller band races more of the screen for the picture and
@@ -315,10 +320,12 @@ A condition (here and everywhere in the format) only *tests* a name; see
 
 #### Build-time system flags
 
-`system_zx`, `system_next`, `system_sms`, `system_cpc`, `system_msx2`, `system_gb`, `system_c64` and `system_nes` are
-reserved pseudo-flags that are true only while generating that target. They are folded at build time: on a matching build an `if system_zx` token
-disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
-`unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in `if`/`unless`
+`system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_msx2`, `system_gb`, `system_c64` and
+`system_nes` are reserved pseudo-flags that are true only while generating that target. `system_zx` is a legacy
+any-Spectrum flag true for both `zx128` and `zx48`. They are folded at build time: on a matching build an `if system_zx`
+token disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
+`unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in
+`if`/`unless`
 conditions — declaring them, listing them in `start:`, using them with `set`/`unset`/`pick`/`leave`, as an `ending:`
 or as a selectable-word flag is an error.
 
@@ -326,10 +333,11 @@ This is how one source can give each system its own instructions or credits, for
 
     text:
       Move the cursor with the arrow keys.
-      Press ENTER to choose. -> if system_zx
+      Press ENTER to choose. -> if system_zx128
       Press SPACE to open the menu and ENTER or fire to choose. -> if system_cpc
 
-The generated scene data (and therefore the ZX/Next/CPC/SMS/MSX2/GB builds) differs per target. Per-scene limits such
+The generated scene data (and therefore the ZX 128K/48K/Next/CPC/SMS/MSX2/GB builds) differs per target. Per-scene
+limits such
 as the 8 text lines and 6 options apply after this folding, so a scene may carry more source lines when each target
 keeps only its own subset. The web export is not one of those systems, so all native system flags are false there;
 keep a generic line for the web build.

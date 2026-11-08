@@ -28,7 +28,8 @@ const EMU_PAGES = {
 /* Native display aspect per target, so an iframe is sized to its picture
  * instead of filling the tab height and leaving black bands inside it. */
 const EMU_ASPECT = {
-  zx: 4 / 3,
+  zx128: 4 / 3,
+  zx48: 4 / 3,
   sms: 4 / 3,
   gb: 160 / 144,
   cpc: 768 / 540,
@@ -42,7 +43,7 @@ function emuTargetMeta(id) {
   return list.find((t) => t.id === id) || null;
 }
 function emuTargets() {
-  const selected = (typeof gameTargets === "function") ? gameTargets() : ["zx"];
+  const selected = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
   const rank = (id) => {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
@@ -56,7 +57,8 @@ function emuArtifact(meta) {
     (meta.outputs || []).find((e) => [".tap", ".sna", ".sms", ".rom", ".dsk",
       ".gb", ".gbc", ".nex", ".prg", ".nes"].includes(e));
   if (!ext) return null;
-  return `/api/artifact/${encodeURIComponent(game)}/${encodeURIComponent(game)}${ext}`;
+  const base = game + (meta.artifact_suffix || "");
+  return `/api/artifact/${encodeURIComponent(game)}/${encodeURIComponent(base + ext)}`;
 }
 function emuSelectedMeta() {
   const sel = $("emusystem");
@@ -103,7 +105,7 @@ function fitEmulatorHost(meta) {
 }
 
 function speccyZoom() {
-  const size = emuFitSize(EMU_ASPECT.zx);
+  const size = emuFitSize(EMU_ASPECT.zx128);
   if (!size) return null;
   return Math.min(size.width / 256, size.height / 192);
 }
@@ -218,9 +220,9 @@ function updateEmuHint() {
   if (!hint) return;
   if (!meta) { hint.textContent = ""; return; }
   const url = emuArtifact(meta);
-  const ext = url ? url.slice(url.lastIndexOf(".")) : "";
+  const name = url ? decodeURIComponent(url.split("/").pop()) : "";
   hint.innerHTML =
-    `Plays the built <code>${esc(game || "")}${esc(ext)}</code> in ${esc(meta.label)} — ` +
+    `Plays the built <code>${esc(name)}</code> in ${esc(meta.label)} — ` +
     "run <b>Build</b> first.";
   if (gameTargets().includes("next"))
     hint.innerHTML += "<br>ZX Next builds a <code>.nex</code>; run it with ZEsarUX " +
@@ -285,8 +287,9 @@ async function runEmulator() {
   if (meta.emulator === "jsspeccy") {
     host.classList.add("jsspeccy-host");
     const zoom = speccyZoom() || 1;
+    const mach = parseInt(meta.machine, 10);
     jsspeccy = JSSpeccy(host, {
-      machine: 128,
+      machine: (mach === 48 || mach === 5) ? mach : 128,
       zoom,
       openUrl: url,
       autoLoadTapes: true,

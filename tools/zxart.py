@@ -12,7 +12,7 @@ NIRVANA+ tile format (verified against the engine's asm_NIRVANAP_drawT): a
 The engine computes the tile address as base + index*48, so the blob must be
 16x16 tiles at that stride. A 256x80 art band is 16x5 tiles (80 tiles max), so
 a per-art tile index always fits one byte with no clustering. The band height is
-per game (the ZX ``## zx art_rows``): most functions take an optional ``rows`` (16px
+per game (the ZX ``## zx128 art_rows``): most functions take an optional ``rows`` (16px
 tile rows) that defaults to the 256x80 band's 5.
 """
 import hashlib
