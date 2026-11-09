@@ -60,7 +60,7 @@ unsigned char show_scene(unsigned char id)
         for (i = 0; i < n; i++)
             title[i] = t[i];
         title[n] = 0;
-        plat_text_at(0, 0, title, PLAT_COLOR_TITLE);
+        plat_text_at(PORT_TITLE_ROW, 0, title, PLAT_COLOR_TITLE);
     }
     navail = collect_options();
     text_top = PORT_TEXT_TOP;

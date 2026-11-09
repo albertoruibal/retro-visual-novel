@@ -1156,6 +1156,7 @@ def main():
         ("PORT_TEXT_TOP", (2 if use_nes else 1)
                           + (art_rows if have_art else 0)),
         ("PORT_ART_TOP", 2 if use_nes else 1),
+        ("PORT_TITLE_ROW", 1 if use_nes else 0),
         ("SMS_FONT_TILES", 98 if use_sms else 0),
         ("PORT_TEXT_WIDTH", text_width),
         ("PORT_OPT_WIDTH", opt_width),

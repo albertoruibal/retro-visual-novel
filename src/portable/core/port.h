@@ -18,6 +18,9 @@
 #ifndef PORT_TEXT_TOP
 #define PORT_TEXT_TOP 1
 #endif
+#ifndef PORT_TITLE_ROW
+#define PORT_TITLE_ROW 0
+#endif
 #ifndef PORT_TEXT_WIDTH
 #define PORT_TEXT_WIDTH PORT_COLS
 #endif

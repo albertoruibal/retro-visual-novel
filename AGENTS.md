@@ -679,7 +679,7 @@ There is no test suite and no configured linter. Verify by:
   installs the custom NMI vector and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed
   scene/inventory arrays plus the uncompressed art maps/attributes/palettes in `port_data.c/h` and
   `build/port_nes_chr.bin`. The cartridge is 32KB PRG with 8KB battery WRAM at `$6000`; BSS and the C stack live there.
-  The PPU screen is 32x30: row 0 title, row 1 blank, rows 2..`nes_art_rows+1` the picture, and text from
+  The PPU screen is 32x30: row 0 blank, row 1 title, rows 2..`nes_art_rows+1` the picture, and text from
   `nes_art_rows+2` through 29 (`PORT_OVERLAY_MENU=1`; A confirms, B/Select opens/closes the dialog). Each 8KB CHR bank
   has two 4KB pattern tables: table 0 (title/art) holds the normal 96-glyph font (0..95) plus up to 160 art tiles
   (96..255); table 1 (text) holds the normal font plus a highlight copy at 96..191. Text attributes always select

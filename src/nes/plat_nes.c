@@ -8,8 +8,8 @@
  * boundary by the NMI.  Normal glyphs use pixel value 1 (palette-0 body ink)
  * and highlighted glyphs use pixel value 2 (palette-0 highlight ink), so
  * selection cannot bleed into the adjacent row.
- * The art band occupies nametable rows 2..art_rows+1 (row 0 title, row 1
- * blank); the text pane starts at art_rows+2.
+ * The art band occupies nametable rows 2..art_rows+1 (row 0 blank, row 1
+ * title); the text pane starts at art_rows+2.
  *
  * The cartridge is MMC1 (mapper 1): 32KB PRG with the story data resident,
  * 8KB PRG RAM at $6000 for the C workspaces, and one 8KB CHR ROM bank per art
@@ -232,7 +232,7 @@ void plat_clear_text(void)
 {
     unsigned char row;
     begin_direct();
-    clear_row_now(0);
+    clear_row_now(PORT_TITLE_ROW);
     for (row = PORT_TEXT_TOP; row < PLAT_ROWS; row++)
         clear_row_now(row);
     end_direct();
