@@ -2,7 +2,7 @@
 
 The runtime is the shared portable story engine on the NES PPU: 32x30
 background tiles, two 4KB pattern tables per CHR bank (art plus normal font in
-table 0, normal plus highlight font in table 1), and a 32KB fixed PRG with the
+table 0, normal plus highlight font plus the collision tile in table 1), and a 32KB fixed PRG with the
 compressed scene/inventory data resident.  The cartridge is MMC1 (mapper 1)
 with 8KB CHR ROM banks and 8KB battery WRAM at $6000.  ``tools/gen_port.py
 --nes`` writes the PRG tables and ``build/port_nes_chr.bin``; this target links

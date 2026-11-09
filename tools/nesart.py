@@ -8,9 +8,9 @@ aligned with the PPU's 2x2-tile attribute quadrants.
 
 Each art's 8KB CHR bank holds two 4KB pattern tables.  Table 0 (background in
 the art/title region) has the 96 normal glyphs followed by up to 160 art
-tiles.  Table 1 (background in the text pane) has the same normal glyphs and a
-highlight copy at 96..191.  The runtime switches background tables at the
-art/text boundary each frame.
+tiles.  Table 1 (background in the text pane) has the same normal glyphs, a
+highlight copy at 96..191 and the sprite-0 collision tile at 192.  The runtime
+switches background tables on that collision sprite at the art/text boundary.
 
 The PPU has four background palettes of four colours; entry 0 is the shared
 universal background.  Palette 0 is body text with entry 2 set to the highlight
@@ -25,6 +25,7 @@ Blob layout (one art, uncompressed in PRG ROM)::
     u8  palettes[3][4]       NES colour indices; entry 0 is the universal bg
     u16 map[32 * art_rows]   tile indices 0..ntiles-1 (runtime adds 96)
     u8  attrs[64]            full nametable attribute table
+    u8  hit_color            colour of the forced sprite-0 collision pixel
 """
 from __future__ import annotations
 
@@ -37,6 +38,7 @@ HEIGHT_ROWS = 8
 FONT_TILES = 96
 ART_BASE = FONT_TILES
 MAX_ART_TILES = 256 - ART_BASE          # 160 (one 4KB background pattern table)
+COLLISION_TILE = 192
 TABLE_SIZE = 0x1000
 ART_PALETTES = 2
 DEFAULT_ART_ROWS = 10
@@ -125,6 +127,13 @@ def font_tiles(font8, accents=None):
     return bytes(normal), bytes(hilite)
 
 
+def collision_tile():
+    """One opaque pixel at (0, 7), used for sprite-0 timing."""
+    tile = bytearray(16)
+    tile[7] = 0x80                  # x=0, y=7, pixel value 1
+    return bytes(tile)
+
+
 def chr_bank(normal_font, hilite_font, tiles):
     """Pack the two 4KB pattern tables of one art's 8KB CHR bank."""
     table0 = bytearray(normal_font)
@@ -137,6 +146,7 @@ def chr_bank(normal_font, hilite_font, tiles):
     table0 += bytes(TABLE_SIZE - len(table0))
 
     table1 = bytearray(normal_font) + bytearray(hilite_font)
+    table1 += collision_tile()
     if len(table1) > TABLE_SIZE:
         raise ValueError(f"NES table 1 needs {len(table1)} bytes (max 4096)")
     table1 += bytes(TABLE_SIZE - len(table1))
@@ -453,9 +463,21 @@ def _plan(im, conv, art_rows, text_bg):
             attrs[by * 8 + bx] = (quads[0] | (quads[1] << 2)
                                   | (quads[2] << 4) | (quads[3] << 6))
 
+    # Make the bottom-right art pixel opaque and record its colour.  A sprite
+    # over that pixel times the pattern-table switch just before the text pane.
+    cell = (art_rows - 1) * COLS + (COLS - 1)
+    tile_index = tilemap[cell]
+    forced = bytearray(tiles[tile_index])
+    forced[7] |= 0x80              # x=0, y=7, pixel value 1
+    forced[15] &= 0xFE
+    tiles[tile_index] = bytes(forced)
+    hit_choice = block_choice[((art_rows - 1) // 2) * 16 + 15]
+    hit_color = _nearest(centers[hit_choice][0], NES_PALETTE)
+
     return {
         "ntiles": len(tiles), "bg": bg, "palettes": centers,
         "tiles": tiles, "map": tilemap, "attrs": bytes(attrs),
+        "hit_color": hit_color,
     }
 
 
@@ -480,20 +502,30 @@ def art_blob(im, conv=None, art_rows=DEFAULT_ART_ROWS, text_ink=None,
     for value in plan["map"]:
         out += struct.pack("<H", value)
     out += plan["attrs"]
+    out.append(plan["hit_color"])
     return bytes(out), plan["ntiles"], plan["tiles"]
 
 
 def blank_blob(art_rows=DEFAULT_ART_ROWS, text_ink=None, text_bg=None):
     if text_bg is None:
-        _ink, _hi, text_bg = text_colours(None)
+        text_ink, _hi, text_bg = text_colours(None)
+    if text_ink is None:
+        text_ink, _hi, _bg = text_colours(None)
     bg = int(text_bg) & 0x3F
-    out = bytearray(struct.pack("<H", 0))
+    hit_color = int(text_ink) & 0x3F
+    tiles = [bytes(16), collision_tile()]
+    tilemap = [0] * (COLS * int(art_rows))
+    if tilemap:
+        tilemap[-1] = 1
+    out = bytearray(struct.pack("<H", len(tiles)))
     out.append(ART_PALETTES)
     for _ in range(ART_PALETTES):
         out += bytes((bg, bg, bg, bg))
-    out += bytes(2 * COLS * int(art_rows))
+    for value in tilemap:
+        out += struct.pack("<H", value)
     out += bytes(64)
-    return bytes(out)
+    out.append(hit_color)
+    return bytes(out), len(tiles), tiles
 
 
 def preview_image(path, conv=None, options=None, game=None):

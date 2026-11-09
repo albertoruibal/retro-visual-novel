@@ -382,9 +382,9 @@ unsigned char drop_screen(unsigned char id)
             } else
 #endif
             if (sel > 0) {
+                draw_drop_entry(labels[sel - 1], entry_row[sel - 1], 1);
                 draw_drop_entry(labels[sel], entry_row[sel], 0);
                 sel--;
-                draw_drop_entry(labels[sel], entry_row[sel], 1);
             }
             continue;
         }
@@ -397,9 +397,9 @@ unsigned char drop_screen(unsigned char id)
             } else
 #endif
             if (sel + 1 < nentries) {
+                draw_drop_entry(labels[sel + 1], entry_row[sel + 1], 1);
                 draw_drop_entry(labels[sel], entry_row[sel], 0);
                 sel++;
-                draw_drop_entry(labels[sel], entry_row[sel], 1);
             }
             continue;
         }

@@ -350,19 +350,48 @@ static unsigned char draw_menu_entry(unsigned char nopt, unsigned char i,
     return print_text_color(row, col, label, width, on ? 1 : 0);
 }
 
+#if PORT_ATOMIC_MENU
+static unsigned char menu_entry_bytes(unsigned char nopt, unsigned char i)
+{
+    unsigned char n = (unsigned char)strlen(menu_label(nopt, i));
+    if (i >= nopt)
+        n = (unsigned char)(n + 1);     /* the '*' prefix */
+    return (unsigned char)(n + 1);      /* the '>' marker */
+}
+#endif
+
 static void draw_menu_move(unsigned char nopt, unsigned char first,
                            unsigned char prev, unsigned char sel)
 {
     unsigned char row = text_top, j;
     unsigned char last = (prev > sel) ? prev : sel;
+    unsigned char prev_row = text_top, sel_row = text_top;
+#if PORT_ATOMIC_MENU
+    unsigned char bytes, locked;
+#endif
     for (j = first; j <= last; j++) {
         if (j == prev)
-            draw_menu_entry(nopt, j, row, 0);
+            prev_row = row;
         if (j == sel)
-            draw_menu_entry(nopt, j, row, 1);
+            sel_row = row;
         row = (unsigned char)(row + menu_entry_rows(nopt, j));
     }
+#if PORT_ATOMIC_MENU
+    bytes = (unsigned char)(menu_entry_bytes(nopt, prev)
+                            + menu_entry_bytes(nopt, sel));
+    locked = port_atomic_lock(bytes);
+    if (locked) {
+        draw_menu_entry(nopt, prev, prev_row, 0);
+        draw_menu_entry(nopt, sel, sel_row, 1);
+        port_atomic_unlock();
+        return;
+    }
+#endif
+    /* Draw the new selection first so an NMI flush cannot leave neither lit. */
+    draw_menu_entry(nopt, sel, sel_row, 1);
+    draw_menu_entry(nopt, prev, prev_row, 0);
 }
+
 
 static void draw_menu(unsigned char nopt, unsigned char total,
                       unsigned char sel, unsigned char first)

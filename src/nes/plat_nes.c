@@ -31,6 +31,8 @@
 #define PPU_SCROLL (*(volatile unsigned char *)0x2005)
 #define PPU_ADDR (*(volatile unsigned char *)0x2006)
 #define PPU_DATA (*(volatile unsigned char *)0x2007)
+#define OAM_ADDR (*(volatile unsigned char *)0x2003)
+#define OAM_DATA (*(volatile unsigned char *)0x2004)
 #define JOYPAD0 (*(volatile unsigned char *)0x4016)
 
 #ifndef NES_FONT_TILES
@@ -38,6 +40,9 @@
 #endif
 #ifndef NES_ART_BASE
 #define NES_ART_BASE 96
+#endif
+#ifndef NES_COLLISION_TILE
+#define NES_COLLISION_TILE 192
 #endif
 #ifndef NES_SPLIT
 #if PORT_ART_ROWS > 0
@@ -56,8 +61,24 @@ unsigned char nes_split_on;
 
 /* Keep the custom NMI handler in the link so the target can find its address. */
 extern void nes_nmi(void);
+extern void nes_init_sprite(void);
 void (*volatile nes_nmi_ref)(void) = nes_nmi;
-unsigned char nes_split_idx;
+unsigned char nes_sprite_y = (unsigned char)((PORT_TEXT_TOP - 1) * 8 - 1);
+unsigned char nes_update_lock;
+extern unsigned char nes_ringcount(void);
+
+unsigned char port_atomic_lock(unsigned char bytes)
+{
+    if ((unsigned char)(nes_ringcount() + bytes) > 0x44)
+        return 0;
+    nes_update_lock = 1;
+    return 1;
+}
+
+void port_atomic_unlock(void)
+{
+    nes_update_lock = 0;
+}
 
 extern void __cdecl__ nes_ppu_put(unsigned char value, unsigned int addr);
 extern void port_unpack(const void *src, void *dst);
@@ -88,8 +109,13 @@ static void end_direct(void)
     ppu_addr(0x2000);
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
+#if NES_SPLIT
+    PPU_CTRL2 = 0x1A;      /* background and the collision sprite on */
+    PPU_CTRL1 = 0x88;      /* NMI on, sprite table 1, background table 0 */
+#else
     PPU_CTRL2 = 0x0A;      /* background on, sprites off, no clipping */
     PPU_CTRL1 = 0x80;      /* NMI on, background table 0 */
+#endif
 }
 
 static void write_attr(unsigned char index)
@@ -139,6 +165,7 @@ static void init_split(void)
 {
 #if NES_SPLIT
     nes_split_on = 1;
+    nes_init_sprite();
 #else
     nes_split_on = 0;
 #endif
@@ -165,6 +192,12 @@ void plat_init(void)
     ppu_write(PORT_HIGHLIGHT_INK);
     for (i = 0; i < 8; i++)
         ppu_write(PORT_TEXT_BG);
+
+    ppu_addr(0x3F10);
+    ppu_write(0x0F);
+    ppu_write(PORT_HIGHLIGHT_INK);
+    ppu_write(0x0F);
+    ppu_write(0x0F);
 
     for (i = 0; i < 64; i++)
         attr_shadow[i] = 0;
@@ -266,7 +299,7 @@ void plat_draw_art(unsigned char id)
 {
     const unsigned char *p, *map, *attrs;
     unsigned int ntiles, i;
-    unsigned char npal, k;
+    unsigned char npal, k, hit_color;
 
     if (id >= N_ART)
         return;
@@ -275,6 +308,7 @@ void plat_draw_art(unsigned char id)
     npal = p[2];
     map = p + 3 + (unsigned int)npal * 4;
     attrs = map + (unsigned int)PORT_COLS * PORT_ART_ROWS * 2;
+    hit_color = attrs[64];
     (void)ntiles;
 
     begin_direct();
@@ -282,6 +316,11 @@ void plat_draw_art(unsigned char id)
     ppu_addr(0x3F08);
     for (k = 0; k < 8; k++)
         ppu_write(p[3 + k]);
+    ppu_addr(0x3F10);
+    ppu_write(0x0F);
+    ppu_write(hit_color);
+    ppu_write(0x0F);
+    ppu_write(0x0F);
     ppu_addr(NT_BASE + (unsigned int)PORT_ART_TOP * PORT_COLS);
     for (i = 0; i < (unsigned int)PORT_COLS * PORT_ART_ROWS; i++) {
         unsigned int idx = (unsigned int)map[i * 2]

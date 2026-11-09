@@ -1036,9 +1036,8 @@ def main():
                 blob, ntiles, tiles = nesart.art_blob(
                     path, conv, art_rows, port_text_ink, port_text_bg)
             else:
-                blob = nesart.blank_blob(
+                blob, ntiles, tiles = nesart.blank_blob(
                     art_rows, port_text_ink, port_text_bg)
-                ntiles, tiles = 0, []
             bank = len(chr_banks)
             if bank > 15:
                 sys.exit("NES art data needs 8KB CHR bank %d; MMC1 8KB CHR "
@@ -1172,6 +1171,7 @@ def main():
         ("PORT_NO_DESC_SCROLL", 1 if (use_next and not overlay_menu) else 0),
         ("PORT_NO_ENTRY_WRAP", 1 if (use_next and not overlay_menu) else 0),
         ("PORT_MARKER_BODY", 1 if use_nes else 0),
+        ("PORT_ATOMIC_MENU", 1 if use_nes else 0),
         ("PORT_OVERLAY_MENU", 1 if overlay_menu else 0),
         ("PORT_BANKED_SCENES", 1 if (use_gb or use_next) else 0),
         ("GB_ART_TILE_BASE", 96 if use_gb else 0),
@@ -1217,6 +1217,7 @@ def main():
             ("NES_HILITE_TILES", 96),
             ("NES_ART_BASE", 96),
             ("NES_ART_TILES", 160),
+            ("NES_COLLISION_TILE", 192),
             ("NES_CHR_BANKS", 1 + len(arts)),
         ]
     if use_cpc:
@@ -1266,8 +1267,6 @@ def main():
     h.append("extern const unsigned short port_art_ntiles[];")
     if use_c64 or use_nes or use_oric:
         h.append("extern const unsigned char port_art_data[];")
-    if use_nes:
-        h.append("extern const unsigned char port_nes_split_xy[];")
     if use_next:
         h.append("extern const unsigned char port_art_pal_bank[];")
         h.append("extern const unsigned short port_art_pal_off[];")
@@ -1330,17 +1329,6 @@ def main():
         _bytes_arr(c, "port_art_data", nes_art_data)
     elif use_oric:
         _bytes_arr(c, "port_art_data", oric_art_data)
-    if use_nes:
-        text_top = 2 + (art_rows if have_art else 0)
-        target = (21 + 8 * text_top) * 113.667
-        split_xy = []
-        for count in range(69):
-            flush = 50 + 30 * count
-            iters = max(1, int((target - flush - 150) // 5))
-            x = iters & 0xFF
-            y = (iters >> 8) + (1 if x else 0)
-            split_xy += [x & 0xFF, y & 0xFF]
-        _arr(c, "unsigned char", "port_nes_split_xy", split_xy, "0x%02X")
     if use_next:
         _arr(c, "unsigned char", "port_art_pal_bank",
              next_art_pal_bank or [0], "%d")

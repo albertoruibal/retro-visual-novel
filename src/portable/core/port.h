@@ -66,6 +66,13 @@
 #ifndef PORT_MARKER_BODY
 #define PORT_MARKER_BODY 0
 #endif
+#ifndef PORT_ATOMIC_MENU
+#define PORT_ATOMIC_MENU 0
+#endif
+#if PORT_ATOMIC_MENU
+unsigned char port_atomic_lock(unsigned char bytes);
+void port_atomic_unlock(void);
+#endif
 #ifndef PORT_SCROLL_COL
 #define PORT_SCROLL_COL (PORT_COLS - 1)
 #endif
