@@ -1025,9 +1025,9 @@ def main():
         art_root = os.path.join(gdir, "assets", "art")
         gen_dir = os.path.join(gdir, "assets", "gen")
         font8 = open(gen_scenes.FONT8X8, "rb").read()
-        fnormal, _fhilite = nesart.font_tiles(
+        fnormal, fhilite = nesart.font_tiles(
             font8, gen_scenes.ACCENT_GLYPHS_8X8)
-        chr_banks = [nesart.chr_bank(fnormal, [])]
+        chr_banks = [nesart.chr_bank(fnormal, fhilite, [])]
         art_data = bytearray()
         for art in arts:
             path = scenefile.resolve_art_image(art_root, art, gen_dir)
@@ -1043,7 +1043,7 @@ def main():
             if bank > 15:
                 sys.exit("NES art data needs 8KB CHR bank %d; MMC1 8KB CHR "
                          "mode only addresses 16 banks" % bank)
-            chr_banks.append(nesart.chr_bank(fnormal, tiles))
+            chr_banks.append(nesart.chr_bank(fnormal, fhilite, tiles))
             art_bank.append(bank)
             art_off.append(len(art_data))
             art_data += blob
@@ -1171,7 +1171,7 @@ def main():
         ("PORT_NO_TEXT_SCROLL", 1 if (use_msx2 or (use_next and not overlay_menu)) else 0),
         ("PORT_NO_DESC_SCROLL", 1 if (use_next and not overlay_menu) else 0),
         ("PORT_NO_ENTRY_WRAP", 1 if (use_next and not overlay_menu) else 0),
-        ("PORT_ENTRY_STRIDE", 2 if use_nes else 1),
+        ("PORT_MARKER_BODY", 1 if use_nes else 0),
         ("PORT_OVERLAY_MENU", 1 if overlay_menu else 0),
         ("PORT_BANKED_SCENES", 1 if (use_gb or use_next) else 0),
         ("GB_ART_TILE_BASE", 96 if use_gb else 0),
@@ -1214,7 +1214,7 @@ def main():
     if use_nes:
         defines += [
             ("NES_FONT_TILES", 96),
-            ("NES_HILITE_TILES", 0),
+            ("NES_HILITE_TILES", 96),
             ("NES_ART_BASE", 96),
             ("NES_ART_TILES", 160),
             ("NES_CHR_BANKS", 1 + len(arts)),
@@ -1266,6 +1266,8 @@ def main():
     h.append("extern const unsigned short port_art_ntiles[];")
     if use_c64 or use_nes or use_oric:
         h.append("extern const unsigned char port_art_data[];")
+    if use_nes:
+        h.append("extern const unsigned char port_nes_split_xy[];")
     if use_next:
         h.append("extern const unsigned char port_art_pal_bank[];")
         h.append("extern const unsigned short port_art_pal_off[];")
@@ -1328,6 +1330,17 @@ def main():
         _bytes_arr(c, "port_art_data", nes_art_data)
     elif use_oric:
         _bytes_arr(c, "port_art_data", oric_art_data)
+    if use_nes:
+        text_top = 2 + (art_rows if have_art else 0)
+        target = (21 + 8 * text_top) * 113.667
+        split_xy = []
+        for count in range(69):
+            flush = 50 + 30 * count
+            iters = max(1, int((target - flush - 150) // 5))
+            x = iters & 0xFF
+            y = (iters >> 8) + (1 if x else 0)
+            split_xy += [x & 0xFF, y & 0xFF]
+        _arr(c, "unsigned char", "port_nes_split_xy", split_xy, "0x%02X")
     if use_next:
         _arr(c, "unsigned char", "port_art_pal_bank",
              next_art_pal_bank or [0], "%d")

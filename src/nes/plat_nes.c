@@ -1,13 +1,15 @@
 /*
  * NES platform layer for the shared portable story engine.
  *
- * The PPU shows a 32x30 background-only screen.  The NES background pattern
- * table is 256 tiles (4KB), shared by the normal 96-glyph font (indices
- * 0..95) and up to 160 art tiles (96..255).  Highlighted text uses the same
- * font tiles with attribute palette 1; body text uses palette 0.  The art
- * band occupies nametable rows 2..art_rows+1 (row 0 title, row 1 blank); the
- * text pane starts at art_rows+2.  The even band start and height keep it
- * aligned with the PPU's 2x2-tile attribute quadrants.
+ * The PPU shows a 32x30 screen.  Each 8KB CHR bank holds two pattern tables:
+ * table 0 has the normal 96-glyph font plus up to 160 art tiles, and table 1
+ * has the normal font and a highlight copy.  The background uses table 0 for
+ * the title/art band and table 1 for the text pane, switched at the art/text
+ * boundary by the NMI.  Normal glyphs use pixel value 1 (palette-0 body ink)
+ * and highlighted glyphs use pixel value 2 (palette-0 highlight ink), so
+ * selection cannot bleed into the adjacent row.
+ * The art band occupies nametable rows 2..art_rows+1 (row 0 title, row 1
+ * blank); the text pane starts at art_rows+2.
  *
  * The cartridge is MMC1 (mapper 1): 32KB PRG with the story data resident,
  * 8KB PRG RAM at $6000 for the C workspaces, and one 8KB CHR ROM bank per art
@@ -37,12 +39,25 @@
 #ifndef NES_ART_BASE
 #define NES_ART_BASE 96
 #endif
+#ifndef NES_SPLIT
+#if PORT_ART_ROWS > 0
+#define NES_SPLIT 1
+#else
+#define NES_SPLIT 0
+#endif
+#endif
 
 #define NT_BASE 0x2000
 #define NT_ATTR 0x23C0
 
 static unsigned char attr_shadow[64];
 static unsigned char direct_mode;
+unsigned char nes_split_on;
+
+/* Keep the custom NMI handler in the link so the target can find its address. */
+extern void nes_nmi(void);
+void (*volatile nes_nmi_ref)(void) = nes_nmi;
+unsigned char nes_split_idx;
 
 extern void __cdecl__ nes_ppu_put(unsigned char value, unsigned int addr);
 extern void port_unpack(const void *src, void *dst);
@@ -74,7 +89,7 @@ static void end_direct(void)
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
     PPU_CTRL2 = 0x0A;      /* background on, sprites off, no clipping */
-    PPU_CTRL1 = 0x80;      /* NMI on: its handler flushes and resets scroll */
+    PPU_CTRL1 = 0x80;      /* NMI on, background table 0 */
 }
 
 static void write_attr(unsigned char index)
@@ -120,6 +135,15 @@ static void clear_row_now(unsigned char row)
         set_cell_attr(row, i, 0);
 }
 
+static void init_split(void)
+{
+#if NES_SPLIT
+    nes_split_on = 1;
+#else
+    nes_split_on = 0;
+#endif
+}
+
 void plat_init(void)
 {
     unsigned int i;
@@ -127,12 +151,13 @@ void plat_init(void)
     begin_direct();
     nes_mmc1_init();
 
-    /* Palette 0 = body text, palette 1 = highlighted text, palettes 2/3 =
-       art (background only until the first art is drawn). */
+    /* Palette 0 = body text; its entry 2 is the highlight glyph colour.
+       Palette 1 is unused by text now, but keep it highlighted for safety.
+       Palettes 2/3 are the art colours. */
     ppu_addr(0x3F00);
     ppu_write(PORT_TEXT_BG);
     ppu_write(PORT_TEXT_INK);
-    ppu_write(PORT_TEXT_INK);
+    ppu_write(PORT_HIGHLIGHT_INK);
     ppu_write(PORT_TEXT_INK);
     ppu_write(PORT_TEXT_BG);
     ppu_write(PORT_HIGHLIGHT_INK);
@@ -151,6 +176,7 @@ void plat_init(void)
         ppu_write(0);
 
     nes_chr_bank(0);
+    init_split();
     end_direct();
 }
 
@@ -201,20 +227,28 @@ void plat_text_at(unsigned char row, unsigned char col, const char *s,
                   unsigned char color)
 {
     unsigned char i = 0;
-    unsigned char palette = (color == PLAT_COLOR_SEL) ? 1 : 0;
+#if NES_SPLIT
+    unsigned char hilite = (color == PLAT_COLOR_SEL)
+        && row >= PORT_TEXT_TOP;
+#else
+    unsigned char hilite = 0;
+#endif
     if (row >= PLAT_ROWS)
         return;
     while (s[i] && col + i < PORT_COLS) {
         unsigned char ch = (unsigned char)s[i];
+        unsigned char tile;
         if (ch < 32 || ch > 127)
             ch = 32;
-        nes_ppu_put((unsigned char)(ch - 32),
-                    (unsigned int)NT_BASE
+        tile = (unsigned char)(ch - 32);
+        if (hilite)
+            tile = (unsigned char)(NES_FONT_TILES + tile);
+        nes_ppu_put(tile, (unsigned int)NT_BASE
                     + (unsigned int)row * PORT_COLS + col + i);
         i++;
     }
     for (i = 0; s[i] && col + i < PORT_COLS; i++)
-        set_cell_attr(row, (unsigned char)(col + i), palette);
+        set_cell_attr(row, (unsigned char)(col + i), 0);
 }
 
 void plat_text_color(unsigned char row, unsigned char col, const char *s,

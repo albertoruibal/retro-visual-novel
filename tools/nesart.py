@@ -1,21 +1,22 @@
 """Nintendo Entertainment System art conversion helpers.
 
 The editor preview and the ``.nes`` build share this module.  The NES PPU
-shows 32x30 background tiles; the shared font occupies tile indices 0..95 and
-a highlight copy 96..191, leaving 320 tiles (192..511) for a picture.  A game
-band is ``256 x (8 * art_rows)`` pixels and is drawn on rows 2..art_rows+1
-(row 0 is the title, row 1 is blank, and the text pane starts at
-``art_rows + 2``).  The even start/height keeps the band aligned with the
-PPU's 2x2-tile attribute quadrants.
+shows 32x30 background tiles; a game band is ``256 x (8 * art_rows)`` pixels
+and is drawn on rows 2..art_rows+1 (row 0 is the title, row 1 is blank, and the
+text pane starts at ``art_rows + 2``).  The even start/height keeps the band
+aligned with the PPU's 2x2-tile attribute quadrants.
+
+Each art's 8KB CHR bank holds two 4KB pattern tables.  Table 0 (background in
+the art/title region) has the 96 normal glyphs followed by up to 160 art
+tiles.  Table 1 (background in the text pane) has the same normal glyphs and a
+highlight copy at 96..191.  The runtime switches background tables at the
+art/text boundary each frame.
 
 The PPU has four background palettes of four colours; entry 0 is the shared
-universal background.  Palette 0 is body text, palette 1 is highlighted text
-(the attributes select them) and palettes 2..3 are art palettes (``text_bg``
-plus three colours each).  A tile can select one of those palettes per
-2x2-tile block through the attribute table.  The NES background pattern table
-is only 256 tiles (4KB), so the normal 96-glyph font and up to 160 art tiles
-share it; the highlight font is not duplicated (the attribute palette does
-that job).
+universal background.  Palette 0 is body text with entry 2 set to the highlight
+colour; palettes 2..3 are art palettes (``text_bg`` plus three colours each).
+Normal glyphs use pixel value 1 and highlighted glyphs pixel value 2, so a
+word can be highlighted without changing the 2x2-tile attribute.
 
 Blob layout (one art, uncompressed in PRG ROM)::
 
@@ -24,9 +25,6 @@ Blob layout (one art, uncompressed in PRG ROM)::
     u8  palettes[3][4]       NES colour indices; entry 0 is the universal bg
     u16 map[32 * art_rows]   tile indices 0..ntiles-1 (runtime adds 96)
     u8  attrs[64]            full nametable attribute table
-
-The tile patterns themselves live in the art's 8KB CHR ROM bank after the
-normal font (96 * 16 = 1536 bytes); the second 4KB of the bank is padding.
 """
 from __future__ import annotations
 
@@ -39,6 +37,7 @@ HEIGHT_ROWS = 8
 FONT_TILES = 96
 ART_BASE = FONT_TILES
 MAX_ART_TILES = 256 - ART_BASE          # 160 (one 4KB background pattern table)
+TABLE_SIZE = 0x1000
 ART_PALETTES = 2
 DEFAULT_ART_ROWS = 10
 ART_TOP = 2
@@ -126,17 +125,22 @@ def font_tiles(font8, accents=None):
     return bytes(normal), bytes(hilite)
 
 
-def chr_bank(normal_font, tiles):
-    """Pack the normal font and one art's tiles into an 8KB CHR bank."""
-    out = bytearray(normal_font)
+def chr_bank(normal_font, hilite_font, tiles):
+    """Pack the two 4KB pattern tables of one art's 8KB CHR bank."""
+    table0 = bytearray(normal_font)
     for tile in tiles:
         if len(tile) != 16:
             raise ValueError("NES tile is not 16 bytes")
-        out += tile
-    if len(out) > 0x2000:
-        raise ValueError(f"CHR bank needs {len(out)} bytes (max 8192)")
-    out += bytes(0x2000 - len(out))
-    return bytes(out)
+        table0 += tile
+    if len(table0) > TABLE_SIZE:
+        raise ValueError(f"NES table 0 needs {len(table0)} bytes (max 4096)")
+    table0 += bytes(TABLE_SIZE - len(table0))
+
+    table1 = bytearray(normal_font) + bytearray(hilite_font)
+    if len(table1) > TABLE_SIZE:
+        raise ValueError(f"NES table 1 needs {len(table1)} bytes (max 4096)")
+    table1 += bytes(TABLE_SIZE - len(table1))
+    return bytes(table0 + table1)
 
 
 def _dither(mode):

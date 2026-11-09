@@ -327,12 +327,12 @@ unsigned char drop_screen(unsigned char id)
 #endif
     labels[nentries++] = inv_str(1);    /* Back */
 #if PORT_NO_WRAP || PORT_NO_ENTRY_WRAP
-    entry_rows = (unsigned char)(nentries * PORT_ENTRY_STRIDE);
+    entry_rows = nentries;
 #else
     /* Option labels wrap on the narrower portable screens; reserve their real
        row counts so the entries (and Back in particular) stay on screen. */
     for (j = 0; j < nentries; j++)
-        entry_rows += PORT_ENTRY_SPAN(count_rows(labels[j], PORT_OPT_WIDTH));
+        entry_rows += count_rows(labels[j], PORT_OPT_WIDTH);
 #endif
     /* Pin the entries to the bottom of the text pane, leaving the old
        inventory row free on the pinned layouts, and give the description the
@@ -360,16 +360,13 @@ unsigned char drop_screen(unsigned char id)
 #endif
 #if PORT_OVERLAY_MENU
     first_entry = (unsigned char)(ITEM_TOP + 1 + desc_drawn);
-    first_entry = (unsigned char)(ITEM_TOP
-        + PORT_ENTRY_SPAN((unsigned char)(first_entry - ITEM_TOP)));
 #else
     (void)desc_drawn;
 #endif
     row = first_entry;
     for (j = 0; j < nentries; j++) {
         entry_row[j] = row;
-        row = (unsigned char)(
-            row + PORT_ENTRY_SPAN(draw_drop_entry(labels[j], row, j == sel)));
+        row += draw_drop_entry(labels[j], row, j == sel);
     }
     for (;;) {
         unsigned char k = 0;

@@ -674,24 +674,25 @@ There is no test suite and no configured linter. Verify by:
   4-colour cells with at most 160 deduplicated tiles, and a `[u8 ntiles][u8 c22][u8 c23][tiles][map][colors]` blob.
   `art_rows` is 4/6/8/10 (default 6). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
   read keys. There is no boot password and no music yet (`N_SONGS=0` for this target).
-- **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1)
-  and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed scene/inventory arrays plus the
-  uncompressed art maps/attributes/palettes in `port_data.c/h` and `build/port_nes_chr.bin`. The cartridge is 32KB PRG
-  with 8KB battery WRAM at `$6000`; BSS and the C stack live there. The PPU screen is 32x30: row 0 title, row 1 blank,
-  rows 2..`nes_art_rows+1` the picture, and text from `nes_art_rows+2` through 29 (`PORT_OVERLAY_MENU=1`; A confirms,
-  B/Select opens/closes the dialog). The NES background pattern table is only 256 tiles, so the normal 96-glyph font
-  (0..95) and up to 160 art tiles (96..255) share it; highlighted text uses attribute palette 1 and body text
-  palette 0, while art uses palettes 2/3. The even art-band start and height align it with the 2x2-tile attribute
-  quadrants; the action dialog and item screen space entries every other row (`PORT_ENTRY_STRIDE=2`) so a selection
-  cannot tint the next entry, while scene-text highlights still share a quadrant with the row beside them. `nesart`
-  emits the full 64-byte attribute table per art and the runtime keeps a RAM shadow so selected text can switch its
-  quadrant to palette 1. Each art gets one 8KB CHR bank after bank 0 (font + blanks); MMC1 8KB CHR
-  mode addresses 16 banks, so a game may have at most 15 arts. `src/nes/nes_mmc1.s` writes the MMC1 registers
+- **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1),
+  installs the custom NMI vector and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed
+  scene/inventory arrays plus the uncompressed art maps/attributes/palettes in `port_data.c/h` and
+  `build/port_nes_chr.bin`. The cartridge is 32KB PRG with 8KB battery WRAM at `$6000`; BSS and the C stack live there.
+  The PPU screen is 32x30: row 0 title, row 1 blank, rows 2..`nes_art_rows+1` the picture, and text from
+  `nes_art_rows+2` through 29 (`PORT_OVERLAY_MENU=1`; A confirms, B/Select opens/closes the dialog). Each 8KB CHR bank
+  has two 4KB pattern tables: table 0 (title/art) holds the normal 96-glyph font (0..95) plus up to 160 art tiles
+  (96..255); table 1 (text) holds the normal font plus a highlight copy at 96..191. Text attributes always select
+  palette 0 (entry 1 = text ink, entry 2 = highlight ink), and `plat_text_at` draws `PLAT_COLOR_SEL` glyphs with the
+  highlight tiles, so a selected word/entry cannot tint the adjacent row. A custom NMI (`src/nes/nes_ppu.s`, vector
+  patched from the link map) flushes the ppubuf, keeps table 0 through the art band and switches to table 1 for the
+  text pane after a generated delay (`port_nes_split_xy`, adjusted by the queued-byte count). `nesart` emits the full
+  64-byte attribute table per art. Each art gets one 8KB CHR bank after bank 0 (font + highlight + blanks); MMC1 8KB
+  CHR mode addresses 16 banks, so a game may have at most 15 arts. `src/nes/nes_mmc1.s` writes the MMC1 registers
   serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
-  directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer
-  (`src/nes/nes_ppu.s`) and its NMI flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19
-  ppubuf API (the version in the editor Docker image). `art_rows` is 6/8/10 (default 10); the 32KB PRG is the main size
-  limit. There is no boot password and no music yet.
+  directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
+  flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19 ppubuf API (the version in the editor
+  Docker image). `art_rows` is 6/8/10 (default 10); the 32KB PRG is the main size limit. There is no boot password and
+  no music yet.
 - **Oric Atmos runtime:** `tools/targets/oric.py` builds a cc65 `atmos` `.tap` (the Oric is the third 6502 target).
   The HIRES bitmap is 240x200 at `$A000`; text is software-rendered with a generated 6x8 font, the title is row 0,
   the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 4/6/8/10/12 (default 8), `PLAT_ROWS=25`,

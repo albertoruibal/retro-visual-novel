@@ -1,18 +1,20 @@
 """Nintendo Entertainment System target.
 
 The runtime is the shared portable story engine on the NES PPU: 32x30
-background tiles, normal+highlight font tiles, up to 320 art tiles in the
-current CHR bank, and a 32KB fixed PRG with the compressed scene/inventory
-data resident.  The cartridge is MMC1 (mapper 1) with 8KB CHR ROM banks and
-8KB battery WRAM at $6000.  ``tools/gen_port.py --nes`` writes the PRG tables
-and ``build/port_nes_chr.bin``; this target links the code, patches the NES2.0
-header and appends the generated CHR banks.  cc65 (``cl65 -t nes``) is
-required.
+background tiles, two 4KB pattern tables per CHR bank (art plus normal font in
+table 0, normal plus highlight font in table 1), and a 32KB fixed PRG with the
+compressed scene/inventory data resident.  The cartridge is MMC1 (mapper 1)
+with 8KB CHR ROM banks and 8KB battery WRAM at $6000.  ``tools/gen_port.py
+--nes`` writes the PRG tables and ``build/port_nes_chr.bin``; this target links
+the code, patches the NES2.0
+header, installs the custom NMI vector and appends the generated CHR banks.
+cc65 (``cl65 -t nes``) is required.
 """
 from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import shutil
 import struct
 import tempfile
@@ -74,11 +76,21 @@ def _build(ctx):
                "-m", slug + ".map", *compile_names, "-o", slug + ".nes"]
         build.run(cmd, ctx.env, cwd=td)
         produced = os.path.join(td, slug + ".nes")
-        if os.path.exists(os.path.join(td, slug + ".map")):
-            shutil.copyfile(os.path.join(td, slug + ".map"),
-                            os.path.join(ctx.bdir, slug + ".nes.map"))
+        map_src = os.path.join(td, slug + ".map")
+        map_dst = os.path.join(ctx.bdir, slug + ".nes.map")
+        if os.path.exists(map_src):
+            shutil.copyfile(map_src, map_dst)
         if not os.path.exists(produced):
             raise SystemExit("NES build produced no .nes file")
+        if not os.path.exists(map_dst):
+            raise SystemExit("NES build produced no link map")
+        match = re.search(r"(?<![A-Za-z0-9_])_nes_nmi\s+([0-9A-Fa-f]{6})\b",
+                          open(map_dst, encoding="utf-8").read())
+        if not match:
+            raise SystemExit("NES link map has no _nes_nmi symbol")
+        nmi_addr = int(match.group(1), 16)
+        if not 0x8000 <= nmi_addr < 0x10000:
+            raise SystemExit("NES _nes_nmi is outside the PRG window")
         data = open(produced, "rb").read()
         if len(data) < 16 or data[:4] != b"NES\x1a":
             raise SystemExit("NES build did not produce an iNES/NES2.0 image")
@@ -92,8 +104,10 @@ def _build(ctx):
         # count, mapper low nibble becomes 1 (MMC1).
         header[5] = banks & 0xFF
         header[6] = (header[6] & 0x0F) | 0x10
-        prg = data[16:16 + prg_size]
-        final = bytes(header) + prg + chr_data
+        prg = bytearray(data[16:16 + prg_size])
+        prg[0x7FFA] = nmi_addr & 0xFF
+        prg[0x7FFB] = (nmi_addr >> 8) & 0xFF
+        final = bytes(header) + bytes(prg) + chr_data
         path = os.path.join(ctx.gdir, slug + ".nes")
         with open(path, "wb") as f:
             f.write(final)
