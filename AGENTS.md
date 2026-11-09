@@ -685,12 +685,11 @@ There is no test suite and no configured linter. Verify by:
   (96..255); table 1 (text) holds the normal font plus a highlight copy at 96..191. Text attributes always select
   palette 0 (entry 1 = text ink, entry 2 = highlight ink), and `plat_text_at` draws `PLAT_COLOR_SEL` glyphs with the
   highlight tiles, so a selected word/entry cannot tint the adjacent row. A custom NMI (`src/nes/nes_ppu.s`, vector
-  patched from the link map) flushes the ppubuf, keeps table 0 through the art band and switches to table 1 for the
-  text pane on a sprite-0 hit at a forced opaque pixel in the art's bottom-right corner. `nesart` emits the full
-  64-byte attribute table per art plus that pixel's colour; `chr_bank` puts the collision sprite tile at index 192.
-  A locked cursor update defers the ppubuf flush to the next frame so both selection rows change atomically. Each art
-  gets one 8KB CHR bank after bank 0 (font + highlight + collision + blanks); MMC1 8KB CHR mode addresses 16 banks,
-  so a game may have at most 15 arts. `src/nes/nes_mmc1.s` writes the MMC1 registers
+  patched from the link map) flushes the ppubuf, keeps table 0 through the art band and switches to table 1 in the last
+  art scanline's HBlank after a generated delay (`port_nes_split_xy`, adjusted by the queued-byte count). A locked
+  cursor update defers the ppubuf flush to the next frame so both selection rows change atomically. Each art gets one
+  8KB CHR bank after bank 0 (font + highlight + blanks); MMC1 8KB CHR mode addresses 16 banks, so a game may have at
+  most 15 arts. `nesart` emits the full 64-byte attribute table per art. `src/nes/nes_mmc1.s` writes the MMC1 registers
   serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
   directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
   flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19 ppubuf API (the version in the editor

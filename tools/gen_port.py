@@ -1036,8 +1036,9 @@ def main():
                 blob, ntiles, tiles = nesart.art_blob(
                     path, conv, art_rows, port_text_ink, port_text_bg)
             else:
-                blob, ntiles, tiles = nesart.blank_blob(
+                blob = nesart.blank_blob(
                     art_rows, port_text_ink, port_text_bg)
+                ntiles, tiles = 0, []
             bank = len(chr_banks)
             if bank > 15:
                 sys.exit("NES art data needs 8KB CHR bank %d; MMC1 8KB CHR "
@@ -1217,7 +1218,6 @@ def main():
             ("NES_HILITE_TILES", 96),
             ("NES_ART_BASE", 96),
             ("NES_ART_TILES", 160),
-            ("NES_COLLISION_TILE", 192),
             ("NES_CHR_BANKS", 1 + len(arts)),
         ]
     if use_cpc:
@@ -1267,6 +1267,8 @@ def main():
     h.append("extern const unsigned short port_art_ntiles[];")
     if use_c64 or use_nes or use_oric:
         h.append("extern const unsigned char port_art_data[];")
+    if use_nes:
+        h.append("extern const unsigned char port_nes_split_xy[];")
     if use_next:
         h.append("extern const unsigned char port_art_pal_bank[];")
         h.append("extern const unsigned short port_art_pal_off[];")
@@ -1329,6 +1331,40 @@ def main():
         _bytes_arr(c, "port_art_data", nes_art_data)
     elif use_oric:
         _bytes_arr(c, "port_art_data", oric_art_data)
+    if use_nes:
+        text_top = 2 + (art_rows if have_art else 0)
+        target = (20 + 8 * text_top) * 113.667 + 90
+
+        def flush_cycles(n):
+            if n == 0:
+                return 12
+            cycles = 17
+            rem = n
+            while rem:
+                k = min(rem, 5)
+                cycles += k * 30
+                if k == rem:
+                    cycles += 1
+                    break
+                cycles += 8
+                rem -= 5
+            return cycles + 12
+
+        def loop_cycles(x, y):
+            inner = y * 256 if x == 0 else x + (y - 1) * 256
+            return 5 * (inner + y)
+
+        split_xy = []
+        for count in range(69):
+            delay = target - 116 - flush_cycles(count)
+            best = (0, 0, 0)
+            for y in range(40):
+                for x in range(256):
+                    cyc = loop_cycles(x, y)
+                    if best[2] < cyc <= delay:
+                        best = (x, y, cyc)
+            split_xy += [best[0] & 0xFF, best[1] & 0xFF]
+        _arr(c, "unsigned char", "port_nes_split_xy", split_xy, "0x%02X")
     if use_next:
         _arr(c, "unsigned char", "port_art_pal_bank",
              next_art_pal_bank or [0], "%d")
