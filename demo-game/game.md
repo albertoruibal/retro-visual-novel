@@ -6,8 +6,8 @@ title: The Lighthouse Keeper
 prompt: 1980s game screen, high contrast, flat colours, no text, no letters
 negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, malformed, watermark, signature, text,
   letters
-flags: asked_elias, asked_father, uxia_trusted, uxia_told, uxia_knows, uxia_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, truth, dark, exam_coat, exam_misericordia, exam_uxia, exam_journal, exam_cups, exam_chest, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_mast, exam_green, elias_rested, pena_met, pena_offered, pena_deal, pena_defied
-items: key, oil_lantern, oil_can, matches, gear, flare
+flags: asked_elias, asked_father, uxia_trusted, uxia_told, uxia_knows, uxia_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, dark, exam_coat, exam_misericordia, exam_uxia, exam_journal, exam_cups, exam_chest, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_green, elias_rested, pena_met, pena_offered, pena_deal, pena_defied
+items: key, oil_lantern, oil_can, matches, gear
 songs: theme
 music: theme
 hires: 2x
@@ -24,13 +24,13 @@ height: 256
 # Systems
 
 ## zx128
+art_rows: 12
 title_ink: white
 
 ## next
 art_rows: 12
 
 ## sms
-art_rows: 10
 
 ## cpc
 art_rows: 10
@@ -50,30 +50,32 @@ columns: 64
 art_rows: 6
 
 ## c64
-art_rows: 6
+art_rows: 10
 
 ## nes
-art_rows: 10
+art_rows: 12
 
 ## oric
-art_rows: 10
-menu: popup
+dither: bayer2
 
 ## zx48
+art_rows: 12
+dither: bayer2
 title_ink: white
 
 # Art
 
 ## title
 prompt: a storm-lashed granite lighthouse at Fisterra on the Galician Costa da Morte at night, huge Atlantic waves
-  breaking below, a small supply boat approaching, one lit window, dramatic clouds, no text
+  breaking below, a lone figure walking up the cliff path, one lit window, dramatic clouds, no text
+refs: lighthouse
 image: gen-1793441722798.png
 crop: 0 25 100 75
 
-## jetty
-prompt: a wet granite jetty below the Fisterra lighthouse in a storm, a moored rowboat, a woman in a dark oilskin coat
-  holding an oil lantern, rain and Atlantic spray, no text
-refs: uxia
+## cliff_path
+prompt: a wet granite path climbing to the Fisterra lighthouse in a storm, a woman in a dark oilskin coat holding an oil
+  lantern, rain and Atlantic spray, no text
+refs: uxia lighthouse
 image: gen-1793442406565.png
 crop: 0 0 100 75
 
@@ -106,19 +108,13 @@ image: gen-1793484116838.png
 ## ending
 prompt: the Fisterra lighthouse beam sweeping across a stormy Atlantic sea at night, a small 1930s coastal steamer like
   the one in the reference image safe beyond the rocks, dawn breaking, no text
-refs: misericordia
+refs: misericordia lighthouse
 image: gen-1793446334949.png
 
-## ending_truth
-prompt: a revenue cutter with a white searchlight approaching a dark coastal steamer, the unlit Fisterra lighthouse on
-  the cliff, rain and spray, no text
-refs: uxia misericordia
-image: gen-1793447058386.png
-
 ## ending_dark
-prompt: an empty rowboat on a black stormy Atlantic sea, the unlit Fisterra lighthouse on the cliff behind, wreckage and
-  a vanishing green light in the distance, no text
-refs: misericordia
+prompt: black stormy Atlantic sea, the unlit Fisterra lighthouse on the cliff behind, wreckage and a vanishing green
+  light in the distance, no text
+refs: lighthouse
 image: gen-1793447740548.png
 
 # References
@@ -126,15 +122,21 @@ image: gen-1793447740548.png
 ## uxia
 prompt: reference sheet of a Galician woman in her late thirties, dark oilskin coat, soaked dark hair, holding an oil
   lantern, three-quarter view, isolated on a flat dark navy background, crisp black outlines, no water, no text
-image: gen-1793440419525.png
+image: gen-1794255109914.png
 seed: 42
 
 ## misericordia
 prompt: reference sheet of a small 1930s Galician coastal steamer, dark hull with a white stripe, green sidelight,
   single funnel, three-quarter side view, whole ship visible, isolated on a flat dark navy background, crisp black
   outlines, no water, no text
-image: gen-1793441081139.png
+image: gen-1794255887899.png
 seed: 42
+
+## lighthouse
+prompt: reference sheet of a tall square granite lighthouse tower at Fisterra, weathered grey stone blocks, a white
+  gallery with an iron railing, a glass lantern room with a domed roof, small dark windows down the tower, a broad stone
+  base, three-quarter view, whole tower visible, isolated on a flat dark navy background, crisp black outlines, no
+  water, no text
 
 # Items
 
@@ -170,12 +172,6 @@ desc: A cog wrapped in oilcloth.
   It fits the lens turntable.
 opt: Fit the brass gear -> - inscene lamp_room if exam_lens unless lens_repaired set lens_repaired leave gear msg The gear slots home. The lens turns with a soft click.
 
-## flare
-name: Signal Flare
-desc: A red signal flare in a waxed tube.
-  Fired from the gallery, it would be seen from the mainland.
-opt: Fire the signal flare -> ending_truth inscene the_hour if know_truth msg The flare hisses alight.
-
 # Scenes
 
 ## start
@@ -183,17 +179,17 @@ name: The Lighthouse Keeper
 art: title
 text:
   Fisterra Light. 14 October 1936, twenty to midnight.
-  The relief boat leaves you on the jetty.
+  You have walked the last mile from the village, up the cliff path.
   The lighthouse is dark.
   A woman waits by the door with a lantern.
-opt: Call out to her -> jetty_uxia msg Your voice is lost in the wind and surf.
+opt: Call out to her -> uxia_door msg Your voice is lost in the wind and surf.
 opt: Climb to the lighthouse -> hall
 opt: How to play -> help
 opt: About -> about
 
-## jetty_uxia
+## uxia_door
 name: Uxía Mariño
-art: jetty
+art: cliff_path
 text:
   She is in her thirties, oilskin black with rain.
   "You're the new keeper. I'm Uxía Mariño. Elías was my father."
@@ -281,11 +277,9 @@ art: cellar
 text:
   The lid creaks open.
   A brass gear wrapped in oilcloth. -> unless gear
-  A red signal flare. -> unless flare
   A {{folded letter|exam_letter}} lies inside.
   The letter is not in Elías's handwriting. -> if exam_letter
 opt: Take the brass gear -> - unless gear pick gear
-opt: Take the signal flare -> - unless flare pick flare
 opt: Read the letter -> letter if exam_letter
 opt: Close the chest -> cellar
 
@@ -349,8 +343,7 @@ text:
   A walled garden, salted by spray.
   A {{grave|exam_grave}} waits under the wall.
   "Elías Mariño. Died 14 October 1935." -> if exam_grave
-  The {{signal mast|exam_mast}} leans, its shutter rope frayed.
-  A flare fired from the gallery would be seen from the mainland. -> if exam_mast
+  The signal mast leans, its shutter rope frayed.
   Below, As Agullas break white.
   A man in grey waits on the cliff path. -> unless pena_defied
 opt: Talk to the man in grey -> pena unless pena_defied
@@ -367,19 +360,9 @@ text:
 opt: Promise to light the lamp -> - unless uxia_trusted set uxia_trusted msg "Uxía nods once. "Then we have a chance.""
 opt: Ask about her father -> - unless asked_father set asked_father msg "He sent me away last October. I never saw him again."
 opt: Tell her what you found -> - if know_truth unless uxia_told set uxia_told msg "You put the journal on the table. Uxía reads it twice. Her face does not change. "He sent me away because of them," she says."
-opt: "I'm sorry. They threatened you." -> uxia_after if uxia_told unless uxia_knows set uxia_knows msg "Uxía wipes her eyes. "If you mean to signal the cutter, you'll need this. He gave it to me last year.""
+opt: "I'm sorry. They threatened you." -> - if uxia_told unless uxia_knows set uxia_knows msg "Uxía wipes her eyes. "He was afraid of them. So am I.""
 opt: "You knew, didn't you?" -> kitchen if uxia_told unless uxia_left set uxia_left msg ""You didn't know him," she says. "Don't pretend you do.""
 opt: Leave her -> kitchen
-
-## uxia_after
-name: An Understanding
-art: cottage
-text:
-  Uxía holds out a red flare. -> unless flare
-  You already have the flare from the sea chest. -> if flare
-  Rain ticks at the window.
-opt: Take the flare -> - unless flare pick flare msg The flare is warm from her coat.
-opt: Go up to the lamp room -> lamp_room
 
 ## the_hour
 name: Midnight
@@ -391,7 +374,6 @@ text:
   The Misericordia.
   The lamp is ready. -> if lens_repaired if oiled if matches
   The matches are in your pocket. -> if matches
-  The flare is in your pack. -> if flare
 opt: Let the light die -> ending_dark msg You step back and let the darkness win.
 opt: Go out to the cliff path -> pena unless pena_defied
 opt: Go back down -> lamp_room
@@ -426,21 +408,6 @@ text:
   You are alone with the light and the empty stairs. -> unless uxia_knows
 opt: Start again -> start clear
 
-## ending_truth
-name: The Truth
-art: ending_truth
-ending: truth
-text:
-  You fire the flare. It climbs into the rain and bursts red.
-  The cutter comes out of the dark with its searchlight on.
-  The Misericordia turns, too late. Crates split on the rocks.
-  By dawn, the lighthouse is full of police.
-  Uxía tells them everything. -> if uxia_knows
-  Uxía is gone before they arrive. -> if uxia_left
-  Uxía is not here. -> unless uxia_knows unless uxia_left
-  Elías's name is in the paper. -> if know_truth
-opt: Start again -> start clear
-
 ## ending_dark
 name: The Dark
 art: ending_dark
@@ -448,7 +415,7 @@ ending: dark
 text:
   You let the lamp die.
   The green light reaches As Agullas and vanishes.
-  You take the rowboat. Behind you, the sea is loud.
+  You walk back down the cliff path. Behind you, the sea is loud.
   At dawn there is wreckage in the bay.
   And Elías's journal in your coat. -> if know_truth
   Pena pays you in clean notes. -> if pena_deal
