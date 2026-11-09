@@ -72,7 +72,9 @@
         lda     _nes_split_on
         beq     @done
 
-        ldx     _nes_split_idx
+        lda     _nes_split_idx
+        asl     a               ; the table holds an (x,y) pair per queue length
+        tax
         lda     _port_nes_split_xy+1,x
         tay
         lda     _port_nes_split_xy,x
