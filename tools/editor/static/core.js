@@ -188,6 +188,7 @@ function setView(v) {
     renderAll();
   }
   if (v === "graph") renderGraph();
+  if (v === "emu" && typeof refreshEmuSystems === "function") refreshEmuSystems();
   if (v === "art") checkArt();
   if (v === "raw") loadRaw();  // lazily loads Monaco, then lays it out
 }

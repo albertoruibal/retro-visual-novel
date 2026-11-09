@@ -49,17 +49,10 @@ function emuTargetMeta(id) {
   return list.find((t) => t.id === id) || null;
 }
 function emuTargets() {
-  const selected = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
-  /* A ZX game can run either tape even when only one is in the build
-   * selection: offer both 128K and 48K emulators, and let the Play button
-   * report the chosen artifact as "not built yet" until it exists. */
-  const ids = selected.slice();
-  if (ids.includes("zx128") || ids.includes("zx48")) {
-    for (const id of ["zx128", "zx48"])
-      if (!ids.includes(id)) ids.push(id);
-  }
-  /* Likewise, offer both CPC models whenever either is selected: the 464
-   * build is a separate disk but the same story. */
+  /* Only the systems ticked in the Systems tab get an emulator entry, except
+   * that either CPC target offers both models (the 464 disk is a separate
+   * build of the same story). */
+  const ids = ((typeof gameTargets === "function") ? gameTargets() : ["zx128"]).slice();
   if (ids.includes("cpc") || ids.includes("cpc464")) {
     for (const id of ["cpc", "cpc464"])
       if (!ids.includes(id)) ids.push(id);
@@ -248,9 +241,6 @@ function updateEmuHint() {
   if (gameTargets().includes("next"))
     hint.innerHTML += "<br>ZX Next builds a <code>.nex</code>; run it with ZEsarUX " +
       "(<code>python3 tools/build.py run &lt;game&gt; next</code>).";
-  if (meta.id === "zx48" && !gameTargets().includes("zx48"))
-    hint.innerHTML += "<br>48K is not in the build selection; enable " +
-      "<b>ZX Spectrum 48K</b> in Systems and Build to create the tape.";
   if (meta.id === "cpc464" && !gameTargets().includes("cpc464"))
     hint.innerHTML += "<br>CPC 464 is not in the build selection; enable " +
       "<b>Amstrad CPC 464</b> in Systems and Build to create the disk.";
