@@ -281,7 +281,10 @@ character — stays consistent across scenes:
 
 A reference is generated on its own from its prompt into `assets/refs/<id>/` (same candidate rules as art) and is
 *never* packed into the game — generation-only. `refs:` lists the reference ids an art should use; the generator sends
-their chosen images alongside the prompt. Regenerating an art re-renders its references first, so the art always
+their chosen images alongside the prompt. It also appends a Qwen-Image reference clause automatically: `keep the same
+design as in the reference image` for one reference, or `keep the same designs as in image 1, image 2[, ...]` for
+several (in `refs:` order). Write the prompt as the new scene and let that clause carry the “like the reference”
+instruction; do not repeat it by hand. Regenerating an art re-renders its references first, so the art always
 conditions on the current versions; a full **Regenerate images** run re-renders every declared reference once, then
 the arts.
 

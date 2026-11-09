@@ -152,8 +152,9 @@ def _render_art(slug, art_id, art, game, overrides, job_id=None,
         raise _JobCancelled()
     merged = dict(art)
     merged.update(overrides or {})
+    refs = list(merged.get("refs") or [])
     prompt = scenefile.compose_prompt(game.get("prompt", ""),
-                                      merged.get("prompt", ""))
+                                      merged.get("prompt", ""), refs)
     width, height = scenefile.dimensions(game, game)
     params = {
         "width": width, "height": height,
@@ -163,7 +164,6 @@ def _render_art(slug, art_id, art, game, overrides, job_id=None,
         "seed": int(game.get("seed", 42)),
     }
     params.update(_quality_params(game))
-    refs = list(merged.get("refs") or [])
     if refs:
         by_id = {r["id"]: r for r in (refs_meta or [])}
         done = set() if refs_done is None else refs_done

@@ -322,7 +322,9 @@ function paneGame() {
   <div class="card">
     <label>Common prompt (prefixed to every art prompt)</label>
     <textarea id="gprompt" rows="4">${esc(g.prompt)}</textarea>
-    <div class="hint">The model receives "&lt;common prompt&gt;, &lt;art prompt&gt;".</div>
+    <div class="hint">The model receives "&lt;common prompt&gt;, &lt;art prompt&gt;"; an art with
+      reference images also gets a "keep the same design as in the reference image" (or
+      "image 1, image 2") clause.</div>
     <div class="grid5" style="margin-top:10px">
       <div><label>Seed</label><input id="gseed" type="number" value="${esc(g.seed)}"></div>
       <div><label>Steps</label><input id="gsteps" type="number" value="${esc(g.steps)}"></div>

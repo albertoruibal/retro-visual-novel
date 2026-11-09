@@ -1662,11 +1662,32 @@ def _prompt_lines(text, width=PROMPT_WRAP, key="prompt"):
     return lines
 
 
-def compose_prompt(game_prompt, art_prompt):
-    """Prefix the shared style prompt to an art's subject prompt."""
+def reference_prompt_suffix(refs):
+    """Qwen-Image wording that points the prompt at its conditioning images.
+
+    A single reference is named naturally; several are numbered so the model
+    can map each ``extra_images`` entry (sent in author order) to its role.
+    """
+    n = len([r for r in (refs or []) if r])
+    if n == 0:
+        return ""
+    if n == 1:
+        return "keep the same design as in the reference image"
+    if n == 2:
+        return "keep the same designs as in image 1 and image 2"
+    middle = ", ".join(f"image {i}" for i in range(2, n))
+    return f"keep the same designs as in image 1, {middle} and image {n}"
+
+
+def compose_prompt(game_prompt, art_prompt, refs=None):
+    """Prefix the shared style prompt and point at any reference images."""
     g = (game_prompt or "").strip().rstrip(",")
     a = (art_prompt or "").strip()
-    return f"{g}, {a}" if g and a else (g or a)
+    prompt = f"{g}, {a}" if g and a else (g or a)
+    suffix = reference_prompt_suffix(refs)
+    if suffix:
+        prompt = f"{prompt}, {suffix}" if prompt else suffix
+    return prompt
 
 
 def password_label(game):

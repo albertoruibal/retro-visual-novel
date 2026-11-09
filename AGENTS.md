@@ -321,6 +321,8 @@ There is no test suite and no configured linter. Verify by:
   optional `image:`/`seed`/`steps`/`cfg`/`width`/`height`) and renders into `<game>/assets/refs/<id>/` exactly like art
   candidates. An `# Art` entry names them in `refs: <id>...`; the generator sends their selected images to the SD API as
   `extra_images` (stable-diffusion.cpp `ref_images`), which is what keeps a boat/van/character consistent across scenes.
+  `scenefile.compose_prompt(..., refs)` also appends the Qwen pointer (`keep the same design as in the reference image`,
+  or `... as in image 1, image 2` for several, in `refs:` order) so the text and the conditioning images agree.
   References are generation-only: `gen_scenes.py` ignores them and they are never packed into the game. Regenerating an
   art (single art or `gen_images.py`) re-renders its `refs:` first, then conditions the art on the fresh images. A full
   **Regenerate images** / **Generate missing** run (and `gen_images.py` with no art ids) re-renders every declared

@@ -16,8 +16,10 @@ the editor saves them.
 Each ``## <ref-id>`` under ``# References`` is generated separately from its own prompt into
 ``assets/refs/<id>/`` and is never packed into the game. An art's ``refs:``
 line sends those reference images to the model via the SD API ``extra_images``
-field (stable-diffusion.cpp's reference images), so a boat, van or character
-keeps the same design across scenes.
+field (stable-diffusion.cpp's reference images), and ``scenefile.compose_prompt``
+appends the Qwen pointer ("keep the same design as in the reference image", or
+"image 1, image 2" for several), so a boat, van or character keeps the same
+design across scenes.
 
 The URL defaults to http://localhost:7860 and can be overridden with
 STABLE_DIFFUSION_URL, e.g. when the container is only reachable on the docker
@@ -125,7 +127,9 @@ def _ref_extra_images(game_dir, names, refs_meta):
 
 
 def generate(art, game, art_root, refs_meta=(), timeout=900):
-    prompt = scenefile.compose_prompt(game.get("prompt", ""), art["prompt"])
+    refs = list(art.get("refs") or [])
+    prompt = scenefile.compose_prompt(game.get("prompt", ""), art["prompt"],
+                                      refs)
     width, height = scenefile.dimensions(art, game)
     payload = {
         "prompt": prompt,
@@ -138,7 +142,6 @@ def generate(art, game, art_root, refs_meta=(), timeout=900):
         "seed": int(art.get("seed", game.get("seed", 42))),
     }
     payload.update(_quality_params(game))
-    refs = list(art.get("refs") or [])
     if refs:
         game_dir = os.path.dirname(os.path.dirname(art_root))
         payload["extra_images"] = _ref_extra_images(game_dir, refs, refs_meta)

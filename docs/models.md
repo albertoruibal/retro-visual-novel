@@ -40,8 +40,11 @@ Download those GGUFs/safetensors with `models/download-qwen-image-2.1.sh`. It se
 `http://host.docker.internal:7860`). When `STABLE_DIFFUSION_URL` is unset, image generation is disabled and its controls
 are hidden.
 
-The image model receives `"<game prompt>, <art prompt>"`. Generate or regenerate art with the stable-diffusion server
-running at http://localhost:7860 (`--game` defaults to the first open game, falling back to the first game under
+The image model receives `"<game prompt>, <art prompt>"`. When the art names `refs:`, a Qwen-Image
+reference clause is appended: `"keep the same design as in the reference image"` for one reference, or
+`"keep the same designs as in image 1, image 2[, ...]"` for several (the images are sent in author order).
+Generate or regenerate art with the stable-diffusion server running at http://localhost:7860 (`--game` defaults to
+the first open game, falling back to the first game under
 `games/`; the standalone CLI still uses `localhost`):
 
     python3 tools/gen_images.py --game <slug>          # every art
