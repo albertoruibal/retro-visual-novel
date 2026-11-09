@@ -33,7 +33,7 @@ WIDTH = 160
 COLS = 40
 FONT_TILES = 96
 MAX_ART_TILES = 160
-DEFAULT_ART_ROWS = 6
+DEFAULT_ART_ROWS = 8
 
 # The standard Pepto C64 palette (indices 0..15).
 C64_PALETTE = (

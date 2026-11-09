@@ -660,7 +660,7 @@ There is no test suite and no configured linter. Verify by:
   shades. Art conversion is `tools/gbart.py`: 160 x `8*art_rows` 2bpp tiles, at most 158 art tiles, map entries offset
   by 96, and an art blob of `[u8 ntiles][u8 npalettes][u16 palettes[npalettes][4]][tiles][map][attrs]`. Each tile is
   quantised to four colours and the tile palettes are clustered into at most six shared palettes, ordered light-to-
-  dark for the DMG fallback; `art_rows` is 4/6/8 (default 6). Selection uses the configured highlight palette on CGB
+  dark for the DMG fallback; `art_rows` is 8. Selection uses the configured highlight palette on CGB
   and keeps the `>` marker so it also works on a monochrome Game Boy.
 - **Commodore 64 runtime:** `tools/targets/c64.py` builds a `cl65 -t c64` `.prg` (cc65, not z88dk).
   `tools/gen_port.py --c64` emits `build/port_data.c/h`, the bit-reversed `build/port_font8.h` and the compressed
@@ -673,7 +673,7 @@ There is no test suite and no configured linter. Verify by:
   with BSS at `$AC00-$C7FF` and the stack at `$C800-$CFFF`. The loaded `.prg` must end below `$A000`; the target checks
   its size. Art is `tools/c64art.py`: a 160 x `8*art_rows` logical band (previewed at 320 physical pixels),
   4-colour cells with at most 160 deduplicated tiles, and a `[u8 ntiles][u8 c22][u8 c23][tiles][map][colors]` blob.
-  `art_rows` is 4/6/8/10/12 (default 6). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
+  `art_rows` is 8/10/12 (default 8). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
   read keys. There is no boot password and no music yet (`N_SONGS=0` for this target).
 - **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1),
   installs the custom NMI vector and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed
@@ -693,11 +693,11 @@ There is no test suite and no configured linter. Verify by:
   serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
   directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
   flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19 ppubuf API (the version in the editor
-  Docker image). `art_rows` is 6/8/10 (default 10); the 32KB PRG is the main size limit. There is no boot password and
+  Docker image). `art_rows` is 8/10/12 (default 10); the 32KB PRG is the main size limit. There is no boot password and
   no music yet.
 - **Oric Atmos runtime:** `tools/targets/oric.py` builds a cc65 `atmos` `.tap` (the Oric is the third 6502 target).
   The HIRES bitmap is 240x200 at `$A000`; text is software-rendered with a generated 6x8 font, the title is row 0,
-  the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 4/6/8/10/12 (default 8), `PLAT_ROWS=25`,
+  the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 8/10/12 (default 8), `PLAT_ROWS=25`,
   `PORT_COLS=40`, `PORT_KEEP_ART=1` and `N_SONGS=0`; `PORT_OVERLAY_MENU` follows `## oric menu:` (default inline:
   pinned options plus the row-24 inventory; `popup` uses the action dialog). The build is non-banked: scene,
   inventory and art blobs are resident ZX0-compressed data decoded by `src/6502/zx0.c`. Art is decoded directly

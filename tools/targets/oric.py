@@ -22,7 +22,7 @@ import cc65path
 import scenefile
 from .base import BuildResult, Target, TargetOption, portable_sources
 
-ART_ROWS = (4, 6, 8, 10, 12)
+ART_ROWS = (8, 10, 12)
 # cc65's atmos.cfg keeps the image and BSS below the 2K C stack at $97FF, so
 # the BSS area ends at $9000.  HIRES uses $A000-$BF3F.
 BSS_END = 0x9000
@@ -137,7 +137,7 @@ def _validate(ctx):
     if rows not in ART_ROWS:
         return [{"level": "error", "section": "game", "id": "targets",
                  "target": "oric",
-                 "msg": f"Oric Atmos art_rows must be 4, 6, 8, 10 or 12 "
+                 "msg": f"Oric Atmos art_rows must be 8, 10 or 12 "
                         f"(got {rows})"}]
     issues = []
     if not bool(ctx.options.get("menu")):
@@ -178,7 +178,7 @@ TARGET = Target(
     options=(
         TargetOption("art_rows", "Art rows", "choice", 8, ART_ROWS,
                      "Character rows of picture; 8 leaves 16 text rows.",
-                     minimum=4, maximum=12),
+                     minimum=8, maximum=12),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_MODES,
                      help="The 1-bit screen cannot honour off, so an off choice "

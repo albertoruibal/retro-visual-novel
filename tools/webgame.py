@@ -96,10 +96,9 @@ def selected_art_rows(doc):
     """The art-band height used by the web layout.
 
     Prefer the selected systems in registry order (ZX first) so the web band
-    keeps the framing of the target the author is previewing.  Unlike the ZX
-    engine the web layout is happy with the Game Boy Color's 4/6/8-row values, but an
-    even 4..16 value is still required; otherwise fall back to the ZX/default
-    ``art_lines`` setting.
+    keeps the framing of the target the author is previewing.  An even 8..16
+    value is required; otherwise fall back to the ZX/default ``art_lines``
+    setting.
     """
     for target_id in targets.selected_targets(doc):
         target = targets.get_target(target_id)
@@ -112,7 +111,7 @@ def selected_art_rows(doc):
             rows = int(options["art_rows"])
         except (TypeError, ValueError):
             continue
-        if 4 <= rows <= 16:
+        if 8 <= rows <= 16:
             return rows - (rows & 1)
     return scenefile.art_lines((doc or {}).get("game") or {})
 

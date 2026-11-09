@@ -20,7 +20,7 @@ import zxart
 WIDTH = 240
 COLS = 40
 DEFAULT_ART_ROWS = 8
-ART_ROWS = (4, 6, 8, 10, 12)
+ART_ROWS = (8, 10, 12)
 INK = 7
 PAPER = 0
 

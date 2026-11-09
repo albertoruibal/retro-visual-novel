@@ -1,7 +1,7 @@
 # Nintendo Entertainment System
 
 - **Display:** 32 x 30 background tiles. The scene title is on row 0, row 1 is blank, the art band occupies rows
-  2..`art_rows + 1`, and the text pane runs from row `art_rows + 2` through row 29. `art_rows` is 6, 8 or 10 (default
+  2..`art_rows + 1`, and the text pane runs from row `art_rows + 2` through row 29. `art_rows` is 8, 10 or 12 (default
   10). The even band start and height keep the band aligned with the PPU's 2x2-tile attribute quadrants. Options and
   held items live in the action dialog (A confirms, B or Select opens/closes it); there is no permanent inventory row
   and long text scrolls with the D-pad.

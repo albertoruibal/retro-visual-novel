@@ -2,7 +2,7 @@
 
 - **Display:** the 240 x 200 HIRES bitmap at `$A000`. The title is on character row 0, the art band occupies rows
   1..`art_rows`, and the text pane runs from row `art_rows + 1` through row 23 (row 24 is the inventory band). With
-  `## oric menu: popup` the text owns rows `art_rows + 1`..24 instead. `art_rows` is 4, 6, 8, 10 or 12 (default 8).
+  `## oric menu: popup` the text owns rows `art_rows + 1`..24 instead. `art_rows` is 8, 10 or 12 (default 8).
   Text is drawn in software with a 6x8 glyph table: 40 columns of 8-pixel rows, so the pinned layout leaves
   `23 - art_rows` rows above the inventory, and the pop-up layout leaves `24 - art_rows`. The three text rows below
   the bitmap are kept blank, and `plat_init` clears the ROM status cursor bit so its flashing text cursor does not

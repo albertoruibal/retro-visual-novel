@@ -23,7 +23,7 @@ import cc65path
 import scenefile
 from .base import BuildResult, Target, TargetOption, portable_sources
 
-ART_ROWS = (6, 8, 10)
+ART_ROWS = (8, 10, 12)
 CHR_BANK = 0x2000
 CHR_MAX_BANKS = 16
 
@@ -124,7 +124,7 @@ def _validate(ctx):
     if rows not in ART_ROWS:
         issues.append({"level": "error", "section": "game", "id": "targets",
                        "target": "nes",
-                       "msg": f"NES art_rows must be 6, 8 or 10 (got {rows})"})
+                       "msg": f"NES art_rows must be 8, 10 or 12 (got {rows})"})
     arts = len((ctx.doc or {}).get("arts") or [])
     if arts + 1 > CHR_MAX_BANKS:
         issues.append({"level": "error", "section": "game", "id": "targets",
@@ -142,8 +142,8 @@ TARGET = Target(
     outputs=(".nes",),
     options=(
         TargetOption("art_rows", "Art rows", "choice", 10, ART_ROWS,
-                     "Character rows of picture; 10 leaves 18 text rows.",
-                     minimum=6, maximum=10),
+                     "Character rows of picture; 12 leaves 16 text rows.",
+                     minimum=8, maximum=12),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard four-colour snap; floyd uses "

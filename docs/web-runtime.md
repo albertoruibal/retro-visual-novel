@@ -72,7 +72,7 @@ window.RVN_GAME = {
   format: 1,
   slug: "demo",
   title: "The Lighthouse Keeper",
-  artRows: 12,                  // selected system's art_rows (even, 4..16)
+  artRows: 12,                  // selected system's art_rows (even, 8..16)
   startScene: "start",
   startItems: ["seed"],
   carry: 0,

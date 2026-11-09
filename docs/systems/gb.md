@@ -2,8 +2,8 @@
 
 The `# Systems` id remains `gb` for compatibility with existing games.
 
-- **Display:** 160x144, 20x18 tiles. `art_rows` is 4, 6 or 8 (default 6): rows 1..`art_rows` are the picture, row 0
-  the scene title and rows `art_rows+1`..17 the text pane. The body uses the whole pane (11 rows at the default) and
+- **Display:** 160x144, 20x18 tiles. `art_rows` is 8: rows 1..`art_rows` are the picture, row 0
+  the scene title and rows `art_rows+1`..17 the text pane. The body uses the whole pane (9 rows) and
   scrolls up/down when it overflows; left/right moves between highlighted words (or scrolls when a scene has none).
   B opens an overlay dialog listing the scene options and held items (items are prefixed `*`); the D-pad scrolls it,
   A/Start confirms and B closes it. A long item description also scrolls with up/down. There is no permanent

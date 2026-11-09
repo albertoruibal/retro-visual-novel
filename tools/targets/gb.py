@@ -119,11 +119,11 @@ def _build(ctx):
 
 
 def _validate(ctx):
-    rows = int(ctx.options.get("art_rows") or 6)
-    if rows not in (4, 6, 8):
+    rows = int(ctx.options.get("art_rows") or 8)
+    if rows != 8:
         return [{"level": "error", "section": "game", "id": "targets",
                  "target": "gb",
-                 "msg": f"Game Boy Color art_rows must be 4, 6 or 8 "
+                 "msg": f"Game Boy Color art_rows must be 8 "
                         f"(got {rows})"}]
     return []
 
@@ -135,9 +135,9 @@ TARGET = Target(
                 "tile art, a 20x18 text screen and a B-button action dialog.",
     outputs=(".gbc",),
     options=(
-        TargetOption("art_rows", "Art rows", "choice", 6, (4, 6, 8),
-                     "Character rows of picture; 6 leaves 11 rows below it.",
-                     minimum=4, maximum=8),
+        TargetOption("art_rows", "Art rows", "choice", 8, (8,),
+                     "Character rows of picture; 8 leaves 9 rows below it.",
+                     minimum=8, maximum=8),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard four-colour snap; floyd uses "

@@ -523,7 +523,7 @@ def main():
         if target is None:
             sys.exit("Game Boy Color target is not registered")
         gb_options = targets.target_options(doc, target)
-        art_rows = int(gb_options.get("art_rows") or 6)
+        art_rows = int(gb_options.get("art_rows") or 8)
         text_ink, highlight_ink, text_bg = gbart.text_colours(game)
         gb_text_palette = [text_bg, text_bg, text_bg, text_ink,
                            text_bg, text_bg, text_bg, highlight_ink]
@@ -537,7 +537,7 @@ def main():
         if target is None:
             sys.exit("Commodore 64 target is not registered")
         c64_options = targets.target_options(doc, target)
-        art_rows = int(c64_options.get("art_rows") or 6)
+        art_rows = int(c64_options.get("art_rows") or 8)
         port_text_ink, port_highlight_ink, port_text_bg = \
             c64art.text_colours(game)
         _write_sms_font(bdir)

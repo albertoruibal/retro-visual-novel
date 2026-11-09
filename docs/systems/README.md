@@ -26,9 +26,9 @@ Targets are discovered from `tools/targets/` and selected under `## Systems` in 
     ## zx128
     art_rows: 12
     ## gb
-    art_rows: 6
+    art_rows: 8
     ## c64
-    art_rows: 6
+    art_rows: 8
     ## nes
     art_rows: 10
     ## oric
