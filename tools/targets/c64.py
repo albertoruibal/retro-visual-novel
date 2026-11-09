@@ -18,7 +18,7 @@ import cc65path
 import scenefile
 from .base import BuildResult, Target, TargetOption, portable_sources
 
-ART_ROWS = (4, 6, 8, 10)
+ART_ROWS = (4, 6, 8, 10, 12)
 # A .prg with a 2-byte load address at $0801 must end below the display at
 # $A000: the last byte is $0800 + (size - 2), so size <= $9801.
 PRG_MAX = 0x9801
@@ -96,8 +96,8 @@ def _validate(ctx):
     if rows not in ART_ROWS:
         return [{"level": "error", "section": "game", "id": "targets",
                  "target": "c64",
-                 "msg": f"Commodore 64 art_rows must be 4, 6, 8 or 10 "
-                        f"(got {rows})"}]
+                 "msg": f"Commodore 64 art_rows must be one of "
+                        f"{', '.join(map(str, ART_ROWS))} (got {rows})"}]
     return []
 
 
@@ -109,8 +109,8 @@ TARGET = Target(
     outputs=(".prg",),
     options=(
         TargetOption("art_rows", "Art rows", "choice", 6, ART_ROWS,
-                     "Character rows of picture; 6 leaves 18 text rows.",
-                     minimum=4, maximum=10),
+                     "Character rows of picture; 12 leaves 12 text rows.",
+                     minimum=4, maximum=12),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard four-colour snap; floyd uses "

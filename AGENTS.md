@@ -673,7 +673,7 @@ There is no test suite and no configured linter. Verify by:
   with BSS at `$AC00-$C7FF` and the stack at `$C800-$CFFF`. The loaded `.prg` must end below `$A000`; the target checks
   its size. Art is `tools/c64art.py`: a 160 x `8*art_rows` logical band (previewed at 320 physical pixels),
   4-colour cells with at most 160 deduplicated tiles, and a `[u8 ntiles][u8 c22][u8 c23][tiles][map][colors]` blob.
-  `art_rows` is 4/6/8/10 (default 6). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
+  `art_rows` is 4/6/8/10/12 (default 6). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
   read keys. There is no boot password and no music yet (`N_SONGS=0` for this target).
 - **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1),
   installs the custom NMI vector and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed

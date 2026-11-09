@@ -178,7 +178,7 @@ overrides the prompt line above the input ("Enter the password:" by default).
     art_rows: 6             # 4|6|8 (default 6); Game Boy Color action dialog
     dither: floyd           # off|floyd only
     ## c64
-    art_rows: 6             # 4|6|8|10 (default 6); C64 action dialog
+    art_rows: 6             # 4|6|8|10|12 (default 6); C64 action dialog
     dither: floyd           # off|floyd only
     ## nes
     art_rows: 10            # 6|8|10 (default 10); NES action dialog
