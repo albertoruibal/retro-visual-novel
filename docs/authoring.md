@@ -188,8 +188,8 @@ overrides the prompt line above the input ("Enter the password:" by default).
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
     menu: popup             # optional: options/items in a SPACE dialog
 
-A build compiles the ZX targets first (128K before 48K), then the other systems in block order; each system's log is
-separated
+A build compiles the selected systems in the system-list display order (ZX 128K, ZX 48K, Next, CPC 6128, CPC 464,
+MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color); each system's log is separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
 (`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
 `.nes`, `<slug>-oric.tap`). An absent `# Systems`

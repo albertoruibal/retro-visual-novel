@@ -521,8 +521,9 @@ There is no test suite and no configured linter. Verify by:
   kills the server process tree with `taskkill /T` on Windows and picks `python`/`Scripts/python.exe`/`zcc.exe` there.
   For the desktop app the user supplies a z88dk built for the target OS/CPU (see the desktop notes).
 - **Build systems live in a `# Systems` section.** Each `## <id>` block selects that system and holds its options
-  (`zx`/`sms`/`cpc`/`cpc464`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); ZX builds first when selected,
-  then the others in block order, and each system's log is separated by a `==== name [id] ====` banner; the legacy
+  (`zx`/`sms`/`cpc`/`cpc464`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); selected systems build in the
+  system-list display order (128K, 48K, Next, CPC 6128, CPC 464, MSX2, C64, Oric, SMS, NES, GBC), and each system's log
+  is separated by a `==== name [id] ====` banner; the legacy
   `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
   tab edits the selection with one second-level sub-tab per platform; the Game tab keeps the shared settings
   (including Text colours).

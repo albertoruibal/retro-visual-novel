@@ -20,7 +20,8 @@ __all__ = [
     "option_key", "coerce_option", "targets_json", "selection_issues",
 ]
 
-FIRST_TARGETS = ("zx128", "zx48")
+DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx2", "c64",
+                 "oric", "sms", "nes", "gb")
 SEPARATOR_WIDTH = 72
 
 _SKIP = {"__init__", "base", "common"}
@@ -71,7 +72,7 @@ def selected_targets(doc: dict) -> list[str]:
 
 
 def ordered_targets(ids: Iterable[str]) -> list[str]:
-    """Return canonical target ids with ZX first, keeping the rest in order."""
+    """Return canonical target ids in platform display order."""
     out: list[str] = []
     for raw in ids:
         raw_id = str(raw).strip().lower()
@@ -82,9 +83,9 @@ def ordered_targets(ids: Iterable[str]) -> list[str]:
 
     def rank(target_id: str) -> int:
         try:
-            return FIRST_TARGETS.index(target_id)
+            return DISPLAY_ORDER.index(target_id)
         except ValueError:
-            return len(FIRST_TARGETS)
+            return len(DISPLAY_ORDER)
 
     return sorted(out, key=rank)
 
@@ -157,10 +158,6 @@ def targets_json(doc: dict | None = None) -> dict:
             } for option in target.options],
         })
     return {"targets": items, "selected": selected}
-
-
-DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx2", "c64",
-                 "oric", "sms", "nes", "gb")
 
 
 def _display_rank(target: Target) -> int:
