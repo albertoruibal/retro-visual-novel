@@ -444,6 +444,7 @@ async function uploadArt(file, art) {
     $("genstatus").textContent = `uploaded ${file.name} (${r.bytes} bytes)`;
     drawArtView(id, "all");
     drawArtPicker(id);
+    renderSidebar();
   } catch (e) {
     $("genstatus").textContent = "error: " + e.message;
   } finally {
@@ -469,12 +470,14 @@ async function deleteImageCandidate(kind, id, name) {
       $("genstatus").textContent = `deleted ${name}`;
       drawRefView(id);
       drawRefPicker(id);
+      renderSidebar();
     } else {
       const a = P.arts.find(x => x.id === id);
       if (a) a.image = r.image || null;
       $("genstatus").textContent = `deleted ${name}`;
       drawArtView(id, "all");
       drawArtPicker(id);
+      renderSidebar();
     }
   } catch (e) {
     $("genstatus").textContent = "error: " + e.message;
@@ -540,6 +543,7 @@ function selectArtImage(id, name) {
   markDirty();
   drawArtView(id, "all");
   drawArtPicker(id);
+  renderSidebar();
 }
 
 /* Re-read the arts' `image:` pointers from the server after a generate job
@@ -562,5 +566,6 @@ async function refreshArtImages(onlyId) {
   } else {
     redrawSelection();
   }
+  renderSidebar();
 }
 

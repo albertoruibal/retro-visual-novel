@@ -25,7 +25,9 @@ let sidebarDrag = null;   // {kind, id} of the row being dragged
 /* The lists whose rows can be reordered (drag or the up/down buttons). */
 function sidebarList(kind) {
   if (!P) return null;
-  return kind === "art" ? P.arts : kind === "scene" ? P.scenes : null;
+  return kind === "art" ? P.arts
+    : kind === "scene" ? P.scenes
+      : kind === "ref" ? (P.refs || []) : null;
 }
 
 function reorderSidebarItem(kind, fromId, toId, after) {
@@ -67,6 +69,21 @@ function stepSidebarItem(kind, id, delta) {
   }
 }
 
+/* Active-image thumbnail for an art row. The `file:` query both selects the
+ * candidate and busts the browser cache when a different one is chosen. */
+function artThumbUrl(a) {
+  let url = `/api/image/${encodeURIComponent(game)}/${encodeURIComponent(a.id)}`;
+  if (a.image) url += `?file=${encodeURIComponent(a.image)}`;
+  return url;
+}
+
+/* Active-image thumbnail for a reference row (the `image:` candidate). */
+function refThumbUrl(r) {
+  let url = `/api/refimage/${encodeURIComponent(game)}/${encodeURIComponent(r.id)}`;
+  if (r.image) url += `?file=${encodeURIComponent(r.image)}`;
+  return url;
+}
+
 function sidebarItem(kind, id, label, badge, onRemove, opts = {}) {
   const d = document.createElement("div");
   d.className = "item" + (sel.kind === kind && sel.id === id ? " active" : "");
@@ -86,6 +103,23 @@ function sidebarItem(kind, id, label, badge, onRemove, opts = {}) {
   del.textContent = "×";
   del.title = "Delete";
   del.onclick = (e) => { e.stopPropagation(); onRemove(); };
+  if (opts.thumb) {
+    const img = document.createElement("img");
+    img.className = "thumb";
+    img.src = opts.thumb;
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.title = label;
+    img.onclick = () => name.onclick();
+    img.onerror = () => {
+      img.onerror = null;
+      img.remove();
+      d.classList.remove("has-thumb");
+    };
+    d.classList.add("has-thumb");
+    d.appendChild(img);
+  }
   d.appendChild(name);
   if (opts.reorder) {
     const moves = document.createElement("span");
@@ -166,16 +200,19 @@ function renderSidebar() {
     al.appendChild(sidebarItem("art", a.id, a.id,
       `${P.scenes.filter(s => s.art === a.id).length} sc`,
       () => removeArt(a.id),
-      { reorder: true, first: i === 0, last: i === P.arts.length - 1 }));
+      { reorder: true, first: i === 0, last: i === P.arts.length - 1,
+        thumb: artThumbUrl(a) }));
   });
   if (!P.arts.length) al.innerHTML = "<div class='empty'>no art</div>";
   const rl = $("reflist");
   if (rl) {
     rl.innerHTML = "";
-    (P.refs || []).forEach((r) => {
+    (P.refs || []).forEach((r, i) => {
       const uses = P.arts.filter(a => (a.refs || []).includes(r.id)).length;
       rl.appendChild(sidebarItem("ref", r.id, r.id, `${uses} art`,
-        () => removeRef(r.id)));
+        () => removeRef(r.id),
+        { reorder: true, first: i === 0, last: i === P.refs.length - 1,
+          thumb: refThumbUrl(r) }));
     });
     if (!(P.refs || []).length) rl.innerHTML = "<div class='empty'>no references</div>";
   }

@@ -73,6 +73,7 @@ async function uploadRef(file, ref) {
     $("genstatus").textContent = `uploaded ${file.name} (${res.bytes} bytes)`;
     drawRefView(id);
     drawRefPicker(id);
+    renderSidebar();
   } catch (e) {
     $("genstatus").textContent = "error: " + e.message;
   } finally {
@@ -133,6 +134,7 @@ function selectRefImage(id, name) {
   markDirty();
   drawRefView(id);
   drawRefPicker(id);
+  renderSidebar();
 }
 
 async function refreshRefImages(onlyId) {
@@ -149,6 +151,7 @@ async function refreshRefImages(onlyId) {
     drawRefView(sel.id);
     drawRefPicker(sel.id);
   }
+  renderSidebar();
 }
 
 /* Pick which references condition an art's generation (its `refs:` line). */
