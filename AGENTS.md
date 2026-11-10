@@ -362,7 +362,8 @@ There is no test suite and no configured linter. Verify by:
   pointwise modes share `zxart._threshold_grid`, and error diffusion runs the shared `_DIFFUSE` tap order in the fixed
   raster order in both. **Monochrome targets force dithering**: `zxart.mono_dither()` maps `off` to
   `zxart.DEFAULT_MONO_DITHER` (`bayer2`) for the 1-bit Oric HIRES converter (`tools/oricart.py`), because a hard
-  threshold would leave only black and white; CPC Mode 1 already ordered-dithers its mono ramp in `cpcart.py`.
+  threshold would leave only black and white; CPC Mode 1 uses the same full dither list in `cpcart.py`, substituting
+  its historical `bayer4` for `off` so a hard threshold never throws away the grey ramp.
 - **More source-conversion options keep colour** (all baked at conversion time, so the engine carries no state):
   `match:` (`rgb` or the `perceptual` redmean distance, `zxart._dist_py`/`_dist_rgb`), `palette:` (`none`/`spectrum`/
   `adaptive`, `zxart._apply_palette`) and the `saturation`/`contrast`/`brightness`/`gamma` source adjustments

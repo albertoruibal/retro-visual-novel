@@ -15,8 +15,10 @@ the screen, and scatters the chunks to rows 1..art_rows.
 
 Mode 1 is monochrome: its four pens are a black/grey/white ramp shared by the
 picture and the text, so the configured text colours do not apply there.  The
-luminance is ordered-dithered onto the ramp; the regular Bayer pattern packs far
-smaller than error diffusion in the CPC's four extra banks.  In
+luminance is dithered onto the ramp with the system's ``dither:`` setting (an
+``off`` setting falls back to the historical 4x4 Bayer pattern); the regular
+ordered patterns pack far smaller than error diffusion in the CPC's four extra
+banks, but every scheme is available.  In
 Modes 0 and 2 palette entry 0 is the configured ``text_bg:`` (default black)
 because the runtime clears the title/text pane to pen 0.  The last entry is
 ``text_ink:`` and the one before it ``highlight_ink:`` (Mode 2 uses the text ink
@@ -195,29 +197,112 @@ def _fit(im, crop, art_rows, mode):
     return im
 
 
-def _mono_pixels(im, art_rows, ninks):
-    """Ordered-dither a luminance image onto the Mode 1 pen ramp.
+def _threshold_at(mode, x, y):
+    """Dither threshold at ``(x, y)`` for an ordered or noise scheme."""
+    import zxart
+    if mode == "noise":
+        return zxart._noise_value(x, y)
+    matrix = {"bayer2": zxart.BAYER2, "bayer8": zxart.BAYER8}.get(
+        mode, zxart.BAYER4)
+    size = len(matrix)
+    return matrix[y % size][x % size]
 
-    Error diffusion (Floyd-Steinberg) resolves the ramp well but produces
-    high-frequency noise that compresses poorly: the CPC 6128 only has four
-    extra 16K banks for every art and song, and a full game can overflow them.
-    A 4x4 Bayer matrix keeps the same number of levels with a regular pattern
-    that ZX0 packs into far fewer bytes.
+
+def _mono_pixels(im, art_rows, ninks, dither=None):
+    """Dither a luminance image onto the Mode 1 pen ramp.
+
+    The CPC 6128 only has four extra 16K banks for every art and song, so a
+    regular ordered pattern (the default) packs best.  The system's ``dither:``
+    setting selects any scheme from ``zxart.DITHER_MODES``; ``off`` keeps the
+    historical 4x4 Bayer pattern because a hard threshold would throw the grey
+    ramp away.
     """
     import zxart
     width, _inks, _ppb = mode_info(1)
     height = 8 * int(art_rows)
+    mode = zxart.dither_mode(dither)
+    if mode == "off":
+        mode = "bayer4"
     pix = im.convert("L").load()
-    matrix = zxart.BAYER4
-    size = len(matrix)
     max_level = ninks - 1
     out = []
+    kernel = zxart._DIFFUSE.get(mode)
+    if kernel:
+        err = [[pix[x, y] / 255.0 * max_level for x in range(width)]
+               for y in range(height)]
+        wdiv, taps = kernel
+        for y in range(height):
+            for x in range(width):
+                value = err[y][x]
+                level = max(0, min(max_level, int(value + 0.5)))
+                out.append(level)
+                delta = value - level
+                for dx, dy, weight in taps:
+                    x2, y2 = x + dx, y + dy
+                    if 0 <= x2 < width and 0 <= y2 < height:
+                        err[y2][x2] += delta * weight / wdiv
+        return out
     for y in range(height):
-        row = matrix[y % size]
         for x in range(width):
             value = pix[x, y] / 255.0 * max_level
-            level = int(value + row[x % size])
+            level = int(value + _threshold_at(mode, x, y))
             out.append(max(0, min(max_level, level)))
+    return out
+
+
+def _quantize(im, inks, mode, width, height):
+    """Quantise ``im`` to indices into ``inks`` with the selected dither.
+
+    ``off`` snaps each pixel to the nearest ink.  Ordered/noise schemes pick
+    between the two nearest inks by how close the pixel is to each (the same
+    rule as NIRVANA+'s two-colour cells).  The error-diffusion kernels scatter
+    each pixel's RGB error to the unvisited neighbours.
+    """
+    import zxart
+    pix = im.load()
+    colours = [CPC_PALETTE[i % len(CPC_PALETTE)] for i in inks]
+    out = []
+    kernel = zxart._DIFFUSE.get(mode)
+    if kernel:
+        err = [[list(pix[x, y]) for x in range(width)] for y in range(height)]
+        wdiv, taps = kernel
+        for y in range(height):
+            for x in range(width):
+                r, g, b = err[y][x]
+                best, bestd = 0, None
+                for k, (pr, pg, pb) in enumerate(colours):
+                    d = _dist((r, g, b), (pr, pg, pb))
+                    if bestd is None or d < bestd:
+                        best, bestd = k, d
+                out.append(best)
+                pr, pg, pb = colours[best]
+                er, eg, eb = r - pr, g - pg, b - pb
+                for dx, dy, weight in taps:
+                    x2, y2 = x + dx, y + dy
+                    if 0 <= x2 < width and 0 <= y2 < height:
+                        q = err[y2][x2]
+                        q[0] += er * weight / wdiv
+                        q[1] += eg * weight / wdiv
+                        q[2] += eb * weight / wdiv
+        return out
+    for y in range(height):
+        for x in range(width):
+            c = pix[x, y]
+            da = db = None
+            ia = ib = 0
+            for k, colour in enumerate(colours):
+                d = _dist(c, colour)
+                if da is None or d < da:
+                    db, ib = da, ia
+                    da, ia = d, k
+                elif db is None or d < db:
+                    db, ib = d, k
+            if mode == "off" or db is None:
+                out.append(ia)
+                continue
+            total = da + db
+            fraction = db / total if total else 0.0
+            out.append(ib if fraction > _threshold_at(mode, x, y) else ia)
     return out
 
 
@@ -225,8 +310,8 @@ def _convert(im, conv=None, options=None, text_ink=None, highlight_ink=None,
              text_bg=None):
     """Return ``(preview_rgb_image, ink_bytes, palette)`` for a source image.
 
-    Mode 1 converts the picture to an ordered-dithered black/grey/white
-    luminance ramp whose four pens are shared with the text.  In Modes 0 and 2
+    Mode 1 converts the picture to a dithered black/grey/white luminance ramp
+    whose four pens are shared with the text.  In Modes 0 and 2
     palette entry 0 is the configured text background, and the last two entries
     hold the configured highlight and text inks (Mode 2 only has room for the
     text ink).  The runtime clears the title/text pane to pen 0, so entry 0
@@ -265,10 +350,9 @@ def _convert(im, conv=None, options=None, text_ink=None, highlight_ink=None,
 
     if mode == 1:
         # A mono picture needs dithering to resolve more than the three neutral
-        # inks, so ignore the (default-off) colour dither and always ordered-
-        # dither: it compresses far better than error diffusion.
+        # inks; the system's setting chooses the scheme (off keeps Bayer 4x4).
         inks = list(MONO_INKS)
-        raw_ink = _mono_pixels(im, art_rows, ninks)
+        raw_ink = _mono_pixels(im, art_rows, ninks, conv.get("dither"))
     else:
         selected = _select_inks(im, ninks)
         if ninks > 2:
@@ -280,16 +364,8 @@ def _convert(im, conv=None, options=None, text_ink=None, highlight_ink=None,
             keep = [i for i in selected
                     if i != text_ink and i != text_bg][:ninks - 2]
             inks = [text_bg] + keep + [text_ink]
-        dither_mode = str(conv.get("dither") or "off").lower()
-        dither = (Image.Dither.NONE if dither_mode == "off"
-                  else Image.Dither.FLOYDSTEINBERG)
-        flat = []
-        for i in range(256):
-            flat.extend(CPC_PALETTE[inks[i % ninks]])
-        pal_img = Image.new("P", (1, 1))
-        pal_img.putpalette(flat)
-        q = im.quantize(palette=pal_img, dither=dither)
-        raw_ink = [int(v) % ninks for v in q.getdata()]
+        dither_mode = zxart.dither_mode(conv.get("dither"))
+        raw_ink = _quantize(im, inks, dither_mode, width, 8 * art_rows)
 
     # Rebuild a clean RGB preview from the normalised ink indices.
     out = Image.new("RGB", (width, 8 * art_rows))

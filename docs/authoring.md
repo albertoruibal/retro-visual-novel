@@ -217,12 +217,13 @@ the Game tab's `text_ink:`; any colour token from the [text colours](#game-setti
 variant or `dim_black`…`dim_white` — selects an exact Spectrum ink. The boot password screen's game title uses the
 same colour.
 
-`dither:` (default `off`) picks how each pixel chooses between its cell's colours, per build system. The ZX 128K/48K and
-Oric targets accept the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered matrices from
-coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
+`dither:` (default `off`) picks how each pixel chooses between its cell's colours, per build system. The ZX 128K/48K,
+CPC and Oric targets accept the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered matrices
+from coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
 error-diffusion kernels (jarvis smoothest, atkinson highest contrast). The other targets accept `off` or `floyd`
 (Floyd-Steinberg). Monochrome targets cannot honour `off` (a hard threshold would leave only black and white), so
-`zx48` and `oric` substitute a 2x2 Bayer dither, and CPC Mode 1 always ordered-dithers its black/grey/white ramp. Set
+`zx48` and `oric` substitute a 2x2 Bayer dither, and CPC Mode 1 substitutes a 4x4 Bayer dither for its
+black/grey/white ramp. Set
 it in each system's block so one game can use an ordered pattern on ZX and Floyd-Steinberg where the palette is
 richer. Older files with a single `# Game dither:` line migrate it to each selected system on load; a per-art
 `dither:` is dropped, because art no longer owns that setting.

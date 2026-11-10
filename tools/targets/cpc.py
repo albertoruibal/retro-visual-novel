@@ -270,10 +270,12 @@ def cpc_options(default_rows=12):
                      "14 and 16 need Mode 2 (fewer text rows remain).",
                      minimum=8, maximum=16),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
-                     scenefile.DITHER_BINARY_MODES,
-                     help="Modes 0/2: off snaps to the nearest colour, floyd "
-                          "uses Floyd-Steinberg. Mode 1 is monochrome and "
-                          "always ordered-dithers its grey ramp."),
+                     scenefile.DITHER_MODES,
+                     help="off snaps to the nearest colour; bayer2/bayer4/"
+                          "bayer8 and noise ordered-dither the palette; floyd, "
+                          "atkinson, jarvis, stucki and sierra diffuse the "
+                          "error (smoother, but larger blobs). Mode 1's grey "
+                          "ramp always dithers (off uses Bayer 4x4)."),
         TargetOption("menu", "Pop-up options", "bool", False,
                      help="Modes 1/2 only: use the SPACE-key dialog instead of "
                           "pinned options and the inventory row. Mode 0 "

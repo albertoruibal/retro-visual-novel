@@ -10,8 +10,11 @@ the compressed art/song blobs from the disk instead of paging the extra banks.
   and `SPACE` closes; a long item description scrolls with up/down); Modes 1/2 keep the text pane with pinned options
   unless the system sets `menu: popup`, which gives them the same `SPACE`-key dialog.
 - **Art:** `mode_width` x `8 * art_rows` (160/320/640 wide); Mode 1 is 320 x `8 * art_rows`. Mode 1 is monochrome:
-  the source is reduced to luminance and ordered-dithered (4x4 Bayer) onto a black/grey/white Gate Array ramp,
-  using all four Mode 1 pens; the regular pattern keeps the packed art small enough for the four extra banks.
+  the source is reduced to luminance and dithered onto a black/grey/white Gate Array ramp, using all four Mode 1 pens.
+  `dither:` selects the scheme on every mode: `off` snaps to the nearest ink (Mode 1 substitutes a 4x4 Bayer dither
+  because a hard threshold would throw the ramp away), `bayer2`/`bayer4`/`bayer8` and `noise` are ordered/noise
+  patterns, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are error-diffusion kernels. The ordered patterns
+  keep the packed art smallest; error diffusion is smoother but produces larger blobs, so watch the four extra banks.
   The band uses the CPC screen's 4:3 physical proportions and is fitted to the mode's pixel grid, so the wide
   Mode 0 pixels and narrow Mode 2 pixels neither change the framing nor stretch the picture; the editor previews show
   the same physical aspect for every mode. An explicit `crop:` keeps its full width and re-centres the vertical window
@@ -42,7 +45,7 @@ the compressed art/song blobs from the disk instead of paging the extra banks.
   frame-flyback ISR. The module is ZX0-decoded into `SONG_WS_ADDR` (`SONG_WS_SIZE` bytes after decompression, above
   the scene/inventory buffer and below `0xA600`); the CRT heap is capped at `CPC_WS_BASE`, `BANK_2` stays free, and
   the map guard checks the linked BSS ends before the fixed workspaces. Press `P` to toggle music.
-- **Options:** `mode`, `columns`, `art_rows`, and `menu: popup` (Modes 1/2; Mode 0 always uses the dialog).
+- **Options:** `mode`, `columns`, `art_rows`, `dither`, and `menu: popup` (Modes 1/2; Mode 0 always uses the dialog).
   The dialog key is `SPACE`; `ENTER`/fire confirms.
 - **Controls:** arrow keys or W/A/S/D move the cursor; Enter or the joystick fire button chooses (Space also chooses
   on the pinned Modes 1/2 layout). `P` toggles music. In Mode 0 up/down scrolls long scene text (left/right moves
