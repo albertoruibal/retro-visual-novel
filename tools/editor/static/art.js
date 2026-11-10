@@ -53,7 +53,7 @@ function fitCropToBand(rect, natW, natH) {
 
 /* Selected build systems for Art-tab previews. The Systems tab is the
  * source of truth; ZX is the backward-compatible default. */
-const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx2", "sms", "gb", "c64", "nes", "oric"];
+const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx2", "c64", "oric", "sms", "nes", "gb"];
 function previewTargets() {
   const list = typeof gameTargets === "function" ? gameTargets() : ["zx128"];
   const rank = (id) => {
