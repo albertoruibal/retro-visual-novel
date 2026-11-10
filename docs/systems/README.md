@@ -11,14 +11,14 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 | ZX Spectrum 128K | [zx128.md](zx128.md) | `.tap`, `.sna` |
 | ZX Spectrum 48K | [zx48.md](zx48.md) | `.tap` |
 | ZX Spectrum Next | [next.md](next.md) | `.nex` |
-| Sega Master System | [sms.md](sms.md) | `.sms` |
-| Amstrad CPC 6128 | [cpc.md](cpc.md) | `.dsk` |
-| Amstrad CPC 464 | [cpc464.md](cpc464.md) | `<slug>-cpc464.dsk` |
-| MSX2 (V9938) | [msx2.md](msx2.md) | `.rom` |
-| Nintendo Game Boy Color | [gb.md](gb.md) | `.gbc` |
-| Commodore 64 | [c64.md](c64.md) | `.prg` |
-| Nintendo Entertainment System | [nes.md](nes.md) | `.nes` |
-| Oric Atmos | [oric.md](oric.md) | `<slug>-oric.tap` |
+| Sega Master System (alpha) | [sms.md](sms.md) | `.sms` |
+| Amstrad CPC 6128 (alpha) | [cpc.md](cpc.md) | `.dsk` |
+| Amstrad CPC 464 (alpha) | [cpc464.md](cpc464.md) | `<slug>-cpc464.dsk` |
+| MSX2 (V9938) (alpha) | [msx2.md](msx2.md) | `.rom` |
+| Nintendo Game Boy Color (alpha) | [gb.md](gb.md) | `.gbc` |
+| Commodore 64 (alpha) | [c64.md](c64.md) | `.prg` |
+| Nintendo Entertainment System (alpha) | [nes.md](nes.md) | `.nes` |
+| Oric Atmos (alpha) | [oric.md](oric.md) | `<slug>-oric.tap` |
 
 Targets are discovered from `tools/targets/` and selected under `## Systems` in `game.md`:
 
