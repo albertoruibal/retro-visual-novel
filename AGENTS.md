@@ -654,8 +654,9 @@ There is no test suite and no configured linter. Verify by:
   boots without its story. The guard reads the z88dk map, whose labels are uppercase. Songs are packed into ROM banks
   after the art banks
   (`build/port_song.asm`); `plat_load(PLAT_LOAD_SONG)` maps the song bank, decodes `0x8000+off+2` into the BSS
-  workspace, restores bank 1, and the VDP IM1 ISR drives the VT2 player. Screen 7 and the V9938 palette are set through
-  the BIOS/CHGMOD path; `plat_msx2.c` writes VRAM with R#14 page handling.
+  workspace, restores bank 1, and the VDP IM1 ISR drives the VT2 player at 50 Hz (five of six frames on a 60 Hz NTSC
+  VDP, detected from the `NT` bit of the BIOS `REG9SAV` shadow at `0xFFE8`, every frame on 50 Hz PAL). Screen 7 and
+  the V9938 palette are set through the BIOS/CHGMOD path; `plat_msx2.c` writes VRAM with R#14 page handling.
 - **Game Boy Color runtime:** `tools/gen_port.py --gb` stores scene/inventory blobs raw (no SM83 ZX0 decoder) in MBC1
   banks: `port_data.c` metadata stays in bank 0, scenes/inventory start at bank 1 and art follows. `plat_gb.c` draws a
   20x18 screen (title row 0, art rows 1..`gb_art_rows`, text from `1+art_rows` through row 17). The CGB background has

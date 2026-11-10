@@ -35,7 +35,9 @@
   data). `tools/targets/msx2.py` checks the map for this and fails the build instead of writing a dead ROM.
 - **Sound:** `# Game songs:` / per-scene `music:` PT3 modules play through z88dk's VT2 player from the VDP IM1
   interrupt. The module is ZX0-decoded from its ROM bank into a `SONG_WS_SIZE` BSS buffer; `build/port_song.asm` packs
-  the songs after the art banks. Press `P` to toggle music.
+  the songs after the art banks. Press `P` to toggle music. The player runs at 50 Hz like every other target: on a
+  60 Hz NTSC VDP (R#9 `NT` clear, read from the BIOS `REG9SAV` shadow) the ISR advances it five frames in six, while a
+  50 Hz PAL VDP advances it every frame.
 - **Options:** `art_rows` (8, 10 or 12, default 12), `columns` (64 or 80, default 64) and `menu: popup` for the
   action dialog.
 - **Build:** `zcc +msx -subtype=rom2`, then `build/port_art.asm`; output `<slug>.rom`. The scene/inventory and per-strip art

@@ -128,11 +128,22 @@ static void build_font_cells(const unsigned char *raw)
 
 #if N_SONGS > 0
 static unsigned char song_buf[SONG_WS_SIZE];
+static unsigned char music_ntsc;
+static unsigned char music_acc;
 
 static void music_isr(void)
 {
     M_PRESERVE_MAIN;
     M_PRESERVE_INDEX;
+    if (music_ntsc) {
+        music_acc += 5;
+        if (music_acc < 6) {
+            M_RESTORE_INDEX;
+            M_RESTORE_MAIN;
+            return;
+        }
+        music_acc -= 6;
+    }
     ay_vt2_play();
     M_RESTORE_INDEX;
     M_RESTORE_MAIN;
@@ -145,6 +156,7 @@ unsigned char *plat_song_ws(void)
 
 void plat_music_hook(unsigned char on)
 {
+    music_acc = 0;
     (void)on;
 }
 #endif
@@ -161,6 +173,9 @@ void plat_init(void)
     plat_clear();
 #if N_SONGS > 0
     ay_vt2_stop();
+    /* VDP R#9 bit 1 (BIOS shadow REG9SAV) is set on 50 Hz PAL machines; a
+       60 Hz NTSC VDP then has to feed the 50 Hz PT3 player five frames in six. */
+    music_ntsc = ((*(volatile unsigned char *)0xFFE8 & 0x02) == 0);
     im1_init();
     add_raster_int(music_isr);
 #endif
