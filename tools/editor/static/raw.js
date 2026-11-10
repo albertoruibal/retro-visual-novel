@@ -218,6 +218,7 @@ async function loadRaw() {
     const ed = await createRawEditor();
     const r = await api("GET", "/api/raw");
     setRawValue(r.text);
+    rawRevision = r.revision || null;
     clearRawDirty();
     ed.layout();
     renderRawStatus("saved", "ok");
@@ -235,7 +236,25 @@ async function saveRaw() {
   btn.disabled = true;
   renderRawStatus("saving…");
   try {
-    await api("PUT", "/api/raw", { text: rawEditor ? rawEditor.getValue() : "" });
+    const body = { text: rawEditor ? rawEditor.getValue() : "",
+                   revision: rawRevision };
+    let r;
+    try {
+      r = await api("PUT", "/api/raw", body);
+    } catch (e) {
+      if (e.status !== 409) throw e;
+      const ok = confirm(
+        "game.md was changed on disk by another user or process since you " +
+        "opened the Source tab.\n\nOK: overwrite their changes with your " +
+        "version.\nCancel: keep this buffer; Reload to load theirs.");
+      if (!ok) {
+        renderRawStatus("not saved — game.md changed on disk", "bad");
+        return;
+      }
+      r = await api("PUT", "/api/raw",
+                    Object.assign({}, body, { force: true }));
+    }
+    rawRevision = r.revision || null;
     clearRawDirty();
     await load();
     renderRawStatus("saved — reloaded project", "ok");

@@ -49,14 +49,8 @@ function emuTargetMeta(id) {
   return list.find((t) => t.id === id) || null;
 }
 function emuTargets() {
-  /* Only the systems ticked in the Systems tab get an emulator entry, except
-   * that either CPC target offers both models (the 464 disk is a separate
-   * build of the same story). */
+  /* Only the systems ticked in the Systems tab get an emulator entry. */
   const ids = ((typeof gameTargets === "function") ? gameTargets() : ["zx128"]).slice();
-  if (ids.includes("cpc") || ids.includes("cpc464")) {
-    for (const id of ["cpc", "cpc464"])
-      if (!ids.includes(id)) ids.push(id);
-  }
   const rank = (id) => {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
@@ -241,9 +235,6 @@ function updateEmuHint() {
   if (gameTargets().includes("next"))
     hint.innerHTML += "<br>ZX Next builds a <code>.nex</code>; run it with ZEsarUX " +
       "(<code>python3 tools/build.py run &lt;game&gt; next</code>).";
-  if (meta.id === "cpc464" && !gameTargets().includes("cpc464"))
-    hint.innerHTML += "<br>CPC 464 is not in the build selection; enable " +
-      "<b>Amstrad CPC 464</b> in Systems and Build to create the disk.";
 }
 
 async function refreshRunButton() {

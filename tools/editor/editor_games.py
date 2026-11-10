@@ -2,9 +2,42 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from server import *  # noqa: F401,F403 - shared state and helpers
 
 from editor_validation import *
+
+
+class _SaveConflict(ValueError):
+    """Raised when game.md changed on disk since the editor loaded it."""
+
+    def __init__(self, message, revision=""):
+        super().__init__(message)
+        self.revision = revision
+
+
+def _game_md_revision(path):
+    """Content hash of game.md, used to spot an out-of-band edit on save."""
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except FileNotFoundError:
+        return ""
+
+
+def _check_revision(path, expected):
+    """Refuse to save when ``path`` no longer matches the loaded revision.
+
+    ``expected=None`` skips the check (internal writers that re-read the file
+    themselves). An empty string means the file did not exist when loaded.
+    """
+    current = _game_md_revision(path)
+    if expected is not None and current != expected:
+        raise _SaveConflict(
+            "game.md was modified on disk since you loaded it", current)
+    return current
+
 
 def _game_or_error(slug):
     """Resolve a slug to an existing game, raising KeyError otherwise."""
@@ -167,7 +200,8 @@ def delete_art_image(slug, art_id, filename):
         image = newest
     else:
         image = explicit or newest
-    return {"art": art_id, "deleted": filename, "image": image}
+    return {"art": art_id, "deleted": filename, "image": image,
+            "revision": _game_md_revision(md)}
 
 
 
@@ -195,7 +229,8 @@ def delete_ref_image(slug, ref_id, filename):
         image = newest
     else:
         image = explicit or newest
-    return {"ref": ref_id, "deleted": filename, "image": image}
+    return {"ref": ref_id, "deleted": filename, "image": image,
+            "revision": _game_md_revision(md)}
 
 
 # Fields an art issue can be annotated onto: the art's `refs:`/`image:`/`crop:`
@@ -243,6 +278,7 @@ def project_json(slug):
                      "item": n in item_list} for n in order]
     doc["issues"] = _validate(doc, game["slug"])
     doc["game_slug"] = game["slug"]
+    doc["revision"] = _game_md_revision(md)
     try:
         rel_md = os.path.relpath(md, ROOT)
     except ValueError:          # different drive (Windows): use the absolute path
@@ -338,12 +374,16 @@ def _migrate_song_files(old_doc, doc, mdir):
 
 
 
-def _write_game_md(slug, content):
+def _write_game_md(slug, content, expected_revision=None):
     """Validate and atomically write game.md (kept as .bak). Returns warn count.
 
     On an error the write is refused and ``_ValidationFailed`` (a ValueError)
     is raised carrying the issues with their source lines, so the editor can
     mark them. ``str(exc)`` remains the friendly newline list.
+
+    ``expected_revision`` (the hash the editor loaded) refuses the write with
+    ``_SaveConflict`` when another user/process changed game.md in the meantime;
+    internal callers leave it ``None`` because they re-read the file first.
     """
     doc = scenefile.parse(content)
     issues = _validate(doc, slug)
@@ -352,15 +392,17 @@ def _write_game_md(slug, content):
     if errors:
         raise _ValidationFailed(issues)
     path = _game_md_path(slug)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(content)
-    if os.path.exists(path):
-        old_doc = scenefile.parse(path)
-        mdir = os.path.join(gamestore.resolve(slug)["dir"], "assets", "music")
-        _migrate_song_files(old_doc, doc, mdir)
-        shutil.copyfile(path, path + ".bak")
-    os.replace(tmp, path)
+    with _lock:
+        _check_revision(path, expected_revision)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(content)
+        if os.path.exists(path):
+            old_doc = scenefile.parse(path)
+            mdir = os.path.join(gamestore.resolve(slug)["dir"], "assets", "music")
+            _migrate_song_files(old_doc, doc, mdir)
+            shutil.copyfile(path, path + ".bak")
+        os.replace(tmp, path)
     return len([i for i in issues if i.get("level") == "warn"])
 
 
@@ -384,28 +426,34 @@ def lint_game_md(slug, content):
 
 
 
-def save_project(doc, slug):
+def save_project(doc, slug, expected_revision=None):
     from editor_images import _drop_art_overrides
-    """Write <game>/game.md atomically, keeping a .bak of the previous file."""
+    """Write <game>/game.md atomically, keeping a .bak of the previous file.
+
+    ``expected_revision`` refuses the save with ``_SaveConflict`` when another
+    user/process edited game.md after the editor loaded it.
+    """
     game = _game_or_error(slug)
     md = os.path.join(game["dir"], "game.md")
     gen_dir = os.path.join(game["dir"], "assets", "gen")
     mdir = os.path.join(game["dir"], "assets", "music")
     ref_root = _ref_root(game["dir"])
     _drop_art_overrides(doc)
-    if os.path.exists(md):
-        # Migrate renamed-art/reference folders (and copy the old `image:`
-        # pointers) before serialising, so they are written in this save.
-        old_doc = scenefile.parse(md)
-        _migrate_art_files(old_doc, doc, _art_root(game["dir"]), gen_dir)
-        _migrate_ref_files(old_doc, doc, ref_root)
-        _migrate_song_files(old_doc, doc, mdir)
-        shutil.copyfile(md, md + ".bak")
-    text = scenefile.serialize(doc)
-    tmp = md + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, md)
+    with _lock:
+        _check_revision(md, expected_revision)
+        if os.path.exists(md):
+            # Migrate renamed-art/reference folders (and copy the old `image:`
+            # pointers) before serialising, so they are written in this save.
+            old_doc = scenefile.parse(md)
+            _migrate_art_files(old_doc, doc, _art_root(game["dir"]), gen_dir)
+            _migrate_ref_files(old_doc, doc, ref_root)
+            _migrate_song_files(old_doc, doc, mdir)
+            shutil.copyfile(md, md + ".bak")
+        text = scenefile.serialize(doc)
+        tmp = md + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, md)
     return text
 
 
@@ -446,6 +494,8 @@ __all__ = [
     '_game_or_error',
     '_game_md_path',
     '_write_game_md',
+    '_game_md_revision',
+    '_SaveConflict',
     'lint_game_md',
     '_art_root',
     '_art_legacy_dir',

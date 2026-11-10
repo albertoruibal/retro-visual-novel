@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Convert a game's game.md into a banked scene+art store for the 128K adventure.
+"""Convert a game's game.md into a ZX scene/art data store.
+
+The 128K/Next build gets a banked scene+art store; the 48K build gets a
+lower-RAM scene store plus monochrome art/inventory arrays in the main image.
 
 The input is ``games/<slug>/game.md`` (or any path); the outputs are written
 into the same game folder. Since the 128K build pages data in/out of 0xC000,
@@ -203,10 +206,11 @@ BANK_MAGIC = 0x5C        # first byte of every resident bank
 # game to the largest raw scene blob; the linked main-image check in
 # tools/build.py is the real ceiling (it must stay below the NIRVANA+ engine).
 # _art_ws (src/zx/paging.asm) is a single buffer sized per game (ART_WS_SIZE) to
-# hold the largest art blob (map[8*L] + 48-byte tiles) or the inventory blob,
-# decoded into the same buffer while the item screen is open. A NIRVANA+ tile
-# row is 16px = 2 character rows, so L = the ZX `art_rows` option and the tile map is
-# 8*L bytes (default L=10 -> map[80], max blob 80 + 80*48 = 3920).
+# hold the largest art blob or the inventory blob, decoded into the same buffer
+# while the item screen is open. On 128K/Next an art is map[8*L] + 48-byte
+# bicolor tiles; on 48K it is a packed 1bpp 256 x 8*L band. A ZX tile row is
+# 16px = 2 character rows, so L = the ZX `art_rows` option (default L=10 ->
+# map[80], max 128K blob 80 + 80*48 = 3920; 48K band 256*8*L bytes).
 # AY song module ceiling. The ZX workspace lives in lower RAM after _stage_ws
 # (src/zx/plat_zx.c); CPC/MSX2 use their own resident buffers. A module larger
 # than this is rejected before packing.
@@ -216,10 +220,10 @@ SONG_WS = 4158
 # 0x8000). Every compressed blob must fit here; checked below.
 STAGE_WS_MAX = 0x8000 - 0x6000
 
-# 48K flat build: every compressed blob lives in the lower-RAM window at
-# 0x6000. The top 1 KB (0x7C00-0x7FFF) is reserved for the stack, so the ROM
-# loader and the NIRVANA+ ISR never clobber the data. The linker check in
-# tools/build.py caps the main image below the engine at 0xDC03.
+# 48K flat build: the compressed scenes live in the lower-RAM window at
+# 0x6000. The top 1 KB (0x7C00-0x7FFF) is reserved for the stack. Art and
+# inventory are linked into the main image (there is no NIRVANA+ engine, so the
+# image may use 0x8000-0xFFFF); tools/build.py checks both budgets.
 FLAT_DATA_ADDR = 0x6000
 FLAT_DATA_MAX = 0x1C00          # 7168 bytes, leaving 1 KB for the stack
 
@@ -663,7 +667,7 @@ def build_inv_blob(item_list, flag_map, item_meta, ui, carry, idmap,
 
 
 def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None):
-    """Convert an art's source PNG to a (map+tiles) blob, or None if absent.
+    """Convert an art's source PNG to a blob, or None if absent.
 
     The image is the art's ``image:`` candidate under ``art_root``/``<id>/``
     (``art_root`` is the game's ``assets/art``); absent (or an unmigrated game)
@@ -674,17 +678,26 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None):
     band-aspect window), the system's dither scheme assigns pixels, and match /
     palette / colour adjustments are applied before quantisation. ``rows`` is the band
     height in 16px tile rows (from the ZX `art_rows` option).
+
+    The 128K build returns a NIRVANA+ (map+tiles) blob. The flat 48K build has
+    no NIRVANA+ engine, so it returns a packed 1bpp monochrome band instead.
     """
     conv = conv or {}
     path = scenefile.resolve_art_image(art_root, a, legacy_dir)
     if path and os.path.exists(path):
         from PIL import Image
         import zxart
+        im = Image.open(path).convert("RGB")
+        if scene_flat():
+            return zxart.mono_band(
+                im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
+                rows=rows, adjust=conv.get("adjust"),
+                palette=conv.get("palette", "none"),
+                palette_colors=conv.get("palette_colors")), path
         grid = zxart.nirvana_band(
-            Image.open(path).convert("RGB"), crop=conv.get("crop"),
-            dither=conv.get("dither", "off"), rows=rows,
-            match=conv.get("match", "rgb"), adjust=conv.get("adjust"),
-            palette=conv.get("palette", "none"),
+            im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
+            rows=rows, match=conv.get("match", "rgb"),
+            adjust=conv.get("adjust"), palette=conv.get("palette", "none"),
             palette_colors=conv.get("palette_colors"))
         return zxart.band_to_art(grid, rows=rows)[2], path
     return None, None
@@ -1373,16 +1386,17 @@ def main():
 
     # --- load art + song blobs -------------------------------------------
     # Each art resolves its own conversion settings against the `# Game`
-    # defaults (dither, colour match, palette pre-reduction, source colour
-    # adjustments) via the shared scenefile resolver, so a per-art override and
-    # the editor's preview always agree with the build.
-    art_blobs, missing = [], []
+    # defaults (colour match, palette pre-reduction, source colour adjustments)
+    # via the shared scenefile resolver, and its dither comes from this system's
+    # block, so a per-art override and the editor's preview agree with the build.
+    art_blobs, art_dither, missing = [], [], []
     for i, a in enumerate(arts):
         conv = scenefile.conversion_options(a, doc["game"], target_id)
+        art_dither.append(conv.get("dither", "off"))
         blob, path = load_art_blob(a, art_root, conv, tile_rows, gen_dir)
         if blob is None:
             missing.append(a["id"])
-            blob = bytes(art_map_len)      # blank band (tile 0)
+            blob = bytes(256 * lines) if flat else bytes(art_map_len)
         art_blobs.append(blob)
 
     music_dir = os.path.join(gdir, "assets", "music")
@@ -1409,7 +1423,8 @@ def main():
     raw_scene = [len(b) for b in scene_blobs]
     max_scene = max(raw_scene)
     ws_size = max(max_art, max_scene)
-    tile_peak = max(((len(b) - art_map_len) // 48) for b in art_blobs)
+    tile_peak = 0 if flat else max(
+        ((len(b) - art_map_len) // 48) for b in art_blobs)
     art_blob_peak = max_art
     # _art_ws (src/zx/paging.asm) must hold the largest raw art blob and the
     # inventory blob (both decoded into it); sized per game so a small band does
@@ -1437,10 +1452,16 @@ def main():
     scene_packed = [pack_blob(c) for c in scene_comp]
     song_packed = [pack_blob(c) for c in song_comp]
     inv_packed = pack_blob(inv_comp) if inv_blob is not None else b""
-    for a, raw, packed in zip(arts, raw_art, art_packed):
-        sys.stderr.write("art %s: %dB -> %dB compressed (%d tiles)\n"
-                         % (a["id"], raw, len(packed) - 2,
-                            (raw - art_map_len) // 48))
+    for a, raw, packed, dmode in zip(arts, raw_art, art_packed, art_dither):
+        if flat:
+            import zxart
+            sys.stderr.write("art %s: %dB mono (%s) -> %dB compressed\n"
+                             % (a["id"], raw, zxart.mono_dither(dmode),
+                                len(packed) - 2))
+        else:
+            sys.stderr.write("art %s: %dB -> %dB compressed (%d tiles)\n"
+                             % (a["id"], raw, len(packed) - 2,
+                                (raw - art_map_len) // 48))
     biggest = max((max((len(c) for c in art_comp), default=0),
                    max((len(c) for c in scene_comp), default=0),
                    max((len(c) for c in song_comp), default=0),
@@ -1470,12 +1491,16 @@ def main():
     inv_dir = [None]
     used = []
     flat_used = 0
+    art_data = b""
+    inv_data = b""
 
     if flat:
-        # --- flat 48K store: one resident blob at 0x6000 -----------------
-        # Every compressed blob keeps its [u16 length] prefix; the runtime
-        # decodes from FLAT_DATA_ADDR + off + 2. Bands are all zero because
-        # there is no paging; only the offsets matter.
+        # --- flat 48K store: scenes resident at 0x6000 -------------------
+        # The 48K has no NIRVANA+ engine and no paging. Scene blobs stay in
+        # the 7 KB lower-RAM store and decode from FLAT_DATA_ADDR + off + 2.
+        # Art and inventory blobs are compiled into the main image instead:
+        # monochrome art is too large for the lower window, and removing the
+        # 0xDC03 engine reservation frees the high memory for it.
         parts = bytearray()
 
         def place(blobs, directory):
@@ -1483,21 +1508,27 @@ def main():
                 directory[i] = (0, len(parts))
                 parts.extend(blob)
 
-        place(art_packed, art_dir)
         place(scene_packed, scene_dir)
-        place(song_packed, song_dir)
-        if inv_blob is not None:
-            inv_dir[0] = (0, len(parts))
-            parts.extend(inv_packed)
         flat_used = len(parts)
         if flat_used > FLAT_DATA_MAX:
             sys.exit(
-                f"48K build does not fit: compressed art/scene/inventory "
-                f"data is {flat_used}B but only {FLAT_DATA_MAX}B fits at "
+                f"48K build does not fit: compressed scene data is "
+                f"{flat_used}B but only {FLAT_DATA_MAX}B fits at "
                 "0x6000-0x7BFF (the top 1 KB of lower RAM is the stack). "
-                "Remove arts or scenes, shorten text, or use the 128K target.")
+                "Shorten scene text or options, remove scenes, or use the "
+                "128K target.")
         with open(os.path.join(bdir, "scene_flat.bin"), "wb") as f:
             f.write(bytes(parts) + bytes(FLAT_DATA_MAX - flat_used))
+        # Art and inventory live in the linked image; offsets are relative to
+        # their own arrays (the banks are unused on 48K).
+        art_parts = bytearray()
+        for i, blob in enumerate(art_packed):
+            art_dir[i] = (0, len(art_parts))
+            art_parts.extend(blob)
+        art_data = bytes(art_parts)
+        if inv_blob is not None:
+            inv_dir[0] = (0, 0)
+            inv_data = inv_packed
         # Remove bank wrappers from an earlier 128K run so a flat build never
         # links stale paged data.
         for name in ["scene_banks.asm"] + [
@@ -1624,6 +1655,15 @@ def main():
         _exact_dir_arrays(h, "song", song_dir)
     if inv_blob is not None:
         _exact_dir_arrays(h, "inv_blob", inv_dir)
+    if flat:
+        if art_data:
+            _arr(h, "art_data", "unsigned char", list(art_data), "%d")
+        else:
+            h.append("const unsigned char art_data[1] = { 0 };")
+        if inv_data:
+            _arr(h, "inv_data", "unsigned char", list(inv_data), "%d")
+        else:
+            h.append("const unsigned char inv_data[1] = { 0 };")
 
     # Per-scene song index: the scene's own `music:` override, else the
     # `# Game` default, else SONG_NONE (silence). Emitted only when the game has
@@ -1734,11 +1774,11 @@ def main():
     if flat:
         sys.stderr.write(
             "scenes: %d scenes, %d arts, 0 songs, %d flags, %d items, "
-            "art_lines=%d flat; ws=%dB art_peak=%dB tiles=%d compressed=%dB "
-            "(%dB/%dB lower RAM)\n"
+            "art_lines=%d flat; ws=%dB art_peak=%dB scene_flat=%dB/%dB "
+            "lower RAM, art=%dB inv=%dB main image\n"
             % (len(scenes), len(arts), len(flag_map), len(item_list), lines,
-               ws_size, art_blob_peak, tile_peak, packed_total, flat_used,
-               FLAT_DATA_MAX))
+               ws_size, art_blob_peak, flat_used, FLAT_DATA_MAX,
+               len(art_data), len(inv_data)))
     else:
         sys.stderr.write(
             "scenes: %d scenes, %d arts, %d songs, %d flags, %d items, "

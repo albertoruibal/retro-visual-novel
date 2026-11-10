@@ -6,8 +6,10 @@
 #include <input.h>
 #include <sys/ioctl.h>
 #include <arch/zx.h>
+#ifndef ZX48
 #include <arch/zx/nirvana+.h>
 #include <psg/vt2.h>
+#endif
 #include "port.h"
 
 /* Paged data and the art workspace live in the ZX assembly files. */

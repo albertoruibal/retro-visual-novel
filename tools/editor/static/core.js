@@ -33,6 +33,7 @@ let jobTimers = {};
 let pollingJobs = new Set();  // job ids with a live progress poller (no dupes)
 let activeJob = null;      // id of the generation job the Stop button cancels
 let rawDirty = false;      // Monaco buffer differs from the file on disk
+let rawRevision = null;    // game.md hash the Source buffer was loaded from
 let rawEditor = null;      // Monaco editor instance (Source tab), lazily created
 let monacoApi = null;      // the loaded `monaco` namespace (for markers/themes)
 let monacoP = null;        // promise resolving once Monaco is loaded
@@ -346,6 +347,7 @@ async function api(method, path, body) {
   let j; try { j = JSON.parse(t); } catch { j = { error: t }; }
   if (!r.ok) {
     const err = new Error(j.error || r.statusText);
+    err.status = r.status;    // callers may distinguish a 409 save conflict
     err.body = j;              // callers may want structured fields (e.g. issues)
     throw err;
   }

@@ -68,6 +68,7 @@ async function uploadRef(file, ref) {
     });
     $("genstatus").textContent = "uploading…";
     const res = await api("POST", "/api/upload_ref", { ref: id, data });
+    if (res.revision) P.revision = res.revision;
     const r = refById(id);
     if (r) r.image = res.image;
     $("genstatus").textContent = `uploaded ${file.name} (${res.bytes} bytes)`;
@@ -143,6 +144,7 @@ async function refreshRefImages(onlyId) {
   try { fresh = await api("GET", "/api/project"); }
   catch (_) { return; }
   if (!fresh || fresh.game_slug !== P.game_slug) return;
+  if (!dirty) P.revision = fresh.revision;
   (fresh.refs || []).forEach((f) => {
     const r = refById(f.id);
     if (r) r.image = f.image;

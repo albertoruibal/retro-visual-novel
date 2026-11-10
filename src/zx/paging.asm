@@ -185,11 +185,12 @@ PUBLIC _scene_ws
 _scene_ws:
         defs    SCENE_WS_SIZE
 
-; Art blobs (tile map[8*L] + 48-byte btiles, L = `# Game art_lines`) are
-; decompressed here before the tiles are drawn. Kept separate from _scene_ws so a
-; scene's strings survive while its art is drawn (and vice versa). Both live in
-; the fixed region below 0xC000: bank 0 is resident while the decoder writes
-; them, so the fixed region is the only always-mapped place for them.
+; Art blobs are decompressed here before they are drawn: on 128K/Next a tile
+; map[8*L] + 48-byte btiles (L = `# Game art_lines`), on 48K a packed 1bpp
+; 256 x 8*L band. Kept separate from _scene_ws so a scene's strings survive while
+; its art is drawn (and vice versa). On 128K both live in the fixed region below
+; 0xC000: bank 0 is resident while the decoder writes them, so the fixed region
+; is the only always-mapped place for them; on 48K the linked image is resident.
 ; Single-buffered: the picture lives in the screen bitmap once drawn, so the next
 ; one is decoded straight over this buffer (the engine points the ISR's sprite
 ; slots at a blank tile meanwhile). ART_WS_SIZE is sized per game by

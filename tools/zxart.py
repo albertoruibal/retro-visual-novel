@@ -384,6 +384,67 @@ def _prepare_band(im, crop, rows, adjust, palette, palette_colors):
     return _apply_palette(im, palette or DEFAULT_PALETTE, palette_colors)
 
 
+def mono_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
+              adjust=None, palette=DEFAULT_PALETTE, palette_colors=None,
+              **_ignored):
+    """Convert an image to a packed 1bpp monochrome band.
+
+    The source is fitted, colour-adjusted and palette-reduced like the colour
+    converters, then reduced to luminance and dithered. The band is BAND_W x
+    ``16*rows`` pixels (the same geometry as a NIRVANA+ band), packed row-major
+    with the most significant bit leftmost. ``off`` becomes the ordered
+    ``DEFAULT_MONO_DITHER`` (see ``mono_dither``); ordered and error-diffusion
+    schemes share the colour converters' tables.
+    """
+    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors)
+    gray = im.convert("L")
+    w, h = gray.size
+    px = gray.load()
+    mode = mono_dither(dither)
+    bits = bytearray((w * h + 7) // 8)
+    if mode in _DIFFUSE:
+        err = [[float(px[x, y]) for x in range(w)] for y in range(h)]
+        wdiv, taps = _DIFFUSE[mode]
+        for y in range(h):
+            for x in range(w):
+                value = err[y][x]
+                ink = 255 if value >= 128 else 0
+                if ink:
+                    i = y * w + x
+                    bits[i >> 3] |= 1 << (7 - (i & 7))
+                delta = value - ink
+                for dx, dy, weight in taps:
+                    x2, y2 = x + dx, y + dy
+                    if 0 <= x2 < w and 0 <= y2 < h:
+                        err[y2][x2] += delta * weight / wdiv
+        return bytes(bits)
+    grid = _threshold_grid(mode, rows)
+    for y in range(h):
+        row = grid[y]
+        for x in range(w):
+            if px[x, y] / 255.0 > row[x]:
+                i = y * w + x
+                bits[i >> 3] |= 1 << (7 - (i & 7))
+    return bytes(bits)
+
+
+def mono_image(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
+               adjust=None, palette=DEFAULT_PALETTE, palette_colors=None):
+    """Render ``mono_band`` as a black/white RGB image for editor previews."""
+    from PIL import Image
+    data = mono_band(im, crop=crop, dither=dither, rows=rows, adjust=adjust,
+                     palette=palette, palette_colors=palette_colors)
+    h, w = band_h(rows), BAND_W
+    img = Image.new("RGB", (w, h), (0, 0, 0))
+    px = img.load()
+    for y in range(h):
+        for x in range(w):
+            i = y * w + x
+            if data[i >> 3] & (1 << (7 - (i & 7))):
+                px[x, y] = (255, 255, 255)
+    return img
+
+
 def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
           palette_colors=None):
     """Quantise a PIL image to a BAND_W x band-height grid of SPEC indices.

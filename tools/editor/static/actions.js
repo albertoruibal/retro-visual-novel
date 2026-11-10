@@ -3,7 +3,17 @@
 async function save() {
   $("save").disabled = true;
   try {
-    P = await api("PUT", "/api/project", P);
+    try {
+      P = await api("PUT", "/api/project", P);
+    } catch (e) {
+      if (e.status !== 409) throw e;
+      const ok = confirm(
+        "game.md was changed on disk by another user or process since you " +
+        "loaded it.\n\nOK: overwrite their changes with your version.\n" +
+        "Cancel: keep your work and reload the game to see their edits.");
+      if (!ok) return false;
+      P = await api("PUT", "/api/project", Object.assign({}, P, { force: true }));
+    }
     try { TARGETS = await api("GET", "/api/targets"); } catch { /* keep */ }
     dirty = false; renderAll();
     if (typeof refreshEmuSystems === "function") refreshEmuSystems();

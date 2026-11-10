@@ -592,7 +592,8 @@ def upload_art(slug, art_id, data):
     _set_art_image(slug, art_id, name)
     return {"art": art_id, "image": name, "width": width, "height": height,
             "size": width if width == height else None,
-            "bytes": os.path.getsize(out)}
+            "bytes": os.path.getsize(out),
+            "revision": _game_md_revision(os.path.join(game["dir"], "game.md"))}
 
 
 REF_MAX_SIDE = 1024
@@ -648,7 +649,8 @@ def upload_ref(slug, ref_id, data, kind="up"):
         open(out, "wb").write(pngmeta.strip_png_metadata(buf.getvalue()))
     _set_ref_image(slug, ref_id, name)
     return {"ref": ref_id, "image": name, "width": width, "height": height,
-            "bytes": os.path.getsize(out)}
+            "bytes": os.path.getsize(out),
+            "revision": _game_md_revision(os.path.join(game["dir"], "game.md"))}
 
 
 

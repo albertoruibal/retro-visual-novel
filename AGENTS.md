@@ -266,10 +266,11 @@ There is no test suite and no configured linter. Verify by:
   value is persisted while `PARAM_KEYS` overrides are still dropped by `_drop_art_overrides`.
 - Every scene's `art:` must reference an existing `## <art-id>` under `# Art`; every scene must be reachable from the
   first. `save_project`/`_write_game_md` reject writes that fail validation and return the problems.
-- **Scene order is the story order and scene 0 is the start.** The editor sidebar reorders scenes and arts by drag or
-  the per-row up/down buttons; this rewrites the `## <id>` entry order under `# Scenes`/`# Art` in `game.md`, and the
-  first scene row carries a `start` badge. Reordering scenes renumbers generated scene ids and flag first-appearance ids
-  but all references are by name, so behaviour is unchanged; art order only affects list/default-art order.
+- **Scene order is the story order and scene 0 is the start.** The editor sidebar reorders scenes, arts and references
+  by drag or the per-row up/down buttons; this rewrites the `## <id>` entry order under `# Scenes`/`# Art`/
+  `# References` in `game.md`, and the first scene row carries a `start` badge. Reordering scenes renumbers generated
+  scene ids and flag first-appearance ids but all references are by name, so behaviour is unchanged; art order only
+  affects list/default-art order, and reference order only affects list order and the order references are rendered in.
 - **The home bank is nearly full: the main image must fit below `0xDC03`** (the NIRVANA+ engine's `ORG`), or
   `adventure.bin` overlaps the engine and the game will not boot — the linker does not know about the reservation. Check
   `<game-folder>/build/adventure.bin` size (must be < `0xDC03 - 0x8000` = 23555 bytes). To keep room,
@@ -286,14 +287,18 @@ There is no test suite and no configured linter. Verify by:
   addresses are `< 0xC000` after the build (the `.bin`-size check cannot see this — these routines are in the fixed
   region, not bank 0). The `_scene_ws`/`_art_ws` workspaces may spill into bank 0, but must not reach the NIRVANA+
   engine at `0xDC03`; the main-image size check covers that because they are part of `adventure.bin`.
-- **ZX Spectrum 48K (`## zx48`) is a non-paged target.** The canonical 128K target id is `zx128` (the old `zx`
-  spelling is an alias; a save rewrites `## zx` to `## zx128`). The 48K build stores every compressed art/scene/item blob
-  in one flat resident block at `0x6000-0x7BFF` (`FLAT_DATA_SIZE` = 7168 B, loaded by `src/zx/loader48.asm`); the top
-  1 KB of lower RAM is the stack (`REGISTER_SP=0x7FFE`) and the linked main image must stay below the NIRVANA+ engine at
-  `0xDC03` (23555 B from `0x8000`). `tools/gen_scenes.py` runs with `SCENE_FLAT=1` and emits `build/scene_flat.bin`
-  (padded) instead of banks; `plat_load` decodes from `FLAT_DATA_ADDR+off+2` with `port_unpack` (no paging). The build
-  fails with a `48K build does not fit: ...` message when either budget is exceeded. The 48K has no AY, so songs are
-  ignored with a warning (the Systems card says so), and the target outputs only `<slug>-48k.tap`.
+- **ZX Spectrum 48K (`## zx48`) is a non-paged, monochrome target with no NIRVANA+ engine.** The canonical 128K
+  target id is `zx128` (the old `zx` spelling is an alias; a save rewrites `## zx` to `## zx128`). The 48K build stores
+  compressed **scene** blobs in the flat resident block at `0x6000-0x7BFF` (`FLAT_DATA_SIZE` = 7168 B, loaded by
+  `src/zx/loader48.asm`); the top 1 KB of lower RAM is the stack (`REGISTER_SP=0x7FFE`). Compressed **art** (1bpp) and
+  the **inventory** blob are emitted as `const art_data`/`inv_data` arrays in `build/scene_data.c` and linked into the
+  main image, which may use `0x8000-0xFFFF` (32,768 B) because there is no engine at `0xDC03`.
+  `tools/gen_scenes.py` runs with `SCENE_FLAT=1`, writes `build/scene_flat.bin` (scenes only, padded), and converts art
+  with `zxart.mono_band`; `off` dither becomes `bayer2` (see `zxart.mono_dither`). `plat_load` decodes scenes from
+  `FLAT_DATA_ADDR+off+2` and inventory from `inv_data+off+2` with `port_unpack` (no paging); `plat_draw_art` decodes
+  `art_data+art_off+2` into `_art_ws` and copies rows into the bitmap under `ZX48`, with no tile map/attribute race. The
+  build fails with a `48K build does not fit: ...` message when either budget is exceeded. The 48K has no AY, so songs
+  are ignored with a warning (the Systems card says so), and the target outputs only `<slug>-48k.tap`.
 - **Selectable words** (`{{word}}` / `{{word|flag}}` in a `text:` line) are parsed only by `tools/scenefile.py`
   (`word_segments`/`parse_words`/`word_flag`); the generator emits a per-scene word table (`WordHdr`: line, col, len,
   flag) after the scene strings and sets `HAVE_WORDS`. The engine highlights each word, folds it into the option cursor
@@ -528,7 +533,10 @@ There is no test suite and no configured linter. Verify by:
   tab edits the selection with one second-level sub-tab per platform; the Game tab keeps the shared settings
   (including Text colours).
 - Editor writes are atomic and keep `game.md.bak`; art files are migrated when an art id is renamed
-  (`_migrate_art_files`).
+  (`_migrate_art_files`). Saves are conflict-checked: `/api/project` and `/api/raw` carry a `revision` (sha256 of
+  game.md), and a stale one returns 409 so a concurrent edit by another user/process is not silently overwritten;
+  the SPA offers to overwrite (`force`) or keep its buffer. Background writers (`_set_art_image`/jobs) refresh
+  `P.revision` after they update game.md.
 - `compose.yml` live-mounts an **absolute daemon-host path**, not `./`; update it if the checkout moves.
 - UI is vanilla JS/CSS in `tools/editor/static/`; match the existing dark theme, inline-SVG mask icons per tab, and the
   `VIEWS` / `EDIT_MODES` split in `core.js`. Structured tabs share the `#view-edit` shell; `graph`/`emu` are their
@@ -618,8 +626,8 @@ There is no test suite and no configured linter. Verify by:
   `CAS_IN_CHAR` (with the song workspace as the 2K stream buffer) so a music toggle never disturbs the picture, and
   the song workspace is reserved at least 2048 bytes. The resident image (including the load buffer) must end below
   `CPC_WS_BASE`; the target checks `__BSS_END_tail`. Output is
-  `<slug>-cpc464.dsk` (`artifact_suffix="-cpc464"`), and the Emulator tab offers the 464 model next to the 6128 even
-  when only one CPC target is selected.
+  `<slug>-cpc464.dsk` (`artifact_suffix="-cpc464"`), and the Emulator tab lists the 464 model only when that target is
+  selected (like every other system).
 - **MSX2 runtime:** `tools/gen_port.py --msx2` converts each band with `tools/msx2art.py` and stores the
   scenes/inventory blob in ASCII16 ROM bank 1; each art gets one 16K bank from 2 up and `port_art.asm` maps them with
   `SECTION BANK_NN`. `plat_msx2.c` uses V9938 Screen 7 (512x212, 4bpp): the full-width 512-pixel art band starts at x=0,

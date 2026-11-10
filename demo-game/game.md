@@ -7,7 +7,7 @@ prompt: 1980s game screen, high contrast, flat colours, no text, no letters
 negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, malformed, watermark, signature, text,
   letters
 flags: asked_elias, asked_father, uxia_trusted, uxia_told, uxia_knows, uxia_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, dark, exam_coat, exam_misericordia, exam_uxia, exam_journal, exam_cups, exam_chest, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_green, elias_rested, pena_met, pena_offered, pena_deal, pena_defied
-items: key, oil_lantern, oil_can, matches, gear
+items: key, oil_lantern, oil_can, matches, gear, flare
 songs: theme
 music: theme
 hires: 2x
@@ -69,61 +69,91 @@ title_ink: white
 prompt: a storm-lashed granite lighthouse at Fisterra on the Galician Costa da Morte at night, huge Atlantic waves
   breaking below, a lone figure walking up the cliff path, one lit window, dramatic clouds, no text
 refs: lighthouse
-image: gen-1793441722798.png
-crop: 0 25 100 75
+image: gen-1794257514079.png
+crop: 0 0 100 75
 
 ## cliff_path
 prompt: a wet granite path climbing to the Fisterra lighthouse in a storm, a woman in a dark oilskin coat holding an oil
   lantern, rain and Atlantic spray, no text
 refs: uxia lighthouse
-image: gen-1793442406565.png
+image: gen-1794258459814.png
 crop: 0 0 100 75
 
 ## hall
 prompt: the round granite entrance hall of an old Galician lighthouse, an oilskin coat on a hook, an oil lantern on a
   shelf, iron stairs winding up, wooden doors, storm light through a porthole, no text
-image: gen-1793443048461.png
+image: gen-1794259303195.png
+crop: 0 15 100 75
 
 ## cottage
 prompt: the keeper's cottage kitchen at Fisterra, a wood fire in a stone hearth, a wooden table with two cups and an
   open journal, rain on the windows, a pantry door, a woman in a dark oilskin coat by the window, no text
 refs: uxia
-image: gen-1793443731077.png
+image: gen-1794260222779.png
 
 ## cellar
 prompt: a low granite cellar under a Galician lighthouse, shelves of oil cans, an iron-bound sea chest, a ship's log on
   a crate, an oil lantern, damp walls, no text
-image: gen-1793444372078.png
+image: gen-1794261078500.png
+crop: 0 17 100 75
 
 ## workshop
 prompt: the lamp room at the top of the Fisterra lighthouse, a huge brass Fresnel lens, a missing gear, a dry reservoir,
   a workbench of tools, storm clouds outside the gallery windows, no text
-image: gen-1793445012067.png
+image: gen-1794261925051.png
+crop: 0 25 100 75
 
 ## garden
-prompt: a walled clifftop garden in rain at Fisterra, a grave under a granite wall, a broken signal mast with frayed
-  shutters, white Atlantic waves on the rocks below, no text
-image: gen-1793484116838.png
+prompt: a walled clifftop garden in rain at Fisterra, a grave under a granite wall, white Atlantic waves on the rocks
+  below, an ordinary Galician villager in a plain grey wool coat and flat cap waiting on the cliff path, no text
+refs: pena
+image: gen-1794339481002.png
+crop: 0 0 100 75
 
 ## ending
 prompt: the Fisterra lighthouse beam sweeping across a stormy Atlantic sea at night, a small 1930s coastal steamer like
   the one in the reference image safe beyond the rocks, dawn breaking, no text
 refs: misericordia lighthouse
-image: gen-1793446334949.png
+image: gen-1794263968350.png
+
+## ending_truth
+prompt: wide night shot from the gallery of the Fisterra lighthouse: a woman in a dark oilskin coat seen from behind
+  fires a red signal flare, its crimson glare lighting the wet rail and the storm; below, a revenue cutter's white
+  searchlight beam cuts through the rain and fixes a dark coastal steamer with a green sidelight, turning away; waves
+  break white on black rocks; the granite lighthouse tower frames the view, no text
+refs: uxia misericordia lighthouse
+image: gen-1794263091086.png
 
 ## ending_dark
-prompt: black stormy Atlantic sea, the unlit Fisterra lighthouse on the cliff behind, wreckage and a vanishing green
-  light in the distance, no text
+prompt: black stormy Atlantic sea, the unlit Fisterra lighthouse on the cliff behind, wreckage in the distance, no text
 refs: lighthouse
-image: gen-1793447740548.png
+image: gen-1794279784949.png
+crop: 0 0 100 75
+
+## pena_talk
+prompt: on the wet cliff path below the Fisterra lighthouse at night, a tense conversation: an ordinary Galician
+  villager in his fifties in a plain grey wool coat and flat cap, weathered face, holding a small worn cigarette case,
+  the keeper facing him, storm clouds and the dark lighthouse tower behind, no text
+refs: pena
+image: gen-1794340316471.png
+crop: 0 0 100 75
+
+## elias_talk
+prompt: the lamp room at the top of the Fisterra lighthouse at night, the translucent ghost of an old keeper standing at
+  the great brass Fresnel lens, pale sea-worn face, heavy coat white with salt, faint cold blue-white glow, his lower
+  body dissolving into mist, the new keeper facing him, rain on the gallery glass, no text
+refs: elias
+image: gen-1794341151566.png
+crop: 0 0 100 75
 
 # References
 
-## uxia
-prompt: reference sheet of a Galician woman in her late thirties, dark oilskin coat, soaked dark hair, holding an oil
-  lantern, three-quarter view, isolated on a flat dark navy background, crisp black outlines, no water, no text
-image: gen-1794255109914.png
-seed: 42
+## lighthouse
+prompt: reference sheet of a tall square granite lighthouse tower at Fisterra, weathered grey stone blocks, a white
+  gallery with an iron railing, a glass lantern room with a domed roof, small dark windows down the tower, a broad stone
+  base, three-quarter view, whole tower visible, isolated on a flat dark navy background, crisp black outlines, no
+  water, no text
+image: gen-1794278979936.png
 
 ## misericordia
 prompt: reference sheet of a small 1930s Galician coastal steamer, dark hull with a white stripe, green sidelight,
@@ -132,11 +162,24 @@ prompt: reference sheet of a small 1930s Galician coastal steamer, dark hull wit
 image: gen-1794255887899.png
 seed: 42
 
-## lighthouse
-prompt: reference sheet of a tall square granite lighthouse tower at Fisterra, weathered grey stone blocks, a white
-  gallery with an iron railing, a glass lantern room with a domed roof, small dark windows down the tower, a broad stone
-  base, three-quarter view, whole tower visible, isolated on a flat dark navy background, crisp black outlines, no
+## uxia
+prompt: reference sheet of a Galician woman in her late thirties, dark oilskin coat, soaked dark hair, holding an oil
+  lantern, three-quarter view, isolated on a flat dark navy background, crisp black outlines, no water, no text
+image: gen-1794255109914.png
+seed: 42
+
+## elias
+prompt: reference sheet of the ghost of a tall weathered Galician lighthouse keeper in his sixties, translucent pale
+  blue-white figure, sea-worn face, grey beard, heavy coat white with salt, salt-crusted hair, faint cold glow, lower
+  body dissolving into mist, three-quarter view, full figure, isolated on a flat dark navy background, pale outlines, no
   water, no text
+image: gen-1794338644978.png
+
+## pena
+prompt: reference sheet of an ordinary Galician coastal villager in his fifties, weathered ruddy face, tired eyes, flat
+  wool cap, plain grey wool coat, work trousers, damp leather boots, holding a small worn cigarette case, three-quarter
+  view, full figure, isolated on a flat dark navy background, crisp black outlines, no water, no text
+image: gen-1794337864221.png
 
 # Items
 
@@ -171,6 +214,12 @@ name: Brass Gear
 desc: A cog wrapped in oilcloth.
   It fits the lens turntable.
 opt: Fit the brass gear -> - inscene lamp_room if exam_lens unless lens_repaired set lens_repaired leave gear msg The gear slots home. The lens turns with a soft click.
+
+## flare
+name: Signal Flare
+desc: A red signal flare in a waxed tube.
+  Fired from the gallery, it would be seen from the mainland.
+opt: Fire the signal flare -> ending_truth inscene the_hour if know_truth msg The flare hisses alight.
 
 # Scenes
 
@@ -277,9 +326,11 @@ art: cellar
 text:
   The lid creaks open.
   A brass gear wrapped in oilcloth. -> unless gear
+  A red signal flare. -> unless flare
   A {{folded letter|exam_letter}} lies inside.
   The letter is not in Elías's handwriting. -> if exam_letter
 opt: Take the brass gear -> - unless gear pick gear
+opt: Take the signal flare -> - unless flare pick flare
 opt: Read the letter -> letter if exam_letter
 opt: Close the chest -> cellar
 
@@ -323,7 +374,7 @@ opt: Wait for midnight -> the_hour
 
 ## elias
 name: The Shape at the Lens
-art: workshop
+art: elias_talk
 text:
   A tall shape stands at the lens, its coat white with salt.
   "Don't shout," it says. "The dead are shy."
@@ -343,7 +394,6 @@ text:
   A walled garden, salted by spray.
   A {{grave|exam_grave}} waits under the wall.
   "Elías Mariño. Died 14 October 1935." -> if exam_grave
-  The signal mast leans, its shutter rope frayed.
   Below, As Agullas break white.
   A man in grey waits on the cliff path. -> unless pena_defied
 opt: Talk to the man in grey -> pena unless pena_defied
@@ -360,9 +410,19 @@ text:
 opt: Promise to light the lamp -> - unless uxia_trusted set uxia_trusted msg "Uxía nods once. "Then we have a chance.""
 opt: Ask about her father -> - unless asked_father set asked_father msg "He sent me away last October. I never saw him again."
 opt: Tell her what you found -> - if know_truth unless uxia_told set uxia_told msg "You put the journal on the table. Uxía reads it twice. Her face does not change. "He sent me away because of them," she says."
-opt: "I'm sorry. They threatened you." -> - if uxia_told unless uxia_knows set uxia_knows msg "Uxía wipes her eyes. "He was afraid of them. So am I.""
+opt: "I'm sorry. They threatened you." -> uxia_after if uxia_told unless uxia_knows set uxia_knows msg "Uxía wipes her eyes. "If you mean to signal the cutter, you'll need this. He gave it to me last year.""
 opt: "You knew, didn't you?" -> kitchen if uxia_told unless uxia_left set uxia_left msg ""You didn't know him," she says. "Don't pretend you do.""
 opt: Leave her -> kitchen
+
+## uxia_after
+name: An Understanding
+art: cottage
+text:
+  Uxía holds out a red flare. -> unless flare
+  You already have the flare from the sea chest. -> if flare
+  Rain ticks at the window.
+opt: Take the flare -> - unless flare pick flare msg The flare is warm from her coat.
+opt: Go up to the lamp room -> lamp_room
 
 ## the_hour
 name: Midnight
@@ -374,13 +434,14 @@ text:
   The Misericordia.
   The lamp is ready. -> if lens_repaired if oiled if matches
   The matches are in your pocket. -> if matches
+  The flare is in your pack. -> if flare
 opt: Let the light die -> ending_dark msg You step back and let the darkness win.
 opt: Go out to the cliff path -> pena unless pena_defied
 opt: Go back down -> lamp_room
 
 ## pena
 name: Anxo Pena
-art: garden
+art: pena_talk
 text:
   He waits on the cliff path, dry in the rain.
   A silver cigarette case clicks shut in his hand.
@@ -406,6 +467,21 @@ text:
   You keep Elías's journal. The truth can wait. -> if know_truth
   Uxía stays until the weather clears. -> if uxia_knows
   You are alone with the light and the empty stairs. -> unless uxia_knows
+opt: Start again -> start clear
+
+## ending_truth
+name: The Truth
+art: ending_truth
+ending: truth
+text:
+  You fire the flare. It climbs into the rain and bursts red.
+  The gallery, the wet rails and Uxía's face flash crimson.
+  The cutter comes out of the dark, its searchlight blazing.
+  The Misericordia turns, too late; crates split on the rocks, and by dawn the lighthouse is full of police.
+  Uxía tells them everything. -> if uxia_knows
+  Uxía is gone before they arrive. -> if uxia_left
+  Uxía is not here. -> unless uxia_knows unless uxia_left
+  Elías's name is in the paper. -> if know_truth
 opt: Start again -> start clear
 
 ## ending_dark

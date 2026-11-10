@@ -3,8 +3,9 @@
  *
  * The story engine (scenes, flags, options, words, inventory) now lives in
  * src/portable/core/.  This file supplies only the Spectrum side: NIRVANA+
- * art, the 64-column console, direct row clears, paged blob loading, keyboard
- * input, the boot password screen and per-scene music.
+ * art on 128K (a 1bpp monochrome renderer on 48K), the 64-column console,
+ * direct row clears, blob loading, keyboard input, the boot password screen and
+ * per-scene music.
  */
 #include "engine.h"
 
@@ -13,7 +14,9 @@
 #define ZX_KEY_LEFT IN_KEY_SCANCODE_5
 #define ZX_KEY_RIGHT IN_KEY_SCANCODE_8
 
+#ifndef ZX48
 const unsigned char blank_tile[48];
+#endif
 
 static void set_colors(int ink, int paper, int bright)
 {
@@ -25,6 +28,11 @@ static void set_colors(int ink, int paper, int bright)
    TEXT_BG_BRIGHT as 0 for black, so a black background never forces bright. */
 #define ZX_BG_ATTR ((unsigned char)((TEXT_BG_BRIGHT << 6) \
                                     | ((TEXT_BG & 7) << 3) | 7))
+
+/* 48K art is 1bpp: bright white ink on black paper. */
+#ifdef ZX48
+#define ZX_ART_ATTR 0x47
+#endif
 
 #define set_text_colors(ink, bright) set_colors((ink), TEXT_BG, (bright))
 
@@ -89,41 +97,73 @@ void plat_text_at(unsigned char row, unsigned char col, const char *s,
 void plat_load(unsigned char bank, unsigned short off, void *dst,
                unsigned char kind)
 {
+#ifndef ZX48
     /* The inventory blob decodes over art_ws, so the ISR's sprite slots must
        not read it mid-write.  Scene blobs do not touch the art workspace and
        must leave the current picture's tile pointer alone. */
     if (kind == PLAT_LOAD_INV)
         *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)blank_tile;
-#ifdef ZX48
-    /* No paging: the compressed blob is resident in lower RAM; skip its u16
-       length prefix and decode straight into the workspace. */
-    (void)bank;
-    port_unpack((const void *)(FLAT_DATA_ADDR + (unsigned int)off + 2u), dst);
-#else
     paged_unpack(bank, 0xC000 + (unsigned int)off, (unsigned int)dst);
+#else
+    (void)bank;
+    if (kind == PLAT_LOAD_INV) {
+        /* Inventory is compiled into the main image; scenes stay in the
+           lower-RAM flat store. Both carry a u16 compressed-length prefix. */
+        port_unpack((const void *)(inv_data + (unsigned int)off + 2u), dst);
+    } else {
+        port_unpack((const void *)(FLAT_DATA_ADDR + (unsigned int)off + 2u),
+                    dst);
+    }
 #endif
 }
 
 void plat_draw_art(unsigned char id)
 {
 #if N_ART > 0
-    unsigned char *buf;
-    const unsigned char *map;
-    const unsigned char *tiles;
-
     if (id >= N_ART)
         id = 0;
-    *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)blank_tile;
-    plat_load(art_bank[id], art_off[id], art_ws, PLAT_LOAD_SCENE);
-    buf = art_ws;
-    map = buf;
-    tiles = buf + ART_MAP_LEN;
-    *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)tiles;
-    for (unsigned char i = 0; i < ART_ROWS * ART_COLS; i++) {
-        if ((i % 6) == 0)
-            NIRVANAP_halt();
-        NIRVANAP_drawT_raw(map[i], ART_LIN(i >> 4), (i & 15) << 1);
+#ifdef ZX48
+    {
+        unsigned char r, l, c;
+        const unsigned char *src;
+
+        /* Decode the compressed 1bpp band into art_ws, then copy whole rows
+           into the Spectrum bitmap. art_off points at the [u16 length]
+           prefix in art_data (all in the main image). */
+        port_unpack((const void *)(art_data + (unsigned int)art_off[id] + 2u),
+                    art_ws);
+        for (r = 1; r <= ART_LINES; r++) {
+            unsigned char *base = (unsigned char *)(0x4000
+                + ((r >> 3) << 11) + ((r & 7) << 5));
+            unsigned char *attr = (unsigned char *)(0x5800 + r * 32);
+            for (l = 0; l < 8; l++) {
+                src = art_ws + ((((unsigned int)r - 1u) * 8u + l) << 5);
+                for (c = 0; c < 32; c++)
+                    base[l * 256 + c] = src[c];
+            }
+            for (c = 0; c < 32; c++)
+                attr[c] = ZX_ART_ATTR;
+        }
     }
+#else
+    {
+        unsigned char *buf;
+        const unsigned char *map;
+        const unsigned char *tiles;
+
+        *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)blank_tile;
+        plat_load(art_bank[id], art_off[id], art_ws, PLAT_LOAD_SCENE);
+        buf = art_ws;
+        map = buf;
+        tiles = buf + ART_MAP_LEN;
+        *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)tiles;
+        for (unsigned char i = 0; i < ART_ROWS * ART_COLS; i++) {
+            if ((i % 6) == 0)
+                NIRVANAP_halt();
+            NIRVANAP_drawT_raw(map[i], ART_LIN(i >> 4), (i & 15) << 1);
+        }
+    }
+#endif
 #else
     (void)id;
 #endif
@@ -221,11 +261,16 @@ void plat_scene_entered(unsigned char id)
    plat_draw_art. */
 static void fill_art_band_black(void)
 {
+#ifdef ZX48
+    for (unsigned char r = 1; r <= ART_LINES; r++)
+        zx_clr_row(r, ZX_ART_ATTR);
+#else
     for (unsigned char i = 0; i < ART_ROWS * ART_COLS; i++) {
         if ((i % 6) == 0)
             NIRVANAP_halt();
         NIRVANAP_fillT_raw(0, ART_LIN(i >> 4), (i & 15) << 1);
     }
+#endif
 }
 
 static unsigned char up_ascii(unsigned char c)
@@ -303,8 +348,13 @@ void plat_init(void)
     load_banks();
 #endif
 
+#ifndef ZX48
     NIRVANAP_start();
     *(unsigned int *)NIRVANAP_TILE_IMAGES = (unsigned int)blank_tile;
+#else
+    for (unsigned char r = 1; r <= ART_LINES; r++)
+        zx_clr_row(r, ZX_ART_ATTR);
+#endif
 
 #if NEED_ACCENT_FONT
     {

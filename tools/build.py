@@ -364,11 +364,12 @@ def memory_report48(gdir, used, capacity):
         return os.path.getsize(path) if os.path.exists(path) else 0
 
     main = size(os.path.join(gdir, gamestore.BUILD_NAME, "adventure.bin"))
-    print("memory: data %d/%d bytes (%.1f%%), main %d/%d bytes (%.1f%% of "
-          "0x8000-0xDC03), stack 1024 bytes at 0x7C00"
+    limit = 0x10000 - 0x8000
+    print("memory: scenes %d/%d bytes (%.1f%% of 0x6000-0x7BFF), main "
+          "%d/%d bytes (%.1f%% of 0x8000-0xFFFF; art+inventory), stack "
+          "1024 bytes at 0x7C00"
           % (used, capacity, (100.0 * used / capacity) if capacity else 0,
-             main, 0xDC03 - 0x8000,
-             100.0 * main / (0xDC03 - 0x8000)))
+             main, limit, 100.0 * main / limit))
 
 
 def _build_zx_model(slug, flat=False):
@@ -409,31 +410,33 @@ def _build_zx_model(slug, flat=False):
     try:
         for path in (engdir, objdir, cfgdir, srcdir):
             os.makedirs(path)
-        with open(os.path.join(cfgdir, "config_private.inc"), "w") as f:
-            f.write(_engine_config(art_lines))
-        # Build from a writable copy inside the game folder: a packaged app
-        # runs from a read-only bundle, and z80asm's m4 pass writes the
-        # generated .asm next to its source. Run m4 ourselves so paths (the
-        # AppImage mount has spaces) are passed as separate argv entries.
-        lst = os.path.join(vendor, "nirvanap_sccz80.lst")
-        with open(lst) as f:
-            sources = [line.strip() for line in f if line.strip()]
+        engine_asm = None
         asm_sources = []
-        for name in sources:
-            if name.endswith(".m4"):
-                continue
-            shutil.copyfile(os.path.join(vendor, name),
-                            os.path.join(engdir, name))
-            asm_sources.append(name)
-        engine_m4 = next(n for n in sources if n.endswith(".m4"))
-        engine_asm = os.path.basename(engine_m4)[:-3]
-        with open(os.path.join(engdir, engine_asm), "w") as out:
-            run(["m4", "-I" + _fwd(cfgdir), "-I" + _fwd(vendor),
-                 "-I" + _fwd(os.path.join(vendor, "m4")),
-                 _fwd(os.path.join(vendor, engine_m4))],
-                env, cwd=engdir, stdout=out)
-        run(["z88dk-z80asm", "-d", "-Oobj", "-xnirvanap.lib",
-             "-D__CLASSIC=1", engine_asm, *asm_sources], env, cwd=engdir)
+        if not flat:
+            with open(os.path.join(cfgdir, "config_private.inc"), "w") as f:
+                f.write(_engine_config(art_lines))
+            # Build from a writable copy inside the game folder: a packaged app
+            # runs from a read-only bundle, and z80asm's m4 pass writes the
+            # generated .asm next to its source. Run m4 ourselves so paths (the
+            # AppImage mount has spaces) are passed as separate argv entries.
+            lst = os.path.join(vendor, "nirvanap_sccz80.lst")
+            with open(lst) as f:
+                sources = [line.strip() for line in f if line.strip()]
+            for name in sources:
+                if name.endswith(".m4"):
+                    continue
+                shutil.copyfile(os.path.join(vendor, name),
+                                os.path.join(engdir, name))
+                asm_sources.append(name)
+            engine_m4 = next(n for n in sources if n.endswith(".m4"))
+            engine_asm = os.path.basename(engine_m4)[:-3]
+            with open(os.path.join(engdir, engine_asm), "w") as out:
+                run(["m4", "-I" + _fwd(cfgdir), "-I" + _fwd(vendor),
+                     "-I" + _fwd(os.path.join(vendor, "m4")),
+                     _fwd(os.path.join(vendor, engine_m4))],
+                    env, cwd=engdir, stdout=out)
+            run(["z88dk-z80asm", "-d", "-Oobj", "-xnirvanap.lib",
+                 "-D__CLASSIC=1", engine_asm, *asm_sources], env, cwd=engdir)
 
         # --- compile ------------------------------------------------------
         # Stage every input in the game-folder build dir and run from there
@@ -471,11 +474,14 @@ def _build_zx_model(slug, flat=False):
             ]
         for path in inputs:
             shutil.copyfile(path, os.path.join(srcdir, os.path.basename(path)))
-        shutil.copyfile(os.path.join(engdir, "nirvanap.lib"),
-                        os.path.join(srcdir, "nirvanap.lib"))
+        if not flat:
+            shutil.copyfile(os.path.join(engdir, "nirvanap.lib"),
+                            os.path.join(srcdir, "nirvanap.lib"))
         cmd = ["zcc", "+zx", "-compiler=sccz80", "-vn", "-clib=default",
-               "-startup=1", "-I.", "-L.", "-lnirvanap",
+               "-startup=1", "-I.", "-L.",
                "-pragma-define:CRT_DISABLELOADER=1"]
+        if not flat:
+            cmd.append("-lnirvanap")
         for key in ("ART_WS_SIZE", "SCENE_WS_SIZE"):
             val = _scene_define(gdir, key)
             if val is not None:
@@ -506,20 +512,28 @@ def _build_zx_model(slug, flat=False):
                 shutil.copyfile(src, os.path.join(bdir, name))
         # The engine image must come from this build: the linked map tells us
         # which wrappers the game uses and their order, so a stale
-        # adventure_NIRVANAP.bin can never mask an art_rows change.
-        write_engine_blob(gdir, engdir, engine_asm, asm_sources, env)
+        # adventure_NIRVANAP.bin can never mask an art_rows change. The flat
+        # 48K build has no NIRVANA+ engine.
+        if not flat:
+            write_engine_blob(gdir, engdir, engine_asm, asm_sources, env)
     finally:
         shutil.rmtree(builddir, ignore_errors=True)
 
     if flat:
         main_size = os.path.getsize(os.path.join(bdir, "adventure.bin"))
-        limit = 0xDC03 - 0x8000
+        limit = 0x10000 - 0x8000
         if main_size > limit:
             raise SystemExit(
                 "48K build does not fit: main image is %d B but only %d B "
-                "fits at 0x8000-0xDC03 before the NIRVANA+ engine. Shorten "
-                "scene text/options/item descriptions or use the 128K target."
+                "fits at 0x8000-0xFFFF (the flat scene store and stack use "
+                "the lower RAM). Lower ## zx48 art_rows, remove arts or "
+                "shorten the story, or use the 128K target."
                 % (main_size, limit))
+        bss_end = _map_addr(gdir, "__BSS_END_tail")
+        if bss_end is not None and bss_end > 0xFFFF:
+            raise SystemExit(
+                "48K build does not fit: BSS reaches 0x%04X; it must stay "
+                "below 0xFFFF." % bss_end)
     else:
         guard_map(gdir)
 
@@ -529,9 +543,12 @@ def _build_zx_model(slug, flat=False):
     # appmake produce the loader+main TAP. The 128K build then appends the
     # scene banks and writes a resident SNA; the 48K build appends its flat
     # lower-RAM block instead (and has no snapshot).
-    merge_engine(gdir)
-    run(["z88dk-appmake", "+zx", "-b",
-         _fwd(os.path.join(bdir, "adventure_merged.bin")),
+    if flat:
+        main_bin = os.path.join(bdir, "adventure.bin")
+    else:
+        merge_engine(gdir)
+        main_bin = os.path.join(bdir, "adventure_merged.bin")
+    run(["z88dk-appmake", "+zx", "-b", _fwd(main_bin),
          "-o", _fwd(os.path.join(bdir, "advbase.tap")),
          "--org", "32768", "--blockname", "advmain"], env)
     if flat:

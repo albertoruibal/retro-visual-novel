@@ -64,6 +64,9 @@ and **Restart** resets the story. Music is not present in the web runtime. See
 - Without the pop-up dialog the text pane is fixed: keep a scene's wrapped lines (and options) within the rows below
   the art band. With the dialog, long text scrolls.
 
+The **ZX Spectrum 48K** build uses the same controls. Its picture is a 1-bit dithered monochrome band (no NIRVANA+),
+and there is no music; everything else, including the pop-up dialog and the row-23 inventory, behaves as on 128K.
+
 ## ZX Spectrum Next
 
 The Next build uses the ZX layout and controls: cursor keys, `W`/`A`/`S`/`D`, the Next's own arrow keys or the joystick

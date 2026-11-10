@@ -47,10 +47,14 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     POST   /api/close                 {"game"} -> close one open game folder
     POST   /api/new                   {"parent","name","title"} -> new folder + open
     GET    /api/project               parse <game>/game.md -> project JSON
+                                      (includes a `revision` content hash)
     GET    /api/targets               build-target registry + per-game options
-    PUT    /api/project               write <game>/game.md (atomic, .bak kept)
-    GET    /api/raw                   read <game>/game.md verbatim -> {"text"}
-    PUT    /api/raw                   {"text"} -> validate/write game.md verbatim
+    PUT    /api/project               write <game>/game.md (atomic, .bak kept);
+                                      a stale `revision` -> 409 unless `force`
+    GET    /api/raw                   read <game>/game.md verbatim
+                                      -> {"text","revision"}
+    PUT    /api/raw                   {"text","revision"} -> validate/write;
+                                      a stale revision -> 409 unless `force`
     POST   /api/validate              {"text"} -> lint game.md without writing,
                                       plus {"outline"} scene/art/song/item/flag
                                       links for Source-tab Ctrl+click
@@ -78,7 +82,7 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     DELETE /api/refimages/<slug>/<ref>?file=<name>  delete one reference candidate
     GET    /api/refimage/<slug>/<ref>  reference source PNG (?file= a candidate)
     GET    /api/preview/<slug>/<art>  Spectrum-quantisised band preview PNG
-           ?target=sms|cpc|cpc464|msx2|gb    preview through that target's converter
+           ?target=zx48|sms|cpc|cpc464|msx2|gb  preview through that target's converter
     GET    /api/preview/<slug>/<art>/classic  same, standard 8x8 attributes
     GET    /api/preview/<slug>/<art>/bifrost  same, Bifrost* 8x1 attributes
            ?file= &crop= &lines= &dither= &match= &palette= &palette_colors= &saturation= ...
@@ -523,7 +527,8 @@ class Handler(BaseHTTPRequestHandler):
                 md = _game_md_path(self._game_arg())
                 if not os.path.exists(md):
                     return self._send(404, {"error": "game.md does not exist yet"})
-                return self._send(200, {"text": open(md, encoding="utf-8").read()})
+                return self._send(200, {"text": open(md, encoding="utf-8").read(),
+                                        "revision": _game_md_revision(md)})
             if path == "/api/health":
                 return self._send(200, health())
             if path == "/api/settings":
@@ -634,7 +639,7 @@ class Handler(BaseHTTPRequestHandler):
                 target_id = (qs.get("target", [""])[0] or "").strip().lower()
                 target = targets.get_target(target_id)
                 canonical_id = target.id if target else target_id
-                if canonical_id and canonical_id not in ("zx128", "zx48"):
+                if target is not None and target.preview is not None:
                     data = target_art_preview_bytes(
                         m.group(1), m.group(2), target_id,
                         crop=qs.get("crop", [None])[0],
@@ -690,9 +695,13 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text, str) or not text.strip():
                     return self._send(400, {"error": "missing or empty text"})
                 try:
-                    _write_game_md(slug, text)
+                    _write_game_md(slug, text, None if body.get("force")
+                                   else body.get("revision"))
                 except _ValidationFailed as e:
                     return self._send(400, {"error": str(e), "issues": e.issues})
+                except _SaveConflict as e:
+                    return self._send(409, {"error": str(e), "conflict": True,
+                                            "revision": e.revision})
                 return self._send(200, project_json(slug))
             scenefile.serialize(body)           # validate before writing
             g = body.get("game") or {}
@@ -702,10 +711,14 @@ class Handler(BaseHTTPRequestHandler):
                                    scenefile.declared_items(
                                        g, body.get("item_meta")),
                                    item_meta=body.get("item_meta"))  # clash
-            save_project(body, slug)
+            save_project(body, slug, None if body.get("force")
+                         else body.get("revision"))
             return self._send(200, project_json(slug))
         except KeyError as e:
             return self._send(404, {"error": str(e)})
+        except _SaveConflict as e:
+            return self._send(409, {"error": str(e), "conflict": True,
+                                    "revision": e.revision})
         except Exception as e:      # noqa: BLE001
             return self._send(400, {"error": str(e)})
 

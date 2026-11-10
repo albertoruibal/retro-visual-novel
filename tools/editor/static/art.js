@@ -60,9 +60,7 @@ function previewTargets() {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
   };
-  /* The 48K shares the 128K band/conversion, so one preview is enough. */
-  const out = list.filter((id) => !(id === "zx48" && list.includes("zx128")));
-  return out.sort((a, b) => rank(a) - rank(b));
+  return list.slice().sort((a, b) => rank(a) - rank(b));
 }
 function previewTargetMeta(id) {
   return ((TARGETS && TARGETS.targets) || []).find((t) => t.id === id) || null;
@@ -117,14 +115,14 @@ function previewTargetColors(id) {
   const m = previewTargetMeta(id);
   const n = m ? +m.colors : NaN;
   if (n > 0) return n;
-  return ({ zx128: 16, zx48: 16, next: 256, sms: 16, msx2: 16, gb: 32,
+  return ({ zx128: 16, zx48: 2, next: 256, sms: 16, msx2: 16, gb: 32,
               c64: 16, nes: 16, oric: 2 }[id] || 0);
 }
 /* The display engine the target's preview emulates, shown under its name. */
 function previewTargetEngine(id) {
   const m = previewTargetMeta(id);
   const e = m ? m.engine : "";
-  return e || ({ zx128: "NIRVANA+", zx48: "NIRVANA+", next: "Layer 2",
+  return e || ({ zx128: "NIRVANA+", zx48: "Monochrome", next: "Layer 2",
                    c64: "VIC-II MCM", nes: "NES PPU",
                    oric: "Oric HIRES" }[id] || "");
 }
@@ -143,9 +141,10 @@ function previewDither(id) {
 }
 function targetPreviewQuery(id, q) {
   const dither = "dither=" + encodeURIComponent(previewDither(id));
-  if (id === "zx128" || id === "zx48") return q + (q ? "&" : "?") + dither;
+  if (id === "zx128") return q + (q ? "&" : "?") + dither;
+  const rows = id === "zx48" ? artLines() : previewTargetRows(id);
   return q + (q ? "&" : "?") + "target=" + encodeURIComponent(id)
-           + "&rows=" + previewTargetRows(id) + "&" + dither;
+           + "&rows=" + rows + "&" + dither;
 }
 function targetPreviewFig(id, g, aid, q, bust) {
   const src = `/api/preview/${g}/${aid}${targetPreviewQuery(id, q)}`;
@@ -441,6 +440,7 @@ async function uploadArt(file, art) {
     $("genstatus").textContent = "uploading…";
     const r = await api("POST", "/api/upload_art", { art: id, data });
     art.image = r.image;
+    if (r.revision) P.revision = r.revision;
     $("genstatus").textContent = `uploaded ${file.name} (${r.bytes} bytes)`;
     drawArtView(id, "all");
     drawArtPicker(id);
@@ -464,6 +464,7 @@ async function deleteImageCandidate(kind, id, name) {
     const r = await api("DELETE",
       `/api/${kind}images/${encodeURIComponent(game)}/${encodeURIComponent(id)}` +
       `?file=${encodeURIComponent(name)}`);
+    if (r.revision) P.revision = r.revision;
     if (kind === "ref") {
       const ref = refById(id);
       if (ref) ref.image = r.image || null;
@@ -556,6 +557,7 @@ async function refreshArtImages(onlyId) {
   try { fresh = await api("GET", "/api/project"); }
   catch (_) { return; }
   if (!fresh || fresh.game_slug !== P.game_slug) return;
+  if (!dirty) P.revision = fresh.revision;
   (fresh.arts || []).forEach((f) => {
     const a = P.arts.find((x) => x.id === f.id);
     if (a) a.image = f.image;

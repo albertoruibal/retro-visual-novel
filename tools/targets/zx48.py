@@ -1,9 +1,10 @@
 """ZX Spectrum 48K target.
 
-A non-paged NIRVANA+ build: all compressed art/scene/inventory data must fit
-the 48K's lower RAM (0x6000-0x7BFF, 7168 bytes) and the main image must stay
-below the engine at 0xDC03. A game that does not fit fails the build with a
-clear message instead of producing a corrupt TAP.
+A non-paged, monochrome build with no NIRVANA+ engine. Scene blobs live in the
+lower-RAM flat store at 0x6000 (7168 bytes); dithered 1bpp art and the
+inventory blob are compiled into the main image, which may now use
+0x8000-0xFFFF. A game that does not fit fails the build with a clear message
+instead of producing a corrupt TAP.
 
 The 48K has no AY sound chip, so songs declared in ``game.md`` are ignored by
 this target (the Systems tab says so and validation warns about it).
@@ -21,6 +22,23 @@ def _available():
         return True, ""
     except Exception as err:                    # noqa: BLE001
         return False, str(err)
+
+
+def _preview(src, conv, options, game=None):
+    import io
+
+    import zxart
+    from PIL import Image
+
+    rows = int(options.get("art_rows") or 10) // 2
+    im = Image.open(src).convert("RGB")
+    img = zxart.mono_image(
+        im, crop=conv.get("crop"), dither=conv.get("dither", "off"), rows=rows,
+        adjust=conv.get("adjust"), palette=conv.get("palette", "none"),
+        palette_colors=conv.get("palette_colors"))
+    out = io.BytesIO()
+    img.save(out, "PNG")
+    return out.getvalue()
 
 
 def _build(ctx):
@@ -66,16 +84,16 @@ def _validate(ctx):
 TARGET = Target(
     id="zx48",
     label="ZX Spectrum 48K",
-    description="NIRVANA+ engine for 48K machines. No banked storage and "
-                "no AY music: songs declared in game.md are ignored by this "
-                "build. The story must fit 7 KB of compressed art/scene data "
-                "plus a main image below 0xDC03, or the build fails.",
+    description="Monochrome, dithered 48K build with no NIRVANA+ engine and "
+                "no AY music: songs declared in game.md are ignored. Scenes "
+                "fit 7 KB of lower RAM; art and inventory are compiled into "
+                "the main image, or the build fails.",
     outputs=(".tap",),
     options=(
         TargetOption(
             "art_rows", "Art rows", "choice", 10,
             (8, 10, 12, 14, 16),
-            "Height of the NIRVANA+ picture band, shared with the 128K "
+            "Height of the monochrome picture band, shared with the 128K "
             "target; only even 8..16 rows are valid (256x8*rows pixels, "
             "default 10 = 256x80).",
             minimum=8, maximum=16, game_key="art_lines"),
@@ -100,10 +118,11 @@ TARGET = Target(
     ),
     build=_build,
     validate=_validate,
+    preview=_preview,
     available=_available,
     emulator="jsspeccy",
     machine="48",
-    colors=16,
-    engine="NIRVANA+",
+    colors=2,
+    engine="Monochrome",
     artifact_suffix="-48k",
 )

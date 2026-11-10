@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Append the 48K flat data block to the appmake-produced adventure TAP.
+"""Append the 48K flat scene block to the appmake-produced adventure TAP.
 
-The 48K build has no paged banks: tools/gen_scenes.py writes the whole
-compressed art/scene/inventory store, padded to FLAT_DATA_SIZE, as
-``build/scene_flat.bin``. src/zx/loader48.asm reads that one headerless block
-into lower RAM at 0x6000 with the ROM LD-BYTES routine.
+The 48K build has no paged banks: tools/gen_scenes.py writes the compressed
+scene store, padded to FLAT_DATA_SIZE, as ``build/scene_flat.bin``.
+src/zx/loader48.asm reads that one headerless block into lower RAM at 0x6000
+with the ROM LD-BYTES routine. Art and inventory are linked into the main
+image, so they are already in the base TAP block.
 
 Usage: make_tap48.py <base.tap> <out.tap> [<game>]
 """
