@@ -58,8 +58,12 @@ def _guard_map(path, bdir):
         return
     txt = open(path, encoding="utf-8", errors="replace").read()
     bad = []
+    # Only the routines that execute while the extra bank is mapped must stay
+    # low.  Callers such as plat_draw_art/plat_load may live above 0x4000:
+    # cpc_unpack_banked restores the base map before returning, and cpc_set_ink
+    # does the same after SCR_SET_INK.
     for sym in ("_cpc_unpack_banked", "_cpc_restore_base", "_cpc_set_ink",
-                "_zx0_unpack", "_plat_draw_art"):
+                "_zx0_unpack"):
         m = re.search(rf"^{re.escape(sym)}\s*=\s*\$([0-9A-Fa-f]+)", txt,
                       re.M)
         if m and int(m.group(1), 16) >= 0x4000:

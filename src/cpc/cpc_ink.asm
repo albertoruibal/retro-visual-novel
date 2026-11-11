@@ -7,6 +7,10 @@
 ; SCR_SET_INK jumpblock directly with the documented registers:
 ;   A = pen, B = first colour, C = second colour
 ; The colour is a firmware grey-scale index 0..26 (black..bright white).
+;
+; SCR_SET_INK leaves the Gate Array memory configuration changed, so restore
+; the normal 64K map before returning: callers (notably plat_draw_art) may be
+; linked above 0x4000 where the firmware's extra bank would hide the code.
         SECTION code_l
         PUBLIC  _cpc_set_ink
         EXTERN  firmware
@@ -21,4 +25,6 @@ _cpc_set_ink:
         ld      b,c
         call    firmware
         defw    $BC32           ; scr_set_ink
+        ld      bc,$7FC0
+        out     (c),c           ; back to the base 64K mapping
         ret
