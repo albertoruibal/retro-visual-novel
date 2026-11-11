@@ -45,6 +45,57 @@ def map_len(rows):
     """Tile-map length in bytes for ``rows`` 16px tile rows."""
     return COLS * tile_rows(rows)
 
+
+# One margin unit is one 8x8 tile cell (8 pixels). The picture is scaled down to
+# fit inside the margin with its aspect preserved, so the visible border is at
+# least this many pixels on the constraining axis.
+MARGIN_CELL = 8
+
+# `text_bg` colour token -> Spectrum ink index (attribute colour order).
+_BG_INDEX = {"black": 0, "blue": 1, "red": 2, "magenta": 3, "green": 4,
+             "cyan": 5, "yellow": 6, "white": 7}
+
+
+def background_rgb(game=None):
+    """Resolve a game's ``text_bg`` token to an exact Spectrum RGB triple."""
+    import scenefile
+    token = scenefile.text_tokens(game)[2]
+    dim = token.startswith("dim_")
+    name = token[4:] if dim else token
+    return SPEC[_BG_INDEX.get(name, 0) + (0 if dim else 8)]
+
+
+def inset_band(im, margin=0, fill=(0, 0, 0)):
+    """Scale ``im`` down to fit inside an ``margin``-cell border and centre it.
+
+    ``margin`` is in 8x8 cells (0 leaves the band untouched). The picture keeps
+    its aspect, so the visible border is at least ``margin * MARGIN_CELL``
+    pixels on the shorter axis and wider on the band's long axis. The border is
+    filled with ``fill`` (the system's background). Applied after source
+    adjustments but before quantisation, so a margin-0 band is unchanged.
+    """
+    from PIL import Image
+
+    try:
+        cells = max(0, int(margin))
+    except (TypeError, ValueError):
+        cells = 0
+    if not cells:
+        return im
+    w, h = im.size
+    px = cells * MARGIN_CELL
+    px = min(px, max(0, min(w, h) // 2 - 1))
+    if px <= 0:
+        return im
+    inner_w, inner_h = max(1, w - 2 * px), max(1, h - 2 * px)
+    scale = min(inner_w / float(w), inner_h / float(h))
+    nw = max(1, int(round(w * scale)))
+    nh = max(1, int(round(h * scale)))
+    out = Image.new("RGB", (w, h), tuple(fill))
+    out.paste(im.resize((nw, nh), Image.LANCZOS),
+              ((w - nw) // 2, (h - nh) // 2))
+    return out
+
 # Selectable dithering schemes for NIRVANA+ art. After a cell's two colours are
 # fixed, a pointwise scheme inked each pixel when its ink fraction db/(da+db)
 # exceeds a threshold at its absolute (x,y); an error-diffusion scheme instead
@@ -375,18 +426,20 @@ def _apply_palette(im, mode=DEFAULT_PALETTE, colors=None):
     return im
 
 
-def _prepare_band(im, crop, rows, adjust, palette, palette_colors):
-    """Fit to the band, then apply the colour adjustments and palette."""
+def _prepare_band(im, crop, rows, adjust, palette, palette_colors,
+                  margin=0, fill=(0, 0, 0)):
+    """Fit to the band, adjust, inset by the margin, then reduce the palette."""
     im = _fit_band(im, crop, rows)
     a = adjust or {}
     im = preprocess(im, a.get("saturation", 1.0), a.get("contrast", 1.0),
                     a.get("brightness", 1.0), a.get("gamma", 1.0))
+    im = inset_band(im, margin, fill)
     return _apply_palette(im, palette or DEFAULT_PALETTE, palette_colors)
 
 
 def mono_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
               adjust=None, palette=DEFAULT_PALETTE, palette_colors=None,
-              **_ignored):
+              margin=0, fill=(0, 0, 0), **_ignored):
     """Convert an image to a packed 1bpp monochrome band.
 
     The source is fitted, colour-adjusted and palette-reduced like the colour
@@ -396,7 +449,8 @@ def mono_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
     ``DEFAULT_MONO_DITHER`` (see ``mono_dither``); ordered and error-diffusion
     schemes share the colour converters' tables.
     """
-    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors)
+    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors,
+                       margin, fill)
     gray = im.convert("L")
     w, h = gray.size
     px = gray.load()
@@ -429,11 +483,13 @@ def mono_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
 
 
 def mono_image(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
-               adjust=None, palette=DEFAULT_PALETTE, palette_colors=None):
+               adjust=None, palette=DEFAULT_PALETTE, palette_colors=None,
+               margin=0, fill=(0, 0, 0)):
     """Render ``mono_band`` as a black/white RGB image for editor previews."""
     from PIL import Image
     data = mono_band(im, crop=crop, dither=dither, rows=rows, adjust=adjust,
-                     palette=palette, palette_colors=palette_colors)
+                     palette=palette, palette_colors=palette_colors,
+                     margin=margin, fill=fill)
     h, w = band_h(rows), BAND_W
     img = Image.new("RGB", (w, h), (0, 0, 0))
     px = img.load()
@@ -446,7 +502,7 @@ def mono_image(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
 
 
 def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
-          palette_colors=None):
+          palette_colors=None, margin=0, fill=(0, 0, 0)):
     """Quantise a PIL image to a BAND_W x band-height grid of SPEC indices.
 
     The source is cropped to its ``crop`` rectangle (``None`` = the centred
@@ -454,7 +510,8 @@ def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
     5 = 256x80) and optionally colour-adjusted / palette-reduced. See
     ``_fit_band`` and ``_prepare_band``.
     """
-    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors)
+    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors,
+                       margin, fill)
     grid = []
     px = im.load()
     for y in range(band_h(rows)):
@@ -473,7 +530,7 @@ def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
 
 def nirvana_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
                  match=DEFAULT_MATCH, adjust=None, palette=DEFAULT_PALETTE,
-                 palette_colors=None):
+                 palette_colors=None, margin=0, fill=(0, 0, 0)):
     """Quantise to a BAND grid with cell-exact NIRVANA+ bicolor attributes.
 
     Unlike ``quant()``, which snaps every pixel to its nearest Spectrum colour
@@ -499,7 +556,8 @@ def nirvana_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
     carries no conversion state. Returns a band-height x BAND_W grid of SPEC
     indices.
     """
-    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors)
+    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors,
+                       margin, fill)
     mode = dither_mode(dither)
     match = match if match in MATCH_MODES else DEFAULT_MATCH
     try:
@@ -763,7 +821,8 @@ def _attr_band(grid, cell_h):
 
 
 def classic_band(im, crop=None, rows=None, adjust=None,
-                 palette=DEFAULT_PALETTE, palette_colors=None):
+                 palette=DEFAULT_PALETTE, palette_colors=None, margin=0,
+                 fill=(0, 0, 0)):
     """Quantise to a 256x(16*rows) SPEC grid under standard 8x8 attributes.
 
     Each 8x8 character cell gets one ink and one paper colour and a shared
@@ -773,11 +832,13 @@ def classic_band(im, crop=None, rows=None, adjust=None,
     NIRVANA+. Returns a band-height x BAND_W grid of SPEC indices.
     """
     return _attr_band(quant(im, crop=crop, rows=rows, adjust=adjust,
-                            palette=palette, palette_colors=palette_colors), 8)
+                            palette=palette, palette_colors=palette_colors,
+                            margin=margin, fill=fill), 8)
 
 
 def bifrost_band(im, crop=None, rows=None, adjust=None,
-                 palette=DEFAULT_PALETTE, palette_colors=None):
+                 palette=DEFAULT_PALETTE, palette_colors=None, margin=0,
+                 fill=(0, 0, 0)):
     """Approximate Bifrost*'s 8x1 multicolour as a 256x(16*rows) SPEC grid.
 
     Bifrost changes ink/paper every scanline (8x1 cells) rather than every 8x8
@@ -788,7 +849,8 @@ def bifrost_band(im, crop=None, rows=None, adjust=None,
     band-height x BAND_W grid of SPEC indices.
     """
     return _attr_band(quant(im, crop=crop, rows=rows, adjust=adjust,
-                            palette=palette, palette_colors=palette_colors), 1)
+                            palette=palette, palette_colors=palette_colors,
+                            margin=margin, fill=fill), 1)
 
 
 def grid_to_rgb_image(grid):

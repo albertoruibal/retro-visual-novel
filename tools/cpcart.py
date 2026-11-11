@@ -347,6 +347,8 @@ def _convert(im, conv=None, options=None, text_ink=None, highlight_ink=None,
                           adj.get("contrast", 1.0),
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
+    fill = CPC_PALETTE[0 if mode == 1 else text_bg]
+    im = zxart.inset_band(im, conv.get("margin", 0), fill)
 
     if mode == 1:
         # A mono picture needs dithering to resolve more than the three neutral

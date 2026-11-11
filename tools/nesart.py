@@ -390,6 +390,7 @@ def _plan(im, conv, art_rows, text_bg):
                           adj.get("contrast", 1.0),
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
+    im = zxart.inset_band(im, conv.get("margin", 0), bg_rgb)
     dither = _dither(conv.get("dither"))
     indexed = im.quantize(palette=_palette_image(), dither=dither)
     rgb = list(im.convert("RGB").getdata())

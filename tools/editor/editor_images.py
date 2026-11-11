@@ -700,7 +700,7 @@ def _preview_overrides(qs):
     parameter. The dither value is still a system setting, never an art one.
     """
     out = {}
-    for key in ("dither", "match", "palette", "palette_colors") \
+    for key in ("dither", "margin", "match", "palette", "palette_colors") \
             + scenefile.ADJUST_KEYS:
         v = qs.get(key, [None])[0]
         if v is not None and v != "":
@@ -742,9 +742,9 @@ def _preview_context(slug, art_id, crop, file, lines, overrides,
     if crop is not None:
         conv["crop"] = crop
     for key, val in (overrides or {}).items():
-        if key == "palette_colors":
+        if key in ("palette_colors", "margin"):
             try:
-                conv[key] = int(val)
+                conv[key] = max(0, int(val))
             except (TypeError, ValueError):
                 pass
         elif key in scenefile.ADJUST_KEYS:
@@ -814,18 +814,23 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
         return None
     from PIL import Image
     im = Image.open(src).convert("RGB")
+    margin = conv.get("margin", 0)
+    fill = zxart.background_rgb(doc["game"])
     if mode == "classic":
         return _png_bytes(zxart.grid_to_rgb_image(zxart.classic_band(
             im, crop=conv["crop"], rows=rows, adjust=conv["adjust"],
-            palette=conv["palette"], palette_colors=conv["palette_colors"])))
+            palette=conv["palette"], palette_colors=conv["palette_colors"],
+            margin=margin, fill=fill)))
     if mode == "bifrost":
         return _png_bytes(zxart.grid_to_rgb_image(zxart.bifrost_band(
             im, crop=conv["crop"], rows=rows, adjust=conv["adjust"],
-            palette=conv["palette"], palette_colors=conv["palette_colors"])))
+            palette=conv["palette"], palette_colors=conv["palette_colors"],
+            margin=margin, fill=fill)))
     grid = zxart.nirvana_band(im, crop=conv["crop"], dither=conv["dither"],
                               rows=rows, match=conv["match"],
                               adjust=conv["adjust"], palette=conv["palette"],
-                              palette_colors=conv["palette_colors"])
+                              palette_colors=conv["palette_colors"],
+                              margin=margin, fill=fill)
     _, _, blob = zxart.band_to_art(grid, rows=rows)
     m = list(blob[:zxart.map_len(rows)])
     tiles = [blob[zxart.map_len(rows) + i * 48:zxart.map_len(rows) + (i + 1) * 48]

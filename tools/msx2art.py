@@ -100,6 +100,13 @@ def text_colours(game):
     return text_ink(text), text_ink(highlight), text_ink(bg)
 
 
+def _bg_rgb(text_bg):
+    """Expand a resolved RGB333 background (or the default) to 8-bit RGB."""
+    if text_bg is None:
+        _ink, _hi, text_bg = text_colours(None)
+    return tuple(_rgb8(v) for v in text_bg)
+
+
 def palette_pair(color):
     """Return one RGB333 colour as a little-endian two-byte palette value."""
     r, g, b = (int(v) & 7 for v in color)
@@ -192,6 +199,7 @@ def art_blob(path, conv=None, options=None, text_ink=None, highlight_ink=None,
                           adj.get("contrast", 1.0),
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
+    im = zxart.inset_band(im, conv.get("margin", 0), _bg_rgb(text_bg))
     indexed, colors = _indexed(im, conv, text_ink, highlight_ink, text_bg)
     pal, _rgb = _palette_bytes(colors)
     return pal + _pack(indexed, art_rows)
@@ -214,18 +222,20 @@ def blank_blob(art_rows=DEFAULT_ART_ROWS, text_ink=None, highlight_ink=None,
 
 def band(im, crop=None, art_rows=DEFAULT_ART_ROWS, dither="off", adjust=None,
          match="rgb", options=None, text_ink=None, highlight_ink=None,
-         text_bg=None):
+         text_bg=None, margin=0):
     """Return the MSX2 band as an RGB image."""
     from PIL import Image
     import zxart
 
-    conv = {"crop": crop, "dither": dither, "adjust": adjust or {}}
+    conv = {"crop": crop, "dither": dither, "adjust": adjust or {},
+            "margin": margin}
     art_rows = int(art_rows)
     im = _fit(im, conv.get("crop"), art_rows)
     a = conv.get("adjust") or {}
     im = zxart.preprocess(im, a.get("saturation", 1.0),
                           a.get("contrast", 1.0),
                           a.get("brightness", 1.0), a.get("gamma", 1.0))
+    im = zxart.inset_band(im, margin, _bg_rgb(text_bg))
     indexed, colors = _indexed(im, conv, text_ink, highlight_ink, text_bg)
     _pal, rgb = _palette_bytes(colors)
     img = Image.new("RGB", (512, 8 * art_rows))
@@ -248,7 +258,7 @@ def preview_bytes(path, conv=None, options=None, text_ink=None,
                adjust=conv.get("adjust"),
                match=conv.get("match", "rgb"),
                text_ink=text_ink, highlight_ink=highlight_ink,
-               text_bg=text_bg)
+               text_bg=text_bg, margin=conv.get("margin", 0))
     # The bitmap is 512 px wide but Screen 7 shows it with half-width pixels;
     # double the preview height so the editor shows the physical proportions.
     img = img.resize((img.width, img.height * PIXEL_WIDTH_DIV),

@@ -20,7 +20,8 @@ import tempfile
 
 import scenefile
 
-from .base import BuildResult, Target, TargetOption, portable_sources
+from .base import (BuildResult, Target, TargetOption, art_margin_option,
+                   portable_sources)
 
 CGB_ENHANCED_FLAG = 0x80
 
@@ -33,7 +34,7 @@ def _available():
 
 def _preview(path, conv, options, game=None):
     import gbart
-    return gbart.preview_bytes(path, conv, options)
+    return gbart.preview_bytes(path, conv, options, game)
 
 
 def _patch_cgb_header(path):
@@ -138,6 +139,7 @@ TARGET = Target(
         TargetOption("art_rows", "Art rows", "choice", 8, (8,),
                      "Character rows of picture; 8 leaves 9 rows below it.",
                      minimum=8, maximum=8),
+        art_margin_option(),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard four-colour snap; floyd uses "

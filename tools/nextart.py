@@ -32,6 +32,7 @@ def _conversion(conv):
     return {
         "crop": conv.get("crop"),
         "dither": conv.get("dither", "off"),
+        "margin": max(0, int(conv.get("margin") or 0)),
         "palette": conv.get("palette", "none"),
         "palette_colors": int(conv.get("palette_colors") or 256),
         "saturation": adjust.get("saturation", 1.0),
@@ -41,13 +42,14 @@ def _conversion(conv):
     }
 
 
-def _band(im, conv, rows):
-    """Fit the source to the art band and apply the shared source controls."""
+def _band(im, conv, rows, fill=(0, 0, 0)):
+    """Fit the source to the art band, apply the source controls and margin."""
     tile_rows = max(1, rows // 2)
     im = zxart._fit_band(im, conv.get("crop"), tile_rows)
-    return zxart.preprocess(
+    im = zxart.preprocess(
         im, conv.get("saturation", 1.0), conv.get("contrast", 1.0),
         conv.get("brightness", 1.0), conv.get("gamma", 1.0))
+    return zxart.inset_band(im, conv.get("margin", 0), fill)
 
 
 def _spectrum_palette():
@@ -97,12 +99,12 @@ def _pixels(q, rows):
     return data[:expected]
 
 
-def art_blob(path, conv, options):
+def art_blob(path, conv, options, fill=(0, 0, 0)):
     """Convert one source image to ``(pixel_bytes, palette_bytes)``."""
     conv = _conversion(conv)
     rows = _art_rows(options)
     im = Image.open(path).convert("RGB")
-    im = _band(im, conv, rows)
+    im = _band(im, conv, rows, fill)
     q = _quantise(im, conv)
     return _pixels(q, rows), _palette_bytes(q)
 
@@ -112,11 +114,13 @@ def blank_blob(options):
     return bytes(256 * (8 * rows)), bytes(512)
 
 
-def preview_bytes(path, conv, options, game=None):
+def preview_bytes(path, conv, options, game=None, fill=None):
     conv = _conversion(conv)
     rows = _art_rows(options)
     im = Image.open(path).convert("RGB")
-    im = _band(im, conv, rows)
+    if fill is None:
+        fill = zxart.background_rgb(game)
+    im = _band(im, conv, rows, fill)
     q = _quantise(im, conv)
     out = io.BytesIO()
     q.convert("RGB").save(out, "PNG")

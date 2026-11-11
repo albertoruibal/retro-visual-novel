@@ -827,12 +827,14 @@ def main():
                 accent_glyphs.append((nib << 4) | nib)
         art_root = os.path.join(gdir, "assets", "art")
         gen_dir = os.path.join(gdir, "assets", "gen")
+        import zxart
+        next_fill = zxart.background_rgb(game)
         for i, art in enumerate(arts):
             path = scenefile.resolve_art_image(art_root, art, gen_dir)
             conv = scenefile.conversion_options(art, game, system)
             if path and os.path.exists(path):
                 pixels, palette = nextart.art_blob(
-                    path, conv, {"art_rows": art_rows})
+                    path, conv, {"art_rows": art_rows}, next_fill)
             else:
                 pixels, palette = nextart.blank_blob({"art_rows": art_rows})
             # Layer 2 row 0 is the screen's top line; the story band begins on
@@ -947,7 +949,8 @@ def main():
             if path and os.path.exists(path):
                 blob, ntiles = gbart.art_blob(
                     Image.open(path).convert("RGB"), conv, art_rows,
-                    gbart.MAX_ART_TILES, gbart.MAX_ART_PALETTES)
+                    gbart.MAX_ART_TILES, gbart.MAX_ART_PALETTES,
+                    gbart.rgb555_rgb8(text_bg))
             else:
                 blob, ntiles = gbart.blank_blob(art_rows), 0
             if len(blob) > 0x4000:

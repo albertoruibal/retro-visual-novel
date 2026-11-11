@@ -111,6 +111,7 @@ def band_indexed(im, conv=None, art_rows=12, text_ink=None, text_bg=None):
                           adj.get("contrast", 1.0),
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
+    im = zxart.inset_band(im, conv.get("margin", 0), color_rgb(text_bg))
     dither = _dither(conv.get("dither"))
     q = im.quantize(colors=14, method=Image.Quantize.MEDIANCUT, dither=dither)
     raw = q.getpalette()[:42]

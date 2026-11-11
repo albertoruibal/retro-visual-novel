@@ -16,7 +16,8 @@ import tempfile
 
 import cc65path
 import scenefile
-from .base import BuildResult, Target, TargetOption, portable_sources
+from .base import (BuildResult, Target, TargetOption, art_margin_option,
+                   portable_sources)
 
 ART_ROWS = (8, 10, 12)
 # A .prg with a 2-byte load address at $0801 must end below the display at
@@ -111,6 +112,7 @@ TARGET = Target(
         TargetOption("art_rows", "Art rows", "choice", 8, ART_ROWS,
                      "Character rows of picture; 12 leaves 12 text rows.",
                      minimum=8, maximum=12),
+        art_margin_option(),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard four-colour snap; floyd uses "

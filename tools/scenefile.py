@@ -33,6 +33,8 @@ _SYSTEM_OPTION_ALIASES = {
     ("zx", "art_lines"): ("art_lines", ART_LINES_DEFAULT),
     ("zx128", "art_lines"): ("art_lines", ART_LINES_DEFAULT),
 }
+# A per-system `margin:` insets the converted picture inside the art band by N
+# 8x8 cells on each side (0 = full band). The border uses the system's text_bg.
 # A `prompt:` value is written as a first line plus continuation lines. A
 # 2-space-indented continuation is a layout wrap and rejoins with a space; any
 # other continuation (the 4-space indent a save emits, or a legacy unindented
@@ -1543,6 +1545,25 @@ def system_dither(game, target_id):
         else DEFAULT_DITHER
 
 
+def system_margin(game, target_id):
+    """Resolve one build system's art margin in 8x8 cells (see ``ART_MARGIN_CELL``).
+
+    Stored in the system's ``## <id>`` block as ``margin:`` (the legacy
+    ``<id>_margin`` extra). Missing, non-numeric or negative values map to 0 so
+    a hand-edited file still builds. Too-large values are clamped by the
+    converter so the picture always keeps at least one pixel.
+    """
+    sid = canonical_target_id(target_id)
+    if not sid:
+        return 0
+    raw = ((game or {}).get("extras") or {}).get(f"{sid}_margin")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, value)
+
+
 def _as_float(v, default):
     try:
         return float(v)
@@ -1557,11 +1578,12 @@ def _clamp(v, lo, hi):
 def conversion_options(entry, game=None, target_id=None):
     """Resolve an art's complete conversion settings for one build system.
 
-    Returns ``{"crop", "dither", "match", "palette", "palette_colors",
-    "adjust"}`` where ``adjust`` is ``{saturation, contrast, brightness,
-    gamma}``. ``dither`` comes from ``target_id``'s ``## <id>`` block (see
-    ``system_dither``); the other values come from ``entry`` (an art) when set,
-    else from ``game`` (the ``# Game`` section), else the built-in default.
+    Returns ``{"crop", "dither", "margin", "match", "palette",
+    "palette_colors", "adjust"}`` where ``adjust`` is ``{saturation, contrast,
+    brightness, gamma}``. ``dither`` and ``margin`` come from ``target_id``'s
+    ``## <id>`` block (see ``system_dither``/``system_margin``); the other
+    values come from ``entry`` (an art) when set, else from ``game`` (the
+    ``# Game`` section), else the built-in default.
     Invalid or out-of-range values fall back to the default (the editor's
     validator reports them) so a hand-edited file still builds. The build and
     the editor previews share this one resolver.
@@ -1594,7 +1616,8 @@ def conversion_options(entry, game=None, target_id=None):
         lo, hi = ADJUST_RANGES[key]
         adjust[key] = _clamp(_as_float(pick(key), 1.0), lo, hi)
 
-    return {"crop": art_crop(entry, g), "dither": dither, "match": match,
+    return {"crop": art_crop(entry, g), "dither": dither,
+            "margin": system_margin(g, target_id), "match": match,
             "palette": palette, "palette_colors": pc, "adjust": adjust}
 
 

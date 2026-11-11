@@ -109,6 +109,7 @@ def art_blob(im, conv=None, art_rows=DEFAULT_ART_ROWS):
                           adjust.get("contrast", 1.0),
                           adjust.get("brightness", 1.0),
                           adjust.get("gamma", 1.0))
+    im = zxart.inset_band(im, conv.get("margin", 0), (0, 0, 0))
     im = zxart._apply_palette(im, conv.get("palette", zxart.DEFAULT_PALETTE),
                               conv.get("palette_colors"))
     grid = _mono_grid(im, conv.get("dither", zxart.DEFAULT_DITHER))

@@ -142,6 +142,7 @@ overrides the prompt line above the input ("Enter the password:" by default).
     # Systems
     ## zx128
     art_rows: 10            # art band rows, even (default 10)
+    margin: 1               # optional: inset the picture by N 8x8 cells
     dither: bayer4          # optional, per system (default off)
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour (default: text_ink)
@@ -227,6 +228,13 @@ black/grey/white ramp. Set
 it in each system's block so one game can use an ordered pattern on ZX and Floyd-Steinberg where the palette is
 richer. Older files with a single `# Game dither:` line migrate it to each selected system on load; a per-art
 `dither:` is dropped, because art no longer owns that setting.
+
+`margin:` (default `0`) adds a blank border inside the art band: `1` is one 8x8 cell (8 pixels) on every side. The
+picture is scaled down as a whole and centred, so its aspect is never distorted; the visible border is at least the
+requested number of cells and wider on the band's long axis. The border uses the game's `text_bg:` colour. Because the
+picture shrinks inside the band, a margin can only reduce the number of art tiles. A too-large value is clamped so at
+least one pixel of picture remains. Like `dither:`, it is a per-system setting with no per-art override; the Art tab's
+previews follow the Systems-tab control before a save.
 
 ## Art
 

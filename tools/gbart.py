@@ -95,16 +95,17 @@ def _fit(im, crop, art_rows):
     return box
 
 
-def _prepare(im, conv, art_rows):
+def _prepare(im, conv, art_rows, fill=(0, 0, 0)):
     import zxart
 
     conv = conv or {}
     im = _fit(im, conv.get("crop"), art_rows)
     adj = conv.get("adjust") or {}
-    return zxart.preprocess(im, adj.get("saturation", 1.0),
-                            adj.get("contrast", 1.0),
-                            adj.get("brightness", 1.0),
-                            adj.get("gamma", 1.0))
+    im = zxart.preprocess(im, adj.get("saturation", 1.0),
+                          adj.get("contrast", 1.0),
+                          adj.get("brightness", 1.0),
+                          adj.get("gamma", 1.0))
+    return zxart.inset_band(im, conv.get("margin", 0), fill)
 
 
 def _dither_on(conv):
@@ -236,10 +237,10 @@ def _tile_cost(tile, palette):
 
 
 def band_plan(im, conv=None, art_rows=DEFAULT_ART_ROWS,
-              max_palettes=MAX_ART_PALETTES):
+              max_palettes=MAX_ART_PALETTES, fill=(0, 0, 0)):
     """Plan the GBC band: palette list, per-tile palette and pixel indices."""
     art_rows = int(art_rows)
-    im = _prepare(im, conv, art_rows)
+    im = _prepare(im, conv, art_rows, fill)
     tile_palettes = []
     tiles = []
     for ty in range(art_rows):
@@ -299,7 +300,8 @@ def _nearest_pattern(pixels, kept):
 
 
 def art_blob(im, conv=None, art_rows=DEFAULT_ART_ROWS,
-             max_tiles=MAX_ART_TILES, max_palettes=MAX_ART_PALETTES):
+             max_tiles=MAX_ART_TILES, max_palettes=MAX_ART_PALETTES,
+             fill=(0, 0, 0)):
     """Convert one source image to the Game Boy Color art blob."""
     from PIL import Image
 
@@ -308,7 +310,7 @@ def art_blob(im, conv=None, art_rows=DEFAULT_ART_ROWS,
     else:
         im = im.convert("RGB")
     art_rows = int(art_rows)
-    plan = band_plan(im, conv, art_rows, max_palettes)
+    plan = band_plan(im, conv, art_rows, max_palettes, fill)
     grid = plan["grid"]
     tile_pal = plan["tile_pal"]
     palettes = plan["palettes"]
@@ -358,12 +360,12 @@ def blank_blob(art_rows=DEFAULT_ART_ROWS):
     return bytes((0, 0))
 
 
-def band(im, conv=None, art_rows=DEFAULT_ART_ROWS):
+def band(im, conv=None, art_rows=DEFAULT_ART_ROWS, fill=(0, 0, 0)):
     """Return the band as an RGB image using the GBC palettes."""
     from PIL import Image
 
     art_rows = int(art_rows)
-    plan = band_plan(im, conv, art_rows)
+    plan = band_plan(im, conv, art_rows, fill=fill)
     grid = plan["grid"]
     palettes = plan["palettes"]
     tile_pal = plan["tile_pal"]
@@ -379,7 +381,7 @@ def band(im, conv=None, art_rows=DEFAULT_ART_ROWS):
     return img
 
 
-def preview_image(path, conv=None, options=None):
+def preview_image(path, conv=None, options=None, game=None):
     from PIL import Image
 
     options = options or {}
@@ -388,11 +390,12 @@ def preview_image(path, conv=None, options=None):
         im = Image.open(path).convert("RGB")
     except Exception:                          # noqa: BLE001 - missing/corrupt
         return None
-    return band(im, conv, art_rows)
+    _ink, _hi, text_bg = text_colours(game)
+    return band(im, conv, art_rows, rgb555_rgb8(text_bg))
 
 
-def preview_bytes(path, conv=None, options=None):
-    img = preview_image(path, conv, options)
+def preview_bytes(path, conv=None, options=None, game=None):
+    img = preview_image(path, conv, options, game)
     if img is None:
         return None
     buf = io.BytesIO()

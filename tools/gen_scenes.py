@@ -666,7 +666,8 @@ def build_inv_blob(item_list, flag_map, item_meta, ui, carry, idmap,
     return bytes(blob), any_desc, any_opts
 
 
-def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None):
+def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
+                  fill=(0, 0, 0)):
     """Convert an art's source PNG to a blob, or None if absent.
 
     The image is the art's ``image:`` candidate under ``art_root``/``<id>/``
@@ -693,12 +694,14 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None):
                 im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
                 rows=rows, adjust=conv.get("adjust"),
                 palette=conv.get("palette", "none"),
-                palette_colors=conv.get("palette_colors")), path
+                palette_colors=conv.get("palette_colors"),
+                margin=conv.get("margin", 0), fill=fill), path
         grid = zxart.nirvana_band(
             im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
             rows=rows, match=conv.get("match", "rgb"),
             adjust=conv.get("adjust"), palette=conv.get("palette", "none"),
-            palette_colors=conv.get("palette_colors"))
+            palette_colors=conv.get("palette_colors"),
+            margin=conv.get("margin", 0), fill=fill)
         return zxart.band_to_art(grid, rows=rows)[2], path
     return None, None
 
@@ -1390,10 +1393,14 @@ def main():
     # via the shared scenefile resolver, and its dither comes from this system's
     # block, so a per-art override and the editor's preview agree with the build.
     art_blobs, art_dither, missing = [], [], []
+    fill = (0, 0, 0)
+    if not flat:
+        import zxart
+        fill = zxart.background_rgb(doc["game"])
     for i, a in enumerate(arts):
         conv = scenefile.conversion_options(a, doc["game"], target_id)
         art_dither.append(conv.get("dither", "off"))
-        blob, path = load_art_blob(a, art_root, conv, tile_rows, gen_dir)
+        blob, path = load_art_blob(a, art_root, conv, tile_rows, gen_dir, fill)
         if blob is None:
             missing.append(a["id"])
             blob = bytes(256 * lines) if flat else bytes(art_map_len)

@@ -24,7 +24,8 @@ Next's AY player. The output is a NextZXOS `.nex` executable.
   also confirms. ZEsarUX sends the PC arrow keys to the emulated Kempston
   joystick rather than the ULA matrix, so the joystick path is what makes them
   work there.
-- **Options:** `art_rows` (even 8..16, default 10), `menu: popup`, `title_ink`.
+- **Options:** `art_rows` (even 8..16, default 10), `margin` (N 8x8 cells inset, `text_bg` border), `menu: popup`,
+  `title_ink`.
   The same `# Game` text colours, `carry`, password, songs and item settings
   apply.
 - **Build:** `python3 tools/build.py build demo-game next`; the output is

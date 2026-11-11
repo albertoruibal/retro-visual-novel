@@ -45,8 +45,9 @@ the compressed art/song blobs from the disk instead of paging the extra banks.
   frame-flyback ISR. The module is ZX0-decoded into `SONG_WS_ADDR` (`SONG_WS_SIZE` bytes after decompression, above
   the scene/inventory buffer and below `0xA600`); the CRT heap is capped at `CPC_WS_BASE`, `BANK_2` stays free, and
   the map guard checks the linked BSS ends before the fixed workspaces. Press `P` to toggle music.
-- **Options:** `mode`, `columns`, `art_rows`, `dither`, and `menu: popup` (Modes 1/2; Mode 0 always uses the dialog).
-  The dialog key is `SPACE`; `ENTER`/fire confirms.
+- **Options:** `mode`, `columns`, `art_rows`, `margin` (N 8x8 cells inset; Mode 1's border is black, Modes 0/2 use
+  `text_bg`), `dither`, and `menu: popup` (Modes 1/2; Mode 0 always uses the dialog). The dialog key is `SPACE`;
+  `ENTER`/fire confirms.
 - **Controls:** arrow keys or W/A/S/D move the cursor; Enter or the joystick fire button chooses (Space also chooses
   on the pinned Modes 1/2 layout). `P` toggles music. In Mode 0 up/down scrolls long scene text (left/right moves
   between highlighted words) and `SPACE` opens/closes the action dialog. Modes 1/2 use the same dialog when

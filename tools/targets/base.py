@@ -104,6 +104,16 @@ class Target:
         return self.id + "_"
 
 
+def art_margin_option() -> TargetOption:
+    """The shared per-system art-margin setting (N 8x8 cells per side)."""
+    return TargetOption(
+        "margin", "Art margin", "int", 0, minimum=0,
+        help="Inset the picture inside the art band by N 8x8 cells on every "
+             "side (0 = full band). The picture keeps its aspect and is "
+             "centred; the border is at least N cells and wider on the band's "
+             "long axis, filled with the system background.")
+
+
 def option_key(target: Target, option: TargetOption) -> str:
     return target.option_prefix + option.key
 

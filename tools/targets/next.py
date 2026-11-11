@@ -11,7 +11,7 @@ import importlib.util
 
 import scenefile
 
-from .base import BuildResult, Target, TargetOption
+from .base import BuildResult, Target, TargetOption, art_margin_option
 
 
 def _available():
@@ -69,6 +69,7 @@ TARGET = Target(
             "Height of the Layer 2 picture band in 8px rows (256x8*rows "
             "pixels, default 10 = 256x80).",
             minimum=8, maximum=16),
+        art_margin_option(),
         TargetOption(
             "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
             scenefile.DITHER_BINARY_MODES,

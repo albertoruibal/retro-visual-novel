@@ -139,12 +139,23 @@ function previewDither(id) {
   const v = String(ex[id + "_dither"] ?? def);
   return choices.includes(v) ? v : def;
 }
+/* The system's live (possibly unsaved) art margin in 8x8 cells. Like dither,
+ * it is a Systems-tab setting but the preview follows the control before save. */
+function previewMargin(id) {
+  const m = previewTargetMeta(id);
+  const opt = ((m && m.options) || []).find((o) => o.suffix === "margin");
+  const def = opt && opt.default != null ? +opt.default : 0;
+  const ex = (P && P.game && P.game.extras) || {};
+  const n = +(ex[id + "_margin"] ?? def);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : def;
+}
 function targetPreviewQuery(id, q) {
   const dither = "dither=" + encodeURIComponent(previewDither(id));
-  if (id === "zx128") return q + (q ? "&" : "?") + dither;
+  const margin = "margin=" + previewMargin(id);
+  if (id === "zx128") return q + (q ? "&" : "?") + dither + "&" + margin;
   const rows = id === "zx48" ? artLines() : previewTargetRows(id);
   return q + (q ? "&" : "?") + "target=" + encodeURIComponent(id)
-           + "&rows=" + rows + "&" + dither;
+           + "&rows=" + rows + "&" + dither + "&" + margin;
 }
 function targetPreviewFig(id, g, aid, q, bust) {
   const src = `/api/preview/${g}/${aid}${targetPreviewQuery(id, q)}`;
