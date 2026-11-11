@@ -41,13 +41,12 @@ let suppressRawChange = false;  // ignore setValue() while seeding the editor
 let rawIssues = [];        // last validation issues (with 1-based `line`s)
 let rawOutline = [];       // scene/art/song/item/flag links for Ctrl+click
 let rawCheckTimer = null;  // debounce handle for the live game.md checker
-// active view tab: settings | systems | art | scenes | flags | items | graph | raw | build | web | emu
+// active view tab: settings | systems | art | scenes | flags | items | graph | raw | build | emu
 let view = "settings";
 let systemsTab = "";        // active platform sub-tab in the Systems view
-let webTransition = false;  // saving pending edits before entering the Web tab
 const EDIT_MODES = ["settings", "systems", "art", "music", "scenes", "flags",
                     "items"];
-const VIEWS = [...EDIT_MODES, "graph", "raw", "web", "build", "emu"];
+const VIEWS = [...EDIT_MODES, "graph", "raw", "build", "emu"];
 
 /* Remember the last game + tab across reloads (browser localStorage). */
 const SESSION_KEY = "rvn.editor.session";
@@ -143,15 +142,6 @@ function ensureSelection(mode) {
 }
 
 function setView(v) {
-  if (v === "web" && webTransition) return;     // auto-save already in flight
-  if (v === "web" && (dirty || rawDirty)) {
-    webTransition = true;
-    webEnsureSaved().then((ok) => {
-      webTransition = false;
-      if (ok && view !== "web") setView("web");
-    }).catch(() => { webTransition = false; });
-    return;
-  }
   if (view === "raw" && v !== "raw" && rawDirty) {
     if (!confirm("Discard unsaved game.md changes?")) return;
     clearRawDirty();
@@ -176,9 +166,7 @@ function setView(v) {
   $("view-graph").classList.toggle("active", v === "graph");
   $("view-raw").classList.toggle("active", v === "raw");
   $("view-build").classList.toggle("active", v === "build");
-  $("view-web").classList.toggle("active", v === "web");
   $("save").disabled = v === "raw";
-  if (v === "web" && typeof loadWeb === "function") loadWeb();
   if (!P) {           // no game open: show the empty state
     renderNoGame();
     return;

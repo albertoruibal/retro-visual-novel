@@ -1,24 +1,39 @@
 #!/usr/bin/env python3
-"""Export a game as a standalone, mobile-first web runtime.
+"""Export a game as a standalone web player.
 
-The runtime is a small static SPA (``tools/webgame_runtime/``) that reads one
-data file, ``game.js``, which assigns ``window.RVN_GAME``.  Because the data is
-a classic script, an exported folder works from ``file://`` without a server or
-a fetch/CORS exception.  The runtime itself is frontend-only; this module is the
-build/export step that writes the runtime files and the data they consume.
+The export is a self-contained folder that plays the story in the browser and
+bundles the selected native systems' web emulators and built files:
 
-    python3 tools/webgame.py <slug>          # write games/<slug>/web/
-    python3 tools/webgame.py <slug> --json   # print the runtime data
+    <game-folder>/web/
+      index.html, player.js, player-data.js, style.css
+      novel/                 the mobile-first story runtime
+      emulator/              only the selected systems' emulator bundles
+      files/                 one played artifact per native system
 
-Exports use relative ``assets/art/<id>.png`` paths and copy the selected source
-image for every art.
+The story runtime (``tools/webgame_runtime/``) reads ``novel/game.js``, which
+assigns ``window.RVN_GAME``.  The player shell reads ``player-data.js``, which
+assigns ``window.RVN_PLAYER``.  Both data files are classic scripts, so the
+novel works from ``file://``; the native emulator entries need an HTTP host
+(GitHub Pages, itch.io or ``python3 -m http.server``).
+
+    python3 tools/webgame.py <slug>          # write <game-folder>/web/
+    python3 tools/webgame.py <slug> --json   # print the novel data
+
+Only the systems ticked in ``# Systems`` are included.  The Web novel is always
+present; a selected system with a bundled web emulator gets a playable entry,
+and the ZX Spectrum Next (no web emulator) gets a download-only entry.  Missing
+build artifacts are skipped with a warning.
+
+Music is rendered from the selected PT3 modules with ``spectrumizer.play``
+(22050 Hz mono WAV) into ``novel/assets/music/``.  The renderer is an editor
+dependency; if it is unavailable the export still succeeds without music and
+returns a warning.
 
 The story semantics mirror ``src/portable/core/`` and ``tools/gen_scenes.py``:
 all ``if``/``unless`` tokens must hold, ``pick`` options hide while the item is
 held or the pack is full, ``clear`` resets the flags and re-grants ``# Game
 start:`` before applying the option's own effects, selectable words are
-one-shot, and entering a scene sets its ``ending:`` flag.  Music is deliberately
-not part of the web runtime.
+one-shot, and entering a scene sets its ``ending:`` flag.
 """
 from __future__ import annotations
 
@@ -29,6 +44,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import zipfile
 
@@ -37,26 +53,80 @@ import gamestore
 import scenefile
 import targets
 
-RUNTIME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "webgame_runtime")
+TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+RUNTIME_DIR = os.path.join(TOOLS_DIR, "webgame_runtime")
+PLAYER_RUNTIME_DIR = os.path.join(TOOLS_DIR, "webplayer_runtime")
+EMULATOR_DIR = os.path.join(TOOLS_DIR, "editor", "static", "emulator")
 WEB_DIRNAME = "web"
+NOVEL_DIRNAME = "novel"
+EMULATOR_EXPORT_DIR = "emulator"
+FILES_EXPORT_DIR = "files"
+PLAYER_FILES = ("index.html", "player.js", "style.css")
 RUNTIME_FILES = ("index.html", "app.js", "style.css")
+PLAYER_DATA = "player-data.js"
 GAME_JS = "game.js"
 ART_SUBDIR = os.path.join("assets", "art")
+MUSIC_SUBDIR = os.path.join("assets", "music")
+SONG_RENDER_TIMEOUT = 180
 OPT_RE = re.compile(r"(.+?)\s*->\s*(\S+)(.*)$")
 _SPEC_DIM = [(0, 0, 0), (0, 0, 192), (192, 0, 0), (192, 0, 192),
              (0, 192, 0), (0, 192, 192), (192, 192, 0), (192, 192, 192)]
 _SPEC_BRIGHT = [(0, 0, 0), (0, 0, 255), (255, 0, 0), (255, 0, 255),
                 (0, 255, 0), (0, 255, 255), (255, 255, 0), (255, 255, 255)]
 
+# Browser emulator adapter -> (exported page folder, files/extension).
+EMU_PAGE = {
+    "emulatorjs": "sms",
+    "emulatorjs-c64": "c64",
+    "emulatorjs-nes": "nes",
+    "gambatte": "gb",
+    "webmsx": "msx",
+    "cpcjs": "cpc",
+    "cpc464": "cpc",
+    "oricutron": "oric",
+}
+EMU_ASSET_DIRS = {
+    "jsspeccy": ("jsspeccy",),
+    "emulatorjs": ("emulatorjs", "sms"),
+    "emulatorjs-c64": ("emulatorjs", "c64"),
+    "emulatorjs-nes": ("emulatorjs", "nes"),
+    "gambatte": ("emulatorjs", "gb"),
+    "webmsx": ("msx",),
+    "cpcjs": ("cpc",),
+    "cpc464": ("cpc",),
+    "oricutron": ("oric",),
+}
+EMU_ASPECT = {
+    "zx128": 4 / 3,
+    "zx48": 4 / 3,
+    "sms": 4 / 3,
+    "c64": 4 / 3,
+    "nes": 4 / 3,
+    "gb": 160 / 144,
+    "cpc": 768 / 540,
+    "cpc464": 768 / 540,
+    "msx2": (544 * 1.14) / 456,
+    "oric": 640 / 720,
+}
+
 
 def runtime_path(name):
-    """Resolve one of the shipped runtime files (no arbitrary paths)."""
+    """Resolve one of the shipped story-runtime files (no arbitrary paths)."""
     if name not in RUNTIME_FILES:
         raise FileNotFoundError(f"no runtime file: {name}")
     path = os.path.join(RUNTIME_DIR, name)
     if not os.path.isfile(path):
         raise FileNotFoundError(f"missing runtime file: {name}")
+    return path
+
+
+def player_path(name):
+    """Resolve one of the shipped player-shell files (no arbitrary paths)."""
+    if name not in PLAYER_FILES:
+        raise FileNotFoundError(f"no player file: {name}")
+    path = os.path.join(PLAYER_RUNTIME_DIR, name)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"missing player file: {name}")
     return path
 
 
@@ -231,6 +301,8 @@ def webgame_data(slug):
                      if (x := _item_option(line, system)) is not None],
         }
 
+    songs = {song: {"src": f"{MUSIC_SUBDIR.replace(os.sep, '/')}/{song}.wav"}
+             for song in game.get("songs") or []}
     scenes = []
     for scene in doc["scenes"]:
         scenes.append({
@@ -238,6 +310,7 @@ def webgame_data(slug):
             "title": scene.get("title") or scene["id"],
             "art": scene.get("art") or "",
             "ending": scene.get("ending") or "",
+            "music": scenefile.resolve_song(scene, game),
             "text": [x for line in scene.get("text") or []
                      if (x := _text_line(line, system)) is not None],
             "opts": [x for line in scene.get("opts") or []
@@ -266,6 +339,7 @@ def webgame_data(slug):
         "itemOrder": item_list,
         "items": items,
         "arts": arts,
+        "songs": songs,
         "scenes": scenes,
     }
 
@@ -276,11 +350,162 @@ def _js(data):
     return "window.RVN_GAME=" + text + ";\n"
 
 
+def _player_js(data):
+    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    text = text.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    return "window.RVN_PLAYER=" + text + ";\n"
+
+
+def _player_systems(rec, doc):
+    """Selected systems as player entries, plus emulator dirs and warnings."""
+    systems = []
+    emulator_dirs = set()
+    warnings = []
+    for target_id in targets.ordered_targets(targets.selected_targets(doc)):
+        target = targets.get_target(target_id)
+        if target is None or not target.outputs:
+            continue
+        extension = target.outputs[0]
+        filename = f"{rec['slug']}{target.artifact_suffix}{extension}"
+        source = os.path.join(rec["dir"], filename)
+        if not os.path.isfile(source) or os.path.getsize(source) == 0:
+            warnings.append(f"{target.label}: {filename} is not built; skipped")
+            continue
+        if target.emulator in EMU_ASSET_DIRS:
+            entry = {
+                "id": target.id,
+                "label": target.label,
+                "kind": "native",
+                "emulator": target.emulator,
+                "machine": target.machine,
+                "page": EMU_PAGE.get(target.emulator, ""),
+                "file": f"{FILES_EXPORT_DIR}/{filename}",
+                "filename": filename,
+                "aspect": round(EMU_ASPECT.get(target.id, 4 / 3), 6),
+            }
+            if target.emulator in ("cpcjs", "cpc464"):
+                entry["run"] = "GAME"
+            emulator_dirs.update(EMU_ASSET_DIRS[target.emulator])
+        elif target.id == "next":
+            entry = {
+                "id": target.id,
+                "label": target.label,
+                "kind": "download",
+                "emulator": "",
+                "machine": target.machine,
+                "page": "",
+                "file": f"{FILES_EXPORT_DIR}/{filename}",
+                "filename": filename,
+                "aspect": 4 / 3,
+            }
+        else:
+            warnings.append(f"{target.label}: no web emulator; skipped")
+            continue
+        entry["_source"] = source
+        systems.append(entry)
+    return systems, emulator_dirs, warnings
+
+
+def _player_data(rec, doc, systems):
+    clean = [{k: v for k, v in item.items() if k != "_source"}
+             for item in systems]
+    return {
+        "format": 1,
+        "slug": rec["slug"],
+        "title": doc["game"].get("title") or rec["slug"],
+        "web": {
+            "label": "Web version",
+            "src": f"{NOVEL_DIRNAME}/index.html",
+            "machine": "HTML5",
+        },
+        "systems": clean,
+    }
+
+
+def _copy_emulators(tmp, dirs, warnings):
+    if not dirs:
+        return
+    for name in sorted(dirs):
+        source = os.path.join(EMULATOR_DIR, name)
+        if not os.path.isdir(source):
+            warnings.append(f"emulator bundle missing: {name}")
+            continue
+        shutil.copytree(source, os.path.join(tmp, EMULATOR_EXPORT_DIR, name))
+    notice = os.path.join(EMULATOR_DIR, "THIRD_PARTY.md")
+    if os.path.isfile(notice):
+        shutil.copyfile(notice, os.path.join(tmp, EMULATOR_EXPORT_DIR,
+                                             "THIRD_PARTY.md"))
+
+
+def _render_music(rec, doc, novel_dir, warnings):
+    """Render the songs the story uses to WAV, returning the rendered ids."""
+    game = doc["game"]
+    if not game.get("songs"):
+        return set()
+    used = set()
+    for scene in doc.get("scenes") or []:
+        song = scenefile.resolve_song(scene, game)
+        if song:
+            used.add(song)
+    if not used:
+        return set()
+
+    music_dir = os.path.join(rec["dir"], "assets", "music")
+    cache_dir = os.path.join(rec["dir"], "assets", "gen")
+    os.makedirs(cache_dir, exist_ok=True)
+    out_dir = os.path.join(novel_dir, MUSIC_SUBDIR)
+    os.makedirs(out_dir, exist_ok=True)
+    rendered = set()
+    for song in sorted(used):
+        source = os.path.join(music_dir, f"{song}.pt3")
+        if not os.path.isfile(source):
+            warnings.append(f"song {song}: no assets/music/{song}.pt3; skipped")
+            continue
+        cache = os.path.join(cache_dir, f"song_{song}.wav")
+        fresh = (os.path.isfile(cache)
+                 and os.path.getmtime(cache) >= os.path.getmtime(source)
+                 and os.path.getsize(cache) > 44)
+        if not fresh:
+            temp = cache + ".tmp"
+            try:
+                if os.path.exists(temp):
+                    os.remove(temp)
+                proc = subprocess.run(
+                    [sys.executable, "-m", "spectrumizer.play", source,
+                     "-o", temp, "--no-play", "-q", "--rate", "22050",
+                     "--stereo", "mono"],
+                    cwd=gamestore.ROOT, capture_output=True, text=True,
+                    timeout=SONG_RENDER_TIMEOUT)
+            except (OSError, subprocess.TimeoutExpired) as err:
+                warnings.append(f"song {song}: could not render music: {err}")
+                continue
+            if proc.returncode != 0 or not os.path.isfile(temp) \
+                    or os.path.getsize(temp) <= 44:
+                detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+                warnings.append(
+                    f"song {song}: could not render music"
+                    + (f": {detail[-1]}" if detail else ""))
+                try:
+                    os.remove(temp)
+                except OSError:
+                    pass
+                continue
+            os.replace(temp, cache)
+        shutil.copyfile(cache, os.path.join(out_dir, f"{song}.wav"))
+        rendered.add(song)
+    return rendered
+
+
 def _export_rev(tmp, sources):
-    """Fingerprint the exported runtime so the editor can reload only on change."""
+    """Fingerprint the exported player so the editor reloads only on change."""
     digest = hashlib.sha1()
-    for name in RUNTIME_FILES + (GAME_JS,):
-        with open(os.path.join(tmp, name), "rb") as fh:
+    names = list(PLAYER_FILES) + [PLAYER_DATA]
+    names += [f"{NOVEL_DIRNAME}/{name}" for name in RUNTIME_FILES + (GAME_JS,)]
+    for name in names:
+        path = os.path.join(tmp, name)
+        if not os.path.isfile(path):
+            continue
+        with open(path, "rb") as fh:
             digest.update(name.encode("utf-8") + b"\0" + fh.read() + b"\0")
     for art_id in sorted(sources):
         src = sources[art_id]
@@ -290,30 +515,58 @@ def _export_rev(tmp, sources):
         digest.update(
             f"{art_id}\0{os.path.basename(src)}\0{st.st_size}\0{st.st_mtime_ns}\n"
             .encode("utf-8"))
+    for sub in (FILES_EXPORT_DIR, os.path.join(NOVEL_DIRNAME, "assets", "music")):
+        root = os.path.join(tmp, sub)
+        for base, _dirs, files in os.walk(root):
+            for name in sorted(files):
+                path = os.path.join(base, name)
+                rel = os.path.relpath(path, tmp).replace(os.sep, "/")
+                st = os.stat(path)
+                digest.update(
+                    f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\n".encode("utf-8"))
     return digest.hexdigest()
 
 
 def export_web(slug):
-    """Write a self-contained ``games/<slug>/web/`` folder and return its info."""
+    """Write a self-contained ``<game>/web/`` player and return its info."""
     rec = _game(slug)
     doc = _doc(rec)
     sources = _art_sources(rec, doc)
     data = webgame_data(slug)
+    systems, emulator_dirs, warnings = _player_systems(rec, doc)
     dest = os.path.join(rec["dir"], WEB_DIRNAME)
     tmp = dest + ".tmp"
     old = dest + ".old"
     shutil.rmtree(tmp, ignore_errors=True)
-    os.makedirs(os.path.join(tmp, ART_SUBDIR), exist_ok=True)
+    novel = os.path.join(tmp, NOVEL_DIRNAME)
+    os.makedirs(os.path.join(novel, ART_SUBDIR), exist_ok=True)
     try:
+        for name in PLAYER_FILES:
+            shutil.copyfile(player_path(name), os.path.join(tmp, name))
         for name in RUNTIME_FILES:
-            shutil.copyfile(runtime_path(name), os.path.join(tmp, name))
-        with open(os.path.join(tmp, GAME_JS), "w", encoding="utf-8") as f:
+            shutil.copyfile(runtime_path(name), os.path.join(novel, name))
+        rendered = _render_music(rec, doc, novel, warnings)
+        data["songs"] = {song: info for song, info in data["songs"].items()
+                         if song in rendered}
+        for scene in data["scenes"]:
+            if scene.get("music") not in rendered:
+                scene["music"] = None
+        with open(os.path.join(novel, GAME_JS), "w", encoding="utf-8") as f:
             f.write(_js(data))
         for art_id, src in sources.items():
             if not src or not os.path.isfile(src):
                 continue
-            shutil.copyfile(src, os.path.join(tmp, ART_SUBDIR,
+            shutil.copyfile(src, os.path.join(novel, ART_SUBDIR,
                                               f"{art_id}.png"))
+        _copy_emulators(tmp, emulator_dirs, warnings)
+        files_dir = os.path.join(tmp, FILES_EXPORT_DIR)
+        if systems:
+            os.makedirs(files_dir, exist_ok=True)
+        for system in systems:
+            shutil.copyfile(system["_source"],
+                            os.path.join(files_dir, system["filename"]))
+        with open(os.path.join(tmp, PLAYER_DATA), "w", encoding="utf-8") as f:
+            f.write(_player_js(_player_data(rec, doc, systems)))
         rev = _export_rev(tmp, sources)
         shutil.rmtree(old, ignore_errors=True)
         if os.path.exists(dest):
@@ -329,23 +582,25 @@ def export_web(slug):
         "relative": os.path.relpath(dest, rec["dir"]),
         "zip": f"/api/webzip/{urllib_quote(rec['slug'])}",
         "arts": len([s for s in sources.values() if s and os.path.isfile(s)]),
+        "systems": [item["id"] for item in systems],
+        "music": len(rendered),
+        "warnings": warnings,
         "rev": rev,
     }
 
 
 def export_zip(slug):
-    """A zip of the exported folder (under ``<slug>/``), building it if needed."""
+    """An itch.io-ready zip with ``index.html`` at the archive root."""
     rec = _game(slug)
+    export_web(slug)
     web = os.path.join(rec["dir"], WEB_DIRNAME)
-    if not os.path.isdir(web):
-        export_web(slug)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
         for root, _dirs, files in os.walk(web):
             for name in files:
                 full = os.path.join(root, name)
                 rel = os.path.relpath(full, web).replace(os.sep, "/")
-                archive.write(full, f"{rec['slug']}/{rel}")
+                archive.write(full, rel)
     return buf.getvalue()
 
 
@@ -357,16 +612,18 @@ def zip_filename(slug):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Export a novel as a standalone, mobile-first web runtime.")
+        description="Export a game as a standalone web player.")
     parser.add_argument("game", help="game slug or folder")
     parser.add_argument("--json", action="store_true",
-                        help="print the runtime data instead of exporting")
+                        help="print the novel data instead of exporting")
     args = parser.parse_args(argv)
     if args.json:
         print(json.dumps(webgame_data(args.game), indent=2, ensure_ascii=False))
         return 0
     result = export_web(args.game)
     print(f"exported {result['game']} -> {result['path']}")
+    for warning in result.get("warnings") or []:
+        print("warning: " + warning, file=sys.stderr)
     return 0
 
 

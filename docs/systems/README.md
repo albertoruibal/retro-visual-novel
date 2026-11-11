@@ -43,5 +43,5 @@ picture inside the margins, without the blank border.
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.
 
-The browser runtime is not a `## Systems` build target; it always plays the saved story with the selected system's
-`art_rows` framing. See [the web runtime](../web-runtime.md).
+The browser player is not a `## Systems` build target; it always plays the saved story with the selected system's
+`art_rows` framing and lists only the selected systems' emulators and files. See [the web player](../web-runtime.md).

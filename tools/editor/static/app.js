@@ -31,6 +31,7 @@ $("emusystem").onchange = () => {
   if (game) localStorage.setItem(emuStorageKey(), v);
   if (emu) stopEmulator();
   updateEmuHint();
+  updateEmuDownload(emuSelectedMeta());
   refreshRunButton();
 };
 document.querySelectorAll(".viewtab").forEach((b) =>
@@ -66,8 +67,9 @@ window.addEventListener("beforeunload", (e) => {
 });
 const session = loadSession();
 if (session.game) game = session.game;
+if (session.view === "web") session.view = "emu";
 if (VIEWS.includes(session.view)) view = session.view;
-if (VIEWS.includes(location.hash.slice(1)))
-  view = location.hash.slice(1);
+const hashView = location.hash.slice(1) === "web" ? "emu" : location.hash.slice(1);
+if (VIEWS.includes(hashView)) view = hashView;
 load().catch((e) => { document.getElementById("main").innerHTML =
   "<p style='color:#ff5d5d'>Failed to load project: " + esc(e.message) + "</p>"; });

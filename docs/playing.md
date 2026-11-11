@@ -23,7 +23,7 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 | Commodore 64 | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
 | NES | D-pad | A | B or Select opens/closes the action dialog |
 | Oric Atmos | Cursor keys or W/A/S/D | Return | Bottom inventory row, or `SPACE` dialog |
-| Web runtime | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
+| Web player | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
 The editor's **Emulator** tab runs the C64 in VICE, the NES in FCEUmm and the Oric Atmos in Oricutron. Click the Oric
 picture first so the canvas takes keyboard focus; the cursor keys, `RETURN` and `SPACE` are forwarded to the emulated
@@ -32,13 +32,15 @@ forwards the physical keyboard (cursor keys/`W` `A` `S` `D`, `RETURN`, `SPACE`).
 are arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and `Enter` = Start; remap them in
 its Control Settings.
 
-## Web runtime
+## Web player
 
-The exported web runtime and the editor's **Web** tab use the same mobile-first SPA. Tap or click an option, a
-highlighted word or an inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the focused control, and
-`Escape` closes the item screen. The inventory bar stays at the bottom on phones,
-and **Restart** resets the story. Music is not present in the web runtime. See
-[the web runtime](web-runtime.md) for export and implementation details.
+The exported web player and the editor's **Emulator → Web player** entry use the same mobile-first novel. Tap or
+click an option, a highlighted word or an inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the
+focused control, and `Escape` closes the item screen. The inventory bar stays at the bottom on phones, and
+**Restart** resets the story. Use the **Sound: on/off** button to mute the music; browsers may wait for the first
+click or key press before starting it. The player lists only the systems ticked in the Systems tab, and each native
+system has a **Download** button for the exact file it plays. See [the web player](web-runtime.md) for export and
+implementation details.
 
 ## ZX Spectrum 128K
 

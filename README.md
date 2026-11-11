@@ -16,7 +16,7 @@ and other 8-bit targets, with a shared engine and authoring UI.
 - [Commodore 64](docs/systems/c64.md) (alpha)
 - [Nintendo Entertainment System](docs/systems/nes.md) (alpha)
 - [Oric Atmos](docs/systems/oric.md) (alpha)
-- [Web runtime](docs/web-runtime.md) (mobile-first standalone SPA)
+- [Web player](docs/web-runtime.md) (mobile-first novel plus the selected systems' emulators)
 
 See [playing the games](docs/playing.md) for the controls on each target.
 
@@ -50,13 +50,13 @@ It has tabs to edit the game sections:
 * Source: Allows to directly edit the Markdown of the game with syntax validation and navigation via CTRL + click.
 * Build: Builds the game for the selected systems. The Build log separates each system with a
   `==== name [id] ====` banner.
-* Web: Runs the mobile-first web runtime in an iframe; it can open in a new tab, export a self-contained
-  `<game-folder>/web/` folder, or download that folder as a zip.
-* Emulator: The Emulator tab plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
+* Emulator: Plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
   EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464,
   EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64,
-  EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos. ZX Next is not bundled;
-  use `python3 tools/build.py run <game> next` with ZEsarUX.
+  EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos. The **Web player** entry previews the exported player:
+  the mobile-first novel plus only the selected systems, with a download link for each native file. The same toolbar
+  exports `<game-folder>/web/`, opens it in a new tab, or downloads an itch.io-ready zip. ZX Next is not bundled in
+  the browser; use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
 
@@ -109,9 +109,10 @@ Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128)
 `-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES) and
 `<slug>-oric.tap` (Oric Atmos).
 
-The web runtime is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
-`<game-folder>/web/` folder (and the editor's Web tab does the same plus a zip download). See
-[the web runtime](docs/web-runtime.md).
+The web player is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
+`<game-folder>/web/` folder containing the novel, the selected systems' web emulators and their playable files. The
+editor's **Emulator → Web player** entry does the same plus an itch.io-ready zip download. See
+[the web player](docs/web-runtime.md).
 
 ## Licenses
 

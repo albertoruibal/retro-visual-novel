@@ -100,10 +100,10 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     GET    /api/build/<id>            build status + log tail
     GET    /api/tap/<slug>/<name>     game's built <name>.tap / .sna (ZX emulator)
     GET    /api/artifact/<slug>/<name> any built target artifact (.sms/.rom/.dsk/.gbc/.tap/.sna/.nex/.prg/.nes)
-    GET    /play/<slug>/              exported mobile-first web runtime (Web tab iframe)
-    GET    /play/<slug>/<file>        static runtime files and art from <game>/web/
-    POST   /api/web_export            write <game>/web/ and return its path
-    GET    /api/webzip/<slug>         download the exported runtime as a zip
+    GET    /play/<slug>/              exported web player (Emulator tab iframe)
+    GET    /play/<slug>/<file>        static player, novel, emulator and file assets
+    POST   /api/web_export            export the player to <game>/web/
+    GET    /api/webzip/<slug>         download the itch.io-ready player zip
     GET    /emulator/<file>           vendored web emulators (static/emulator/)
     GET    /monaco/<file>             vendored Monaco editor (static/monaco/)
     GET    /                         the editor SPA

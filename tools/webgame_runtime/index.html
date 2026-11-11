@@ -11,6 +11,8 @@
 <div id="app" hidden>
   <header class="topbar">
     <span id="gametitle" class="gametitle"></span>
+    <button id="sound" class="ghost" type="button" aria-pressed="true"
+            aria-label="Toggle sound" hidden>Sound: on</button>
     <button id="restart" class="ghost" type="button">Restart</button>
   </header>
   <main class="stage">
@@ -52,6 +54,7 @@
     <button type="submit" class="primary">Enter</button>
   </form>
 </div>
+<audio id="music" loop preload="none"></audio>
 <div id="fatal" class="fatal" hidden></div>
 <noscript>This visual novel needs JavaScript.</noscript>
 <script src="game.js"></script>

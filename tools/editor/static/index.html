@@ -12,7 +12,6 @@
 <link rel="stylesheet" href="/static/art.css">
 <link rel="stylesheet" href="/static/feedback.css">
 <link rel="stylesheet" href="/static/graph.css">
-<link rel="stylesheet" href="/static/web.css">
 <link rel="stylesheet" href="/static/responsive.css">
 </head>
 <body>
@@ -45,7 +44,6 @@
     <button class="viewtab" data-view="items">Items</button>
     <button class="viewtab" data-view="graph">Graph</button>
     <button class="viewtab" data-view="raw">Source</button>
-    <button class="viewtab" data-view="web">Web</button>
     <button class="viewtab" data-view="build">Build</button>
     <button class="viewtab" data-view="emu">Emulator</button>
   </div>
@@ -147,30 +145,20 @@
     </div>
   </div>
 
-  <div id="view-web" class="view">
-    <div id="webbar">
-      <span class="hint">The mobile-first web runtime, previewed from the exported folder.</span>
-      <span class="spacer"></span>
-      <span id="webstatus" class="status"></span>
-      <button id="webreload">Reload</button>
-      <button id="webnewtab">Open in new tab</button>
-      <button id="webexport" class="primary">Export web</button>
-      <button id="webzip" disabled>Download zip</button>
-    </div>
-    <div id="webhost">
-      <div id="webempty" class="webempty" hidden>Open a game to play it in the browser.</div>
-      <iframe id="webframe" title="Web runtime" hidden></iframe>
-    </div>
-  </div>
-
   <div id="view-emu" class="view">
     <div id="emubar">
       <span id="runbar">
         <label for="emusystem" class="hint" style="margin:0">System</label>
         <select id="emusystem"></select>
         <button id="run" class="primary" disabled>▶ Play</button>
+        <a id="emudownload" class="linkbutton" hidden download>Download</a>
         <span id="runstatus" class="status"></span>
       </span>
+      <span class="spacer"></span>
+      <button id="emuplayer">Export player</button>
+      <button id="emuzip">Download zip</button>
+      <button id="emuopen">Open player</button>
+      <span id="emustatus" class="status"></span>
       <span class="hint" id="emuhint">Select a system in the Systems tab.</span>
     </div>
     <div id="emuhost"><div id="emu"></div></div>
@@ -207,7 +195,7 @@
 <script src="/static/graph.js"></script>
 <script src="/static/actions.js"></script>
 <script src="/static/emulator.js"></script>
-<script src="/static/web.js"></script>
+<script src="/static/player.js"></script>
 <script src="/static/raw.js"></script>
 <script src="/static/app.js"></script>
 <script src="/emulator/jsspeccy/jsspeccy.js"></script>

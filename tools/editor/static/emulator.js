@@ -12,6 +12,7 @@ let emuFitObserver = null;  // refits an iframe emulator when the tab resizes
 
 const EMU_KINDS = ["jsspeccy", "emulatorjs", "emulatorjs-c64",
   "emulatorjs-nes", "webmsx", "cpcjs", "cpc464", "gambatte", "oricutron"];
+const WEB_PLAYER_ID = "__webplayer__";
 const EMU_EXT = {
   jsspeccy: ".tap",
   emulatorjs: ".sms",
@@ -43,8 +44,20 @@ const EMU_ASPECT = {
   nes: 4 / 3,
   oric: 640 / 720,
 };
+EMU_ASPECT[WEB_PLAYER_ID] = 4 / 3;
 
+function webPlayerMeta() {
+  return {
+    id: WEB_PLAYER_ID,
+    label: "Web player",
+    emulator: "webplayer",
+    machine: "HTML5",
+    outputs: [],
+    artifact_suffix: "",
+  };
+}
 function emuTargetMeta(id) {
+  if (id === WEB_PLAYER_ID) return webPlayerMeta();
   const list = (TARGETS && TARGETS.targets) || [];
   return list.find((t) => t.id === id) || null;
 }
@@ -55,11 +68,13 @@ function emuTargets() {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
   };
-  return ids.map(emuTargetMeta).filter(
+  const native = ids.map(emuTargetMeta).filter(
     (t) => t && EMU_KINDS.includes(t.emulator))
     .sort((a, b) => rank(a.id) - rank(b.id));
+  return [webPlayerMeta(), ...native];
 }
 function emuArtifact(meta) {
+  if (!meta || meta.emulator === "webplayer") return null;
   const ext = EMU_EXT[meta.emulator] ||
     (meta.outputs || []).find((e) => [".tap", ".sna", ".sms", ".rom", ".dsk",
       ".gb", ".gbc", ".nex", ".prg", ".nes"].includes(e));
@@ -186,6 +201,28 @@ async function artifactReady(meta) {
   } catch { return false; }
 }
 
+function updateEmuDownload(meta) {
+  const button = $("emudownload");
+  if (!button) return;
+  if (!meta || meta.emulator === "webplayer") {
+    button.hidden = true;
+    button.removeAttribute("href");
+    button.removeAttribute("download");
+    button.textContent = "Download";
+    return;
+  }
+  const url = emuArtifact(meta);
+  if (!url) {
+    button.hidden = true;
+    return;
+  }
+  const name = decodeURIComponent(url.split("/").pop());
+  button.hidden = false;
+  button.href = url;
+  button.download = name;
+  button.textContent = "Download " + name;
+}
+
 async function refreshEmuSystems() {
   const sel = $("emusystem");
   if (!sel) return;
@@ -219,6 +256,7 @@ async function refreshEmuSystems() {
   sel.value = pick;
   localStorage.setItem(emuStorageKey(), pick);
   updateEmuHint();
+  updateEmuDownload(emuSelectedMeta());
   refreshRunButton();
 }
 
@@ -227,6 +265,14 @@ function updateEmuHint() {
   const hint = $("emuhint");
   if (!hint) return;
   if (!meta) { hint.textContent = ""; return; }
+  if (meta.emulator === "webplayer") {
+    hint.innerHTML =
+      "Exports the web player and previews it here. The Web novel always " +
+      "plays; only the systems selected in the Systems tab are included.";
+    if (gameTargets().includes("next"))
+      hint.innerHTML += "<br>ZX Next has no browser emulator and appears as a download.";
+    return;
+  }
   const url = emuArtifact(meta);
   const name = url ? decodeURIComponent(url.split("/").pop()) : "";
   hint.innerHTML =
@@ -243,6 +289,12 @@ async function refreshRunButton() {
   if (emu) { run.disabled = false; run.textContent = "■ Stop"; return; }
   const meta = emuSelectedMeta();
   if (!game || !meta) { run.disabled = true; return; }
+  if (meta.emulator === "webplayer") {
+    run.disabled = false;
+    const status = $("runstatus");
+    if (status && !emu) status.textContent = "";
+    return;
+  }
   const ok = await artifactReady(meta);
   run.disabled = !ok;
   const status = $("runstatus");
@@ -268,7 +320,23 @@ async function runEmulator() {
   const meta = emuSelectedMeta();
   if (!game || !meta) {
     const status = $("runstatus");
-    if (status) status.textContent = "select a system with a web emulator first";
+    if (status) status.textContent = "open a game first";
+    return;
+  }
+  if (meta.emulator === "webplayer") {
+    if (!(await playerEnsureSaved())) return;
+    const result = await playerExportNow();
+    if (!result) return;
+    const host = $("emu");
+    host.innerHTML = "";
+    host.className = "";
+    fitEmulatorHost(meta);
+    watchEmuFit();
+    $("run").textContent = "■ Stop";
+    emu = iframeEmu(host, playerUrl(true));
+    const status = $("runstatus");
+    if (status) status.textContent = "";
+    updateEmuDownload(null);
     return;
   }
   const url = emuArtifact(meta);

@@ -1,87 +1,106 @@
-# Web runtime
+# Web player
 
-The web runtime plays a game in any modern browser as a standalone single-page app. It is the browser counterpart of the
-8-bit targets: the same scenes, flags, items, selectable words, passwords and conditions, but rendered with the game's
-source artwork instead of a converted platform band.
+The web player plays a game in any modern browser. It contains the mobile-first story runtime and, for each system
+ticked in the Systems tab, the matching web emulator and the built file it plays. Systems that are not selected are
+never included.
 
 There are two ways to run it:
 
-- **Editor Web tab** — the SPA saves pending edits, exports the game to `<game-folder>/web/` and previews that static
-  folder in an iframe. The preview reloads automatically when the exported content changed; **Reload** forces it.
-- **Exported folder** — a self-contained `<game-folder>/web/` tree that can be opened directly, copied to a static host,
-  or downloaded as a zip. It does not need Python or a web server.
+- **Editor Emulator tab** — choose **Web player** as the system. The editor saves pending edits, exports the player
+  and previews the exported folder in an iframe. The same tab can export the folder, open it in a new tab, or download
+  the itch.io-ready zip.
+- **Exported folder** — a self-contained `<game-folder>/web/` tree that can be copied to any static host, uploaded to
+  itch.io, or opened directly (the Web novel works from `file://`; the native emulators need an HTTP host).
 
-The **runtime implementation is frontend-only**: all story playback lives in `tools/webgame_runtime/app.js`. Python
-only parses `game.md` to produce the data file at export time and copies the static files; the server merely serves the
-exported folder during editing.
+The runtime is **frontend-only**: story playback lives in `tools/webgame_runtime/app.js`; the player shell and system
+selector live in `tools/webplayer_runtime/`. Python only exports data and copies static files at build time. The
+editor server never generates story data per request.
 
-The runtime is mobile-first: the base layout is a single fluid column with touch-sized controls, and a wider layout is
-layered on at `min-width: 720px`.
+## Layout
+
+```
+<game-folder>/web/
+  index.html              player shell
+  player.js               system selector, native emulator embedding
+  player-data.js          generated window.RVN_PLAYER data
+  style.css
+  novel/                  mobile-first story runtime
+    index.html
+    app.js
+    style.css
+    game.js               generated window.RVN_GAME data
+    assets/art/<id>.png
+    assets/music/<id>.wav
+  emulator/               only the emulator bundles the selected systems need
+  files/<artifact>        the exact file each native system plays
+```
+
+All URLs are relative, so the folder works at a host root, under a project path (for example a GitHub Pages
+subpath), or inside an itch.io embed.
 
 ## Files
 
 | Path | Purpose |
 |---|---|
-| `tools/webgame.py` | Game data extraction, `game.js`, folder export, zip, CLI |
-| `tools/webgame_runtime/index.html` | Runtime shell |
-| `tools/webgame_runtime/app.js` | Scene/flag/item engine and DOM rendering |
-| `tools/webgame_runtime/style.css` | Mobile-first layout and theme |
+| `tools/webgame.py` | Player export, data files, music rendering, folder export and zip |
+| `tools/webplayer_runtime/index.html` | Player shell |
+| `tools/webplayer_runtime/player.js` | System selector, JSSpeccy and iframe emulator boot |
+| `tools/webplayer_runtime/style.css` | Player layout |
+| `tools/webgame_runtime/index.html` | Novel shell |
+| `tools/webgame_runtime/app.js` | Scene/flag/item engine, music playback and DOM rendering |
+| `tools/webgame_runtime/style.css` | Mobile-first novel layout and theme |
+| `tools/editor/static/player.js` | Editor Emulator-tab export/preview actions |
 | `tools/editor/editor_web.py` | Static export serving, export and zip routes |
-| `tools/editor/static/web.js` | Editor Web tab (iframe, reload, open, export, zip) |
-| `tools/editor/static/web.css` | Web tab toolbar/host styles |
 
-The runtime is plain classic JavaScript, not ES modules and not a bundle. `index.html` loads `game.js` and then
-`app.js`; there is no `fetch` and no API call, so an exported folder works from `file://`.
+The runtime is plain classic JavaScript: no modules and no bundler. `index.html` loads `player-data.js` and `player.js`
+in the player shell, and `game.js` then `app.js` in the novel.
 
-## Editor tab
+## Selected systems
 
-The **Web** tab sits between **Build** and **Emulator**. Its toolbar has:
+The player always offers the **Web version** novel. Native entries come from `targets.selected_targets(doc)`, in the
+system display order:
 
-- **Reload** — force a re-export and a fresh iframe, resuming the saved scene and flags.
-- **Open in new tab** — save, then open `/play/<slug>/` in a separate browser tab.
-- **Export web** — save, then write `<game-folder>/web/` and report the path.
-- **Download zip** — save, re-export, and download the folder as `<slug>-web.zip`.
+- A selected system with a bundled web emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), SMS and Game Boy
+  Color (EmulatorJS), MSX2 (WebMSX), CPC 6128/464 (CPCJS/Caprice32), C64 (EmulatorJS VICE), NES (EmulatorJS FCEUmm)
+  and Oric Atmos (Oricutron).
+- The ZX Spectrum Next has no bundled browser emulator, so it appears as a download-only entry.
+- A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
+- Unselected systems are never copied or listed.
 
-Entering the tab saves pending Source/structured edits first (a failed Source validation keeps you on that tab), then
-exports the game and compares the export revision with the preview. If the story, art selection/image or runtime files
-changed, the iframe reloads and resumes the saved progress; otherwise the current scene and progress are kept.
-**Reload** always forces a re-export and reload. Switching games rebuilds the preview for the new game.
+Native entries show **Download `<filename>`** for the exact file the emulator plays (`.tap`, `.sms`, `.dsk`, `.rom`,
+`.prg`, `.nes`, `.gbc`, etc.). The Web version has no download button.
 
 ## Routes
 
-The editor server adds these routes (the runtime files are served separately from `/static/` because `index.html`,
-`game.js` and the art assets must stay together):
-
 | Route | Purpose |
 |---|---|
-| `GET /play/<slug>/` | The exported `index.html` |
-| `GET /play/<slug>/<file>` | Static runtime file or art from `<game-folder>/web/` |
+| `GET /play/<slug>/` | The exported player shell |
+| `GET /play/<slug>/<file>` | Any file from `<game-folder>/web/` (novel, emulator, files) |
 | `GET /play/<slug>` | Redirect to the trailing-slash form |
-| `POST /api/web_export` | Write `<game-folder>/web/` |
-| `GET /api/webzip/<slug>` | Re-export and download the zip |
+| `POST /api/web_export` | Write `<game-folder>/web/` and return its info |
+| `GET /api/webzip/<slug>` | Re-export and download the itch.io-ready zip |
 
-`/play/` never generates story data: it serves the build artifacts in the exported folder, and path containment prevents
-walking outside it. The editor calls `POST /api/web_export` before showing the tab.
+`/play/` never generates story data: it serves the exported folder, and path containment prevents walking outside it.
 
 ## Data model
 
-`game.js` assigns one global:
+`novel/game.js` assigns one global:
 
 ```js
 window.RVN_GAME = {
   format: 1,
-  slug: "demo",
+  slug: "demo-game",
   title: "The Lighthouse Keeper",
   artRows: 12,                  // selected system's art_rows (even, 8..16)
   startScene: "start",
-  startItems: ["seed"],
+  startItems: [],
   carry: 0,
   password: "",
   passwordLabel: "Enter the password:",
-  popupHint: "",
+  popupHint: "Continue",
   inventory: { drop: "Discard", back: "Close" },
   textColors: { ink: "#c0c0c0", highlight: "#ffff00", bg: "#000000" },
-  itemOrder: ["key", "seed", "lamp"],   // display-name order
+  itemOrder: ["key", "seed", "lamp"],
   items: {
     key: {
       name: "Brass Key",
@@ -94,11 +113,15 @@ window.RVN_GAME = {
   arts: {
     title: { src: "assets/art/title.png", crop: null }
   },
+  songs: {
+    theme: { src: "assets/music/theme.wav" }
+  },
   scenes: [{
     id: "start",
     title: "The Lighthouse Keeper",
     art: "title",
     ending: "",
+    music: "theme",
     text: [{
       segments: [{ text: "A brass ", flag: null },
                  { text: "plaque", flag: "read_plaque" }],
@@ -111,17 +134,41 @@ window.RVN_GAME = {
 };
 ```
 
-Text lines are stored as rendered `segments` plus conditions. A segment with a `flag` is a selectable word. Option
-conditions are `[kind, name]` pairs where `kind` is `if` or `unless`; every pair must hold. Option targets are scene
-ids, or `-` for the current scene. `popup` is an empty string or the option's `msg` text; `popupHint` is the
-optional dismiss label (the runtime falls back to **Continue** when it is blank). Music fields are intentionally
-absent.
+Text lines are rendered `segments` plus conditions. A segment with a `flag` is a selectable word. Option conditions are
+`[kind, name]` pairs where `kind` is `if` or `unless`; every pair must hold. Option targets are scene ids, or `-` for
+the current scene. `popup` is an empty string or the option's `msg` text. A scene's `music` is a song id or `null`;
+songs that could not be rendered are removed and the scene becomes silent.
 
-The native `system_*` build-time flags (`system_zx`, `system_zx128`, `system_zx48`, `system_sms`, `system_cpc`,
-`system_cpc464`, `system_msx2`, `system_gb`, `system_c64`, `system_nes`, `system_oric`) are
-folded during export with the web target, so all of them are false: lines/options gated with `if system_zx` are
-omitted, and `unless system_zx` lines remain. No `system_*` condition reaches `game.js`; use a generic line for the
-web build when a native target needs extra text.
+The native `system_*` build-time flags are folded during export with the web target, so all of them are false:
+lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
+
+`player-data.js` assigns `window.RVN_PLAYER`:
+
+```js
+window.RVN_PLAYER = {
+  format: 1,
+  slug: "demo-game",
+  title: "The Lighthouse Keeper",
+  web: { label: "Web version", src: "novel/index.html", machine: "HTML5" },
+  systems: [
+    { id: "zx128", label: "ZX Spectrum 128K", kind: "native",
+      emulator: "jsspeccy", machine: "128", page: "",
+      file: "files/demo-game.tap", filename: "demo-game.tap", aspect: 1.333333 }
+  ]
+};
+```
+
+## Music
+
+`# Game songs:` declares PT3 modules. Each scene's `music:` (or the game default) is resolved by
+`scenefile.resolve_song`. The exporter renders each used module with `spectrumizer.play` to a 22050 Hz mono WAV in
+`novel/assets/music/`, reusing the `assets/gen/song_<id>.wav` cache. If `spectrumizer` is unavailable the export still
+succeeds with a warning and no music.
+
+The novel creates a looping `<audio>` element, switches tracks when the scene's song changes, pauses for `music: off`,
+and restarts the current track on **Restart**. Browsers block autoplay until the player interacts, so the first click or
+key press starts playback. A **Sound: on/off** button is shown only when the game has songs; its state is persisted
+under `rvn.web.<slug>.sound`.
 
 ## Story semantics
 
@@ -157,70 +204,55 @@ target being authored; it falls back to the ZX/default `art_lines`. A missing ar
 The art frame is capped at `45dvh` and keeps its aspect ratio, so the picture does not swallow a phone screen in
 landscape. `image-rendering` is left at the browser default because the source is high resolution.
 
-## Mobile-first layout
+## Player layout
 
-- `viewport-fit=cover` plus safe-area padding on `#app`, the item sheet and the inventory bar.
-- Base layout: one column (title, art, scene title, text, options, inventory); desktop only widens and centres.
-- Fluid `clamp()` type and spacing; no fixed pixel widths.
-- Options and inventory entries are at least 44px tall and full-width where appropriate.
-- The inventory bar is sticky to the bottom and scrolls horizontally when it has many items.
-- The item screen is a bottom sheet on phones and a centred dialog at `min-width: 720px`.
-- Focus rings are visible; hover styling is behind `@media (hover: hover)`, and reduced-motion preferences are
-  respected.
-- Keyboard support: `Up`/`Down` move focus through options and inventory entries, `Enter`/`Space` activate the focused
-  control, `Escape` closes the item sheet, and `Enter`/`Space`/`Escape` dismiss a popup message.
+- The system selector lists the Web version first, then only the selected native systems.
+- The Web version uses the full mobile-first novel in an iframe.
+- Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
+  aspect ratio.
+- The panel shows the selected system, a hint, **Download `<filename>`** for native systems only, **Reload** and
+  **Fullscreen**.
+- `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
+  `localStorage`, defaulting to the Web version.
 
 ## Export
 
-Export writes this tree (and replaces the previous contents, so stale art files cannot survive):
-
-```
-<game-folder>/web/
-  index.html
-  app.js
-  style.css
-  game.js
-  assets/art/<art-id>.png
-```
-
-All asset URLs in the exported `game.js` are relative, and the data is a plain script, so opening `index.html`
-directly works in every current browser. The folder is gitignored (`<game-folder>/web/`; in this repo
-`/demo-game/web/`). The zip contains the same tree
-under a top-level `<slug>/` directory.
-
-A headless export is available:
-
 ```bash
 python3 tools/webgame.py <slug>           # write <game-folder>/web/
-python3 tools/webgame.py <slug> --json    # inspect the generated data
+python3 tools/webgame.py <slug> --json    # inspect the novel data
 ```
+
+The folder is replaced atomically. The zip produced by `GET /api/webzip/<slug>` has `index.html` at the archive root and
+is ready to upload to itch.io as an HTML game. The folder is gitignored (`<game-folder>/web/`; in this repo
+`/demo-game/web/`).
 
 ## Limits and notes
 
-- There is **no music** in the web runtime or the export, even when the game declares PT3 songs for the 8-bit builds.
-- There are no save slots; progress (current scene + flags) is saved automatically in `localStorage` under
-  `rvn.web.<slug>.state` and restored on reload, so **Restart** is the only state reset.
+- The Web novel has music, but no save slots; progress (current scene + flags) is saved automatically in `localStorage`
+  under `rvn.web.<slug>.state` and restored on reload. **Restart** is the only state reset.
 - The password is checked in the browser; the value is present in `game.js`.
 - The runtime does not convert art, so changing a platform palette or dither mode does not change the web picture.
 - The web band height is a framing choice only; the story has no screen-budget limits, so long text and many options
   simply scroll.
+- Native emulator entries need a web server (or a host such as itch.io/GitHub Pages); opening the player from
+  `file://` only guarantees the Web novel.
+- Missing native artifacts and unrenderable songs are reported as export warnings.
 
 ## Troubleshooting
 
+- **Web player entry is missing pieces**: build the selected systems first; the export lists the missing filenames.
 - **Blank scene**: check that `game.md` has at least one scene and the first scene has valid `art:` and options.
 - **Missing art**: the art needs a selected image; generation-only references are not exported.
-- **Old art in the Web tab**: entering the tab re-exports when the selected image or its file changed; if the browser
-  still shows the old file, click **Reload**, then hard-reload the iframe.
-- **Stale export/zip**: **Export web** and **Download zip** both save first and re-run the export.
-- **No sound**: expected; music is not part of this runtime.
+- **Old art in the player**: click **Export player** or **Reload**; the iframe only reloads when the export revision
+  changes.
+- **No music**: check that the game declares `songs:` and `assets/music/<id>.pt3` exists, and that the export reported
+  no song warning.
 
 ## Verification
 
 1. `python3 -m py_compile tools/webgame.py tools/editor/editor_web.py tools/editor/server.py`
-2. Open the editor **Web** tab (it exports, then previews the folder) and exercise a path through the story, including a
-   condition, a selectable word, an item option, Drop/Back and the password.
-3. Check a narrow viewport (about 390x844) for tap targets, safe areas, the capped art and the bottom item sheet.
-4. `python3 tools/webgame.py <slug>` then open `web/index.html` from `file://`; verify the scene and art load without
-   the server.
-5. Download the zip, extract it and repeat step 4.
-6. Re-export after removing an art and confirm its PNG is gone from `web/assets/art/`.
+2. Build the selected systems, then open the editor **Emulator** tab and choose **Web player**.
+3. Exercise the novel, including sound on/off, a scene music change and **Restart**.
+4. Switch to a native system, confirm it boots and its download link matches the played file.
+5. `python3 tools/webgame.py <slug>`, serve the folder over HTTP and repeat; verify only selected systems appear and
+   the zip has `index.html` at its root.

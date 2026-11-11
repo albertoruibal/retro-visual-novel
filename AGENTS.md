@@ -552,14 +552,14 @@ There is no test suite and no configured linter. Verify by:
   `VIEWS` / `EDIT_MODES` split in `core.js`. Structured tabs share the `#view-edit` shell; `graph`/`emu` are their
   own flex views. The SPA is split **by topic, not bundled**: `index.html` loads `core.js`, `load.js`, `sidebar.js`,
   `flags.js`, `panes.js`, `pane-glue.js`, `art.js`, `refs.js`, `jobs.js`, `graph.js`, `actions.js`,
-  `emulator.js`, `web.js`, `raw.js`, then `app.js` (the entry: event wiring + `load()`), all classic scripts
+  `player.js`, `emulator.js`, `raw.js`, then `app.js` (the entry: event wiring + `load()`), all classic scripts
   sharing one global scope,
   so top-level `let`/`const`/`function` names must stay **unique across files** and each file needs its own `"use
   strict";`. CSS is likewise split (`base.css`…`responsive.css`, linked in that order; the cascade is the same as one
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
 - **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX (the
-  picker lists only the systems ticked in the Systems tab, so `zx128` and `zx48` each appear only when selected and the
-  48K option serves `<slug>-48k.tap`); local
+  picker lists the Web player plus only the systems ticked in the Systems tab, so `zx128` and `zx48` each appear only
+  when selected and the 48K option serves `<slug>-48k.tap`); local
   iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS),
   CPC 6128/464 (`emulator/cpc`, CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte),
   Commodore 64 (`emulator/c64`, EmulatorJS VICE x64sc, direct keyboard input), NES (`emulator/nes`,
@@ -568,20 +568,24 @@ There is no test suite and no configured linter. Verify by:
   `/api/artifact/<slug>/<file>`;
   `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
   via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name.
-- **Web runtime:** the runtime is **frontend-only**. `tools/webgame_runtime/` is a plain classic-script SPA
-  (`index.html` + `game.js` + `app.js` + `style.css`); its data is assigned to `window.RVN_GAME`, **not fetched**, so an
-  exported folder works from `file://`. `tools/webgame.py` is only the export/build step: it parses `game.md` (through
-  `scenefile.py` only), writes the data file and copies source art. `POST /api/web_export` writes
-  `<game-folder>/web/` (original source PNGs, no music, no palette conversion), `GET /play/<slug>/...` serves that
-  exported folder statically, and `GET /api/webzip/<slug>` re-exports then streams `<slug>/...`; the folder is
-  gitignored. The editor's Web tab saves pending edits, exports the saved game and previews the folder, reloading the
-  iframe only when the export revision (story, runtime or art files) changes; **Reload** forces it. The runtime
-  persists progress (current scene + flags) in `localStorage` under `rvn.web.<slug>.state`, so a live reload, browser
-  refresh or reopening the exported folder resumes where the player left off; **Restart** clears it. It must never grow
-  request-time story generation or rendering. It is **not** a `# Systems` target: the art band aspect follows the first
-  selected target's `art_rows` (ZX first, default 10). Keep the runtime **mobile-first** (fluid single column, 44px
-  taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and
-  update `docs/web-runtime.md` with any data/route/export change.
+- **Web player:** the frontend is split into the story runtime (`tools/webgame_runtime/`, classic
+  `index.html` + `game.js` + `app.js` + `style.css`, data assigned to `window.RVN_GAME`, never fetched) and the player
+  shell (`tools/webplayer_runtime/`, data assigned to `window.RVN_PLAYER`). `tools/webgame.py` is the export/build
+  step: it parses `game.md` through `scenefile.py`, writes both data files, copies source art, renders used PT3 songs to
+  22050 Hz mono WAVs in `novel/assets/music/` with `spectrumizer.play` (cache in `assets/gen/`), copies only the
+  selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`. `POST /api/web_export` writes that
+  folder, `GET /play/<slug>/...` serves it statically, and `GET /api/webzip/<slug>` re-exports then streams an
+  itch.io-ready zip with `index.html` at the root; the folder is gitignored. The player always lists the Web novel, then
+  only `targets.selected_targets(doc)` (Next is download-only; missing artifacts are skipped with warnings). Native
+  entries download the exact file they play; the Web entry has no download. The editor's
+  **Emulator → Web player** entry saves pending edits, exports and previews the folder; the Emulator toolbar also
+  exports, opens and downloads the zip.
+  There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
+  `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never
+  grow request-time story generation or rendering. It is **not** a `# Systems` target: the art band aspect follows the
+  first selected target's `art_rows` (ZX first, default 10). Keep the novel **mobile-first** (fluid single column, 44px
+  taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and update
+  `docs/web-runtime.md` with any data/route/export change.
 - **ZX Next runtime:** `tools/targets/next.py` builds a native `+zxn` `.nex` with `tools/gen_port.py --next`.
   The shared portable core draws text/title/inventory on the ULA and the picture on a Layer 2 256-colour band clipped
   to rows 1..`## next art_rows` (even 8..16, default 10). `tools/nextart.py` converts art (median-cut 256 colours or a

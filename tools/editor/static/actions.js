@@ -17,7 +17,6 @@ async function save() {
     try { TARGETS = await api("GET", "/api/targets"); } catch { /* keep */ }
     dirty = false; renderAll();
     if (typeof refreshEmuSystems === "function") refreshEmuSystems();
-    if (view === "web" && typeof reloadWeb === "function") reloadWeb();
     return true;
   } catch (e) { alert("save failed: " + e.message); return false; }
   finally { $("save").disabled = false; }

@@ -54,6 +54,73 @@
   var messageText = $("messagetext");
   var messageClose = $("messageclose");
   var messageDone = null;
+  var musicEl = $("music");
+  var soundBtn = $("sound");
+  var musicEnabled = !!(D.songs && Object.keys(D.songs).length);
+  var soundOn = true;
+  var currentSong = null;
+
+  function soundKey() {
+    return "rvn.web." + (D.slug || "game") + ".sound";
+  }
+
+  function loadSoundPref() {
+    try {
+      if (window.localStorage.getItem(soundKey()) === "0") soundOn = false;
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function saveSoundPref() {
+    try {
+      window.localStorage.setItem(soundKey(), soundOn ? "1" : "0");
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function updateSoundButton() {
+    if (!soundBtn) return;
+    soundBtn.hidden = !musicEnabled;
+    soundBtn.textContent = soundOn ? "Sound: on" : "Sound: off";
+    soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false");
+  }
+
+  function tryMusicPlay() {
+    if (!musicEnabled || !soundOn || !currentSong || !musicEl.src) return;
+    var playing = musicEl.play();
+    if (playing && typeof playing.catch === "function") {
+      playing.catch(function () { /* autoplay is unlocked by the next gesture */ });
+    }
+  }
+
+  function syncMusic(song) {
+    if (!musicEnabled) return;
+    if (!song || !D.songs[song]) {
+      currentSong = null;
+      musicEl.pause();
+      musicEl.removeAttribute("src");
+      musicEl.load();
+      return;
+    }
+    if (currentSong === song) {
+      tryMusicPlay();
+      return;
+    }
+    currentSong = song;
+    musicEl.src = D.songs[song].src;
+    musicEl.currentTime = 0;
+    tryMusicPlay();
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    saveSoundPref();
+    updateSoundButton();
+    if (soundOn) tryMusicPlay();
+    else musicEl.pause();
+  }
+
+  function unlockAudio() {
+    if (musicEnabled && soundOn && currentSong) tryMusicPlay();
+  }
 
   function setColours() {
     var colours = D.textColors || {};
@@ -313,6 +380,7 @@
     if (scene.ending) flags.add(scene.ending);
     document.title = D.title || "Visual Novel";
     sceneTitle.textContent = scene.title || scene.id;
+    syncMusic(scene.music);
     renderArt(scene);
     renderText(scene);
     renderOptions(scene);
@@ -421,8 +489,14 @@
     if (!window.confirm("Restart the story?")) return;
     clearState();
     resetState();
+    currentSong = null;
+    musicEl.pause();
     renderScene(true);
   });
+
+  if (soundBtn) soundBtn.addEventListener("click", toggleSound);
+  document.addEventListener("pointerdown", unlockAudio, true);
+  document.addEventListener("keydown", unlockAudio, true);
 
   $("itemclose").addEventListener("click", closeItem);
   sheet.addEventListener("click", function (event) {
@@ -464,6 +538,9 @@
     event.preventDefault();
   });
 
+  loadSoundPref();
+  updateSoundButton();
+  musicEl.volume = 0.65;
   setColours();
   gameTitle.textContent = D.title || "";
   if (D.password) {

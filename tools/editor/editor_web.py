@@ -1,9 +1,10 @@
-"""Static web runtime serving, export and zip routes.
+"""Static web player serving, export and zip routes.
 
-The runtime itself is frontend-only: ``tools/webgame_runtime/`` is a plain
-classic-script SPA copied verbatim into ``games/<slug>/web/`` by
-``tools/webgame.py``.  The editor's Web tab previews that exported folder, so
-the browser never asks the server to build or render the story at request time.
+The player is frontend-only: ``tools/webgame_runtime/`` (story) and
+``tools/webplayer_runtime/`` (system selector) are plain classic-script pages
+copied into ``<game>/web/`` by ``tools/webgame.py``.  The editor's Emulator tab
+previews that exported folder, so the browser never asks the server to build or
+render the story at request time.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ def web_exported_file(slug, name):
     if full != root and not full.startswith(root + os.sep):
         raise ValueError("bad runtime path")
     if not os.path.isfile(full):
-        raise FileNotFoundError(f"no such web runtime file: {name}")
+        raise FileNotFoundError(f"no such player file: {name}")
     ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
     return open(full, "rb").read(), ctype
 
@@ -48,8 +49,7 @@ def web_export(slug):
 
 
 def web_zip(slug):
-    """A zip of the current runtime, re-exporting the folder first."""
-    webgame.export_web(slug)
+    """A zip of the current player, re-exporting the folder first."""
     return webgame.export_zip(slug)
 
 
