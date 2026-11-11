@@ -37,6 +37,8 @@ def _preview(src, conv, options, game=None):
         adjust=conv.get("adjust"), palette=conv.get("palette", "none"),
         palette_colors=conv.get("palette_colors"),
         margin=conv.get("margin", 0), fill=(0, 0, 0))
+    img = zxart.preview_margin_crop(img, conv.get("margin", 0),
+                                    zxart.BAND_W, zxart.band_h(rows))
     out = io.BytesIO()
     img.save(out, "PNG")
     return out.getvalue()

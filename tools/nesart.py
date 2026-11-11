@@ -533,7 +533,9 @@ def preview_image(path, conv=None, options=None, game=None):
                     v = ((lo >> (7 - x)) & 1) | (((hi >> (7 - x)) & 1) << 1)
                     pixels.append(colors[v] if v < len(colors) else colors[0])
     img.putdata(pixels)
-    return img
+    import zxart
+    return zxart.preview_margin_crop(img, (conv or {}).get("margin"), WIDTH,
+                                     8 * art_rows)
 
 
 def preview_bytes(path, conv=None, options=None, game=None):

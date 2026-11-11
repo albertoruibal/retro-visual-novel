@@ -365,13 +365,14 @@ There is no test suite and no configured linter. Verify by:
   threshold would leave only black and white; CPC Mode 1 uses the same full dither list in `cpcart.py`, substituting
   its historical `bayer4` for `off` so a hard threshold never throws away the grey ramp.
 - **Art margins are per build system.** `margin: <n>` in a `## <id>` block (`scenefile.system_margin`, surfaced through
-  `scenefile.conversion_options`) insets the converted picture by `n` 8x8 cells on every side. `zxart.inset_band` scales
-  the fitted band down with its aspect preserved and centres it on a fill-coloured band; the border is at least `n`
-  cells and wider on the band's long axis. The fill is the target's resolved `text_bg` (Oric always black; CPC Mode 1
-  uses its black pen). It is applied after `_fit`/`preprocess` and before palette reduction or quantisation, so
-  `margin: 0` is byte-identical to the old output and a positive margin can only reduce the tile count. It is not a
-  per-art override; the Art tab previews pass the live value as `?margin=`. Every art target registers the same option
-  via `targets.base.art_margin_option()`.
+  `scenefile.conversion_options`) adds `n` 8x8-cell borders on the left and right of the converted picture.
+  `zxart.inset_band` scales the fitted band uniformly to the narrower inner width (preserving its aspect), centres it
+  vertically and fills the side border (and any small vertical remainder) with the target's resolved `text_bg` (Oric
+  always black; CPC Mode 1 uses its black pen). It is applied after `_fit`/`preprocess` and before palette reduction or quantisation, so `margin: 0` is
+  byte-identical to the old output and a positive margin can only reduce the tile count. It is not a per-art override;
+  the Art tab previews pass the live value as `?margin=` and crop the blank border off with
+  `zxart.preview_margin_crop`, showing the scaled picture that sits inside the margins. Every art target registers the
+  same option via `targets.base.art_margin_option()`.
 - **More source-conversion options keep colour** (all baked at conversion time, so the engine carries no state):
   `match:` (`rgb` or the `perceptual` redmean distance, `zxart._dist_py`/`_dist_rgb`), `palette:` (`none`/`spectrum`/
   `adaptive`, `zxart._apply_palette`) and the `saturation`/`contrast`/`brightness`/`gamma` source adjustments

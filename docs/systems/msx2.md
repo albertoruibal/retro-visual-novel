@@ -38,8 +38,8 @@
   the songs after the art banks. Press `P` to toggle music. The player runs at 50 Hz like every other target: on a
   60 Hz NTSC VDP (R#9 `NT` clear, read from the BIOS `REG9SAV` shadow) the ISR advances it five frames in six, while a
   50 Hz PAL VDP advances it every frame.
-- **Options:** `art_rows` (8, 10 or 12, default 12), `columns` (64 or 80, default 64), `margin` (N 8x8 cells inset,
-  filled with `text_bg`) and `menu: popup` for the action dialog.
+- **Options:** `art_rows` (8, 10 or 12, default 12), `columns` (64 or 80, default 64), `margin` (N 8x8-cell side
+  borders, filled with `text_bg`) and `menu: popup` for the action dialog.
 - **Build:** `zcc +msx -subtype=rom2`, then `build/port_art.asm`; output `<slug>.rom`. The scene/inventory and per-strip art
   blobs are ZX0-compressed.
 - **Emulator:** WebMSX with C-BIOS in MSX2 mode (`emulator/msx`).

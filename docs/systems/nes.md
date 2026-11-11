@@ -20,8 +20,9 @@
 - **Art:** `tools/nesart.py` fits the source to 256 x `8 * art_rows`, preprocesses and quantises it to the NES
   palette, assigns a palette per 2x2-tile block and deduplicates the 2bpp tiles into at most 160 patterns. The blob
   (uncompressed, in PRG ROM) is `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`; tile patterns live in table 0
-  of the art's 8KB CHR ROM bank after the 96 font tiles. `margin:` insets the picture by N 8x8 cells, filled with
-  `text_bg`. The editor preview and the ROM use the same converter.
+  of the art's 8KB CHR ROM bank after the 96 font tiles. `margin:` adds N 8x8-cell borders on the left and right,
+  filled with `text_bg`; the picture is scaled to the inner width with its aspect preserved. The editor preview and
+  the ROM use the same converter.
 - **Storage/memory:** an MMC1 (mapper 1) cartridge with 32KB PRG and 8KB battery WRAM at `$6000`. The story data
   (scenes/inventory compressed with ZX0, plus the art maps/attributes/palettes) is resident in the 32KB PRG; the C
   workspaces and the C stack live in the 8KB PRG RAM. `src/6502/zx0.c` decodes the scene/inventory blobs.

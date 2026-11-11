@@ -817,15 +817,19 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
     margin = conv.get("margin", 0)
     fill = zxart.background_rgb(doc["game"])
     if mode == "classic":
-        return _png_bytes(zxart.grid_to_rgb_image(zxart.classic_band(
+        img = zxart.grid_to_rgb_image(zxart.classic_band(
             im, crop=conv["crop"], rows=rows, adjust=conv["adjust"],
             palette=conv["palette"], palette_colors=conv["palette_colors"],
-            margin=margin, fill=fill)))
+            margin=margin, fill=fill))
+        return _png_bytes(zxart.preview_margin_crop(
+            img, margin, zxart.BAND_W, zxart.band_h(rows)))
     if mode == "bifrost":
-        return _png_bytes(zxart.grid_to_rgb_image(zxart.bifrost_band(
+        img = zxart.grid_to_rgb_image(zxart.bifrost_band(
             im, crop=conv["crop"], rows=rows, adjust=conv["adjust"],
             palette=conv["palette"], palette_colors=conv["palette_colors"],
-            margin=margin, fill=fill)))
+            margin=margin, fill=fill))
+        return _png_bytes(zxart.preview_margin_crop(
+            img, margin, zxart.BAND_W, zxart.band_h(rows)))
     grid = zxart.nirvana_band(im, crop=conv["crop"], dither=conv["dither"],
                               rows=rows, match=conv["match"],
                               adjust=conv["adjust"], palette=conv["palette"],
@@ -844,7 +848,8 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
             for y in range(16):
                 for x in range(16):
                     px[cx * 16 + x, cy * 16 + y] = zxart.rgb(grid2[y][x])
-    return _png_bytes(img)
+    return _png_bytes(zxart.preview_margin_crop(
+        img, margin, zxart.BAND_W, zxart.band_h(rows)))
 
 
 # ------------------------------------------------------------------- emulator

@@ -391,7 +391,10 @@ def preview_image(path, conv=None, options=None, game=None):
     except Exception:                          # noqa: BLE001 - missing/corrupt
         return None
     _ink, _hi, text_bg = text_colours(game)
-    return band(im, conv, art_rows, rgb555_rgb8(text_bg))
+    img = band(im, conv, art_rows, rgb555_rgb8(text_bg))
+    import zxart
+    return zxart.preview_margin_crop(img, (conv or {}).get("margin"), WIDTH,
+                                     8 * art_rows)
 
 
 def preview_bytes(path, conv=None, options=None, game=None):

@@ -35,9 +35,10 @@ Targets are discovered from `tools/targets/` and selected under `## Systems` in 
     ## oric
     art_rows: 8
 
-Every art-capable system also accepts `margin:` (default `0`): the picture is inset by that many 8x8 cells, centred
-with its aspect preserved, and the border is filled with the system's `text_bg` colour. Margin `0` is the old
-full-bleed band; a positive value can only reduce the art tiles.
+Every art-capable system also accepts `margin:` (default `0`): the whole picture is scaled down to leave that many 8x8
+cells on the left and right, keeps its aspect ratio, and the side border is filled with the system's `text_bg` colour.
+Margin `0` is the old full-bleed band; a positive value can only reduce the art tiles. Editor previews show the scaled
+picture inside the margins, without the blank border.
 
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.

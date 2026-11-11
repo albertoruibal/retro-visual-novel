@@ -26,7 +26,7 @@
   into a data bank after the art and decoded into `SONG_WS_SIZE` bytes of RAM; PAUSE toggles music. The converter
   uses the pinned spectrumizer PT3 decoder, so a module with unsupported PT3 commands fails the build with a clear
   message instead of playing incorrectly.
-- **Options:** `art_rows`, `margin` (N 8x8 cells inset, filled with `text_bg`). Text width is fixed at 30 columns;
+- **Options:** `art_rows`, `margin` (N 8x8-cell side borders, filled with `text_bg`). Text width is fixed at 30 columns;
   dialog labels wrap at 28.
 - **Controls:** D-pad up/down scrolls long text, or moves between highlighted words when it fits; left/right moves
   between highlighted words. Button 2 confirms and button 1 opens/closes the options/items dialog.

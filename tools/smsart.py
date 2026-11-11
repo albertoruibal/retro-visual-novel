@@ -234,7 +234,10 @@ def preview_image(path, conv=None, options=None, text_ink=None, text_bg=None):
     options = options or {}
     art_rows = int(options.get("art_rows") or 12)
     im = Image.open(path).convert("RGB")
-    return band(im, conv, art_rows, text_ink, text_bg)
+    img = band(im, conv, art_rows, text_ink, text_bg)
+    import zxart
+    return zxart.preview_margin_crop(img, (conv or {}).get("margin"), 256,
+                                     8 * art_rows)
 
 
 def preview_bytes(path, conv=None, options=None, text_ink=None, text_bg=None):

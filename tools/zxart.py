@@ -46,14 +46,59 @@ def map_len(rows):
     return COLS * tile_rows(rows)
 
 
-# One margin unit is one 8x8 tile cell (8 pixels). The picture is scaled down to
-# fit inside the margin with its aspect preserved, so the visible border is at
-# least this many pixels on the constraining axis.
+# One margin unit is one 8x8 tile cell (8 pixels). The margin is added on the
+# left and right only; the picture is scaled uniformly to fit the inner width.
 MARGIN_CELL = 8
 
 # `text_bg` colour token -> Spectrum ink index (attribute colour order).
 _BG_INDEX = {"black": 0, "blue": 1, "red": 2, "magenta": 3, "green": 4,
              "cyan": 5, "yellow": 6, "white": 7}
+
+
+def _margin_px(margin, band_width):
+    """Pixels per side for a margin in 8x8 cells, clamped to the band width."""
+    try:
+        cells = max(0, int(margin))
+    except (TypeError, ValueError):
+        cells = 0
+    return min(cells * MARGIN_CELL, max(0, int(band_width) // 2 - 1))
+
+
+def _margin_rect(margin, band_width, band_height):
+    """``(left, top, right, bottom)`` bars for a scaled side margin."""
+    px = _margin_px(margin, band_width)
+    if px <= 0:
+        return 0, 0, 0, 0
+    inner_w = max(1, band_width - 2 * px)
+    inner_h = max(1, int(round(band_height * inner_w / float(band_width))))
+    top = (band_height - inner_h) // 2
+    bottom = band_height - inner_h - top
+    return px, top, px, bottom
+
+
+def preview_margin_crop(im, margin=0, band_width=BAND_W, band_height=None):
+    """Crop the blank bars off a rendered preview image.
+
+    Previews show the picture that sits inside the margins, not the border (or
+    the small vertical gap left by keeping its aspect ratio). ``band_width``
+    and ``band_height`` are the converter's internal band dimensions; the
+    preview may have been scaled (e.g. the C64's 320-pixel preview of a
+    160-pixel band), so each side is scaled by the output's actual size.
+    """
+    if band_height is None:
+        band_height = im.height
+    left, top, right, bottom = _margin_rect(margin, band_width, band_height)
+    if not (left or top or right or bottom):
+        return im
+    sx = im.width / float(band_width)
+    sy = im.height / float(band_height)
+    x0 = int(round(left * sx))
+    x1 = im.width - int(round(right * sx))
+    y0 = int(round(top * sy))
+    y1 = im.height - int(round(bottom * sy))
+    if x1 <= x0 or y1 <= y0:
+        return im
+    return im.crop((x0, y0, x1, y1))
 
 
 def background_rgb(game=None):
@@ -66,34 +111,25 @@ def background_rgb(game=None):
 
 
 def inset_band(im, margin=0, fill=(0, 0, 0)):
-    """Scale ``im`` down to fit inside an ``margin``-cell border and centre it.
+    """Add background bars on the left and right sides of ``im``.
 
-    ``margin`` is in 8x8 cells (0 leaves the band untouched). The picture keeps
-    its aspect, so the visible border is at least ``margin * MARGIN_CELL``
-    pixels on the shorter axis and wider on the band's long axis. The border is
-    filled with ``fill`` (the system's background). Applied after source
-    adjustments but before quantisation, so a margin-0 band is unchanged.
+    ``margin`` is in 8x8 cells (0 leaves the band untouched). The picture is
+    scaled uniformly to the narrower inner width (preserving its aspect) and
+    centred vertically; any small vertical remainder is filled with ``fill``.
+    Applied after source adjustments but before quantisation, so a margin-0
+    band is unchanged.
     """
     from PIL import Image
 
-    try:
-        cells = max(0, int(margin))
-    except (TypeError, ValueError):
-        cells = 0
-    if not cells:
-        return im
-    w, h = im.size
-    px = cells * MARGIN_CELL
-    px = min(px, max(0, min(w, h) // 2 - 1))
+    px = _margin_px(margin, im.width)
     if px <= 0:
         return im
-    inner_w, inner_h = max(1, w - 2 * px), max(1, h - 2 * px)
-    scale = min(inner_w / float(w), inner_h / float(h))
-    nw = max(1, int(round(w * scale)))
-    nh = max(1, int(round(h * scale)))
+    w, h = im.size
+    inner_w = max(1, w - 2 * px)
+    inner_h = max(1, int(round(h * inner_w / float(w))))
+    content = im.resize((inner_w, inner_h), Image.LANCZOS)
     out = Image.new("RGB", (w, h), tuple(fill))
-    out.paste(im.resize((nw, nh), Image.LANCZOS),
-              ((w - nw) // 2, (h - nh) // 2))
+    out.paste(content, (px, (h - inner_h) // 2))
     return out
 
 # Selectable dithering schemes for NIRVANA+ art. After a cell's two colours are

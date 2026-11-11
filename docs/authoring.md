@@ -229,12 +229,13 @@ it in each system's block so one game can use an ordered pattern on ZX and Floyd
 richer. Older files with a single `# Game dither:` line migrate it to each selected system on load; a per-art
 `dither:` is dropped, because art no longer owns that setting.
 
-`margin:` (default `0`) adds a blank border inside the art band: `1` is one 8x8 cell (8 pixels) on every side. The
-picture is scaled down as a whole and centred, so its aspect is never distorted; the visible border is at least the
-requested number of cells and wider on the band's long axis. The border uses the game's `text_bg:` colour. Because the
-picture shrinks inside the band, a margin can only reduce the number of art tiles. A too-large value is clamped so at
-least one pixel of picture remains. Like `dither:`, it is a per-system setting with no per-art override; the Art tab's
-previews follow the Systems-tab control before a save.
+`margin:` (default `0`) adds a blank border on the left and right sides of the art band: `1` is one 8x8 cell (8
+pixels) per side. The whole picture is scaled down uniformly to the narrower inner width and centred, so its aspect
+ratio is preserved; the small vertical remainder is background, not a top/bottom margin. The border uses the game's
+`text_bg:` colour. Because the picture shrinks, a margin can only reduce the number of art tiles. A too-large value is
+clamped so at least one pixel of picture remains. Like `dither:`, it is a per-system setting with no per-art override;
+the Art tab's previews follow the Systems-tab control before a save and show the scaled picture inside the margins
+without the blank border.
 
 ## Art
 

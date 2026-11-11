@@ -252,13 +252,16 @@ def preview_bytes(path, conv=None, options=None, text_ink=None,
         im = Image.open(path).convert("RGB")
     except Exception:                          # noqa: BLE001 - missing/corrupt
         return None
-    img = band(im, crop=conv.get("crop"),
-               art_rows=int(options.get("art_rows") or DEFAULT_ART_ROWS),
+    art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
+    img = band(im, crop=conv.get("crop"), art_rows=art_rows,
                dither=conv.get("dither", "off"),
                adjust=conv.get("adjust"),
                match=conv.get("match", "rgb"),
                text_ink=text_ink, highlight_ink=highlight_ink,
                text_bg=text_bg, margin=conv.get("margin", 0))
+    import zxart
+    img = zxart.preview_margin_crop(img, conv.get("margin"), 512,
+                                    8 * art_rows)
     # The bitmap is 512 px wide but Screen 7 shows it with half-width pixels;
     # double the preview height so the editor shows the physical proportions.
     img = img.resize((img.width, img.height * PIXEL_WIDTH_DIV),

@@ -122,6 +122,8 @@ def preview_bytes(path, conv, options, game=None, fill=None):
         fill = zxart.background_rgb(game)
     im = _band(im, conv, rows, fill)
     q = _quantise(im, conv)
+    img = zxart.preview_margin_crop(q.convert("RGB"), conv.get("margin"),
+                                    256, 8 * rows)
     out = io.BytesIO()
-    q.convert("RGB").save(out, "PNG")
+    img.save(out, "PNG")
     return out.getvalue()

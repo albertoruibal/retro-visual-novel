@@ -466,7 +466,11 @@ def preview_image(path, conv=None, options=None, text_ink=None,
         return None
     image, _blob, _palette = _convert(im, conv, options, text_ink,
                                       highlight_ink, text_bg)
-    return image
+    import zxart
+    mode_width, _inks, _ppb = mode_info((options or {}).get("mode"))
+    art_rows = int((options or {}).get("art_rows") or DEFAULT_ART_ROWS)
+    return zxart.preview_margin_crop(
+        image, (conv or {}).get("margin"), mode_width, 8 * art_rows)
 
 
 def preview_bytes(path, conv=None, options=None, text_ink=None,
