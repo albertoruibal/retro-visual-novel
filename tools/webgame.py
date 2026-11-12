@@ -19,8 +19,9 @@ novel works from ``file://``; the native emulator entries need an HTTP host
     python3 tools/webgame.py <slug>          # write <game-folder>/web/
     python3 tools/webgame.py <slug> --json   # print the novel data
 
-Only the systems ticked in ``# Systems`` are included.  The Web novel is always
-present and a selected system with a bundled web emulator gets a playable entry.
+Only the systems ticked in ``# Systems`` are included.  The Web novel is listed
+when the Web system is selected, and a selected system with a bundled web
+emulator gets a playable entry.
 Systems without a browser emulator (such as the ZX Spectrum Next) and missing
 build artifacts are skipped with a warning.  The player itself has no download
 button; the editor's Emulator toolbar downloads the current system's built file.
@@ -377,6 +378,11 @@ def _media_for(extension):
     return "cartridge"
 
 
+def _web_selected(doc):
+    """True when the Web system is ticked (it owns the novel entry)."""
+    return "web" in targets.selected_targets(doc)
+
+
 def _player_systems(rec, doc):
     """Selected systems as player entries, plus emulator dirs and warnings."""
     systems = []
@@ -418,22 +424,24 @@ def _player_systems(rec, doc):
     return systems, emulator_dirs, warnings
 
 
-def _player_data(rec, doc, systems):
+def _player_data(rec, doc, systems, include_web=True):
     clean = [{k: v for k, v in item.items() if k != "_source"}
              for item in systems]
-    return {
+    data = {
         "format": 1,
         "slug": rec["slug"],
         "title": doc["game"].get("title") or rec["slug"],
-        "web": {
+    }
+    if include_web:
+        data["web"] = {
             "label": "Web version",
             "src": f"{NOVEL_DIRNAME}/index.html",
             "machine": "HTML5",
             "media": "web",
             "mediaLabel": "Web",
-        },
-        "systems": clean,
-    }
+        }
+    data["systems"] = clean
+    return data
 
 
 def _copy_emulators(tmp, dirs, warnings):
@@ -545,33 +553,37 @@ def export_web(slug):
     """Write a self-contained ``<game>/web/`` player and return its info."""
     rec = _game(slug)
     doc = _doc(rec)
-    sources = _art_sources(rec, doc)
-    data = webgame_data(slug)
+    include_web = _web_selected(doc)
+    sources = _art_sources(rec, doc) if include_web else {}
+    data = webgame_data(slug) if include_web else None
     systems, emulator_dirs, warnings = _player_systems(rec, doc)
     dest = os.path.join(rec["dir"], WEB_DIRNAME)
     tmp = dest + ".tmp"
     old = dest + ".old"
     shutil.rmtree(tmp, ignore_errors=True)
     novel = os.path.join(tmp, NOVEL_DIRNAME)
-    os.makedirs(os.path.join(novel, ART_SUBDIR), exist_ok=True)
     try:
+        os.makedirs(tmp, exist_ok=True)
         for name in PLAYER_FILES:
             shutil.copyfile(player_path(name), os.path.join(tmp, name))
-        for name in RUNTIME_FILES:
-            shutil.copyfile(runtime_path(name), os.path.join(novel, name))
-        rendered = _render_music(rec, doc, novel, warnings)
-        data["songs"] = {song: info for song, info in data["songs"].items()
-                         if song in rendered}
-        for scene in data["scenes"]:
-            if scene.get("music") not in rendered:
-                scene["music"] = None
-        with open(os.path.join(novel, GAME_JS), "w", encoding="utf-8") as f:
-            f.write(_js(data))
-        for art_id, src in sources.items():
-            if not src or not os.path.isfile(src):
-                continue
-            shutil.copyfile(src, os.path.join(novel, ART_SUBDIR,
-                                              f"{art_id}.png"))
+        rendered = set()
+        if include_web:
+            os.makedirs(os.path.join(novel, ART_SUBDIR), exist_ok=True)
+            for name in RUNTIME_FILES:
+                shutil.copyfile(runtime_path(name), os.path.join(novel, name))
+            rendered = _render_music(rec, doc, novel, warnings)
+            data["songs"] = {song: info for song, info in data["songs"].items()
+                             if song in rendered}
+            for scene in data["scenes"]:
+                if scene.get("music") not in rendered:
+                    scene["music"] = None
+            with open(os.path.join(novel, GAME_JS), "w", encoding="utf-8") as f:
+                f.write(_js(data))
+            for art_id, src in sources.items():
+                if not src or not os.path.isfile(src):
+                    continue
+                shutil.copyfile(src, os.path.join(novel, ART_SUBDIR,
+                                                  f"{art_id}.png"))
         _copy_emulators(tmp, emulator_dirs, warnings)
         files_dir = os.path.join(tmp, FILES_EXPORT_DIR)
         if systems:
@@ -580,7 +592,7 @@ def export_web(slug):
             shutil.copyfile(system["_source"],
                             os.path.join(files_dir, system["filename"]))
         with open(os.path.join(tmp, PLAYER_DATA), "w", encoding="utf-8") as f:
-            f.write(_player_js(_player_data(rec, doc, systems)))
+            f.write(_player_js(_player_data(rec, doc, systems, include_web)))
         rev = _export_rev(tmp, sources)
         shutil.rmtree(old, ignore_errors=True)
         if os.path.exists(dest):
@@ -596,6 +608,7 @@ def export_web(slug):
         "relative": os.path.relpath(dest, rec["dir"]),
         "zip": f"/api/webzip/{urllib_quote(rec['slug'])}",
         "arts": len([s for s in sources.values() if s and os.path.isfile(s)]),
+        "web": include_web,
         "systems": [item["id"] for item in systems],
         "music": len(rendered),
         "warnings": warnings,

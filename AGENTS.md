@@ -588,9 +588,10 @@ There is no test suite and no configured linter. Verify by:
   22050 Hz mono WAVs in `novel/assets/music/` with `spectrumizer.play` (cache in `assets/gen/`), copies only the
   selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`. `POST /api/web_export` writes that
   folder, `GET /play/<slug>/...` serves it statically, and `GET /api/webzip/<slug>` re-exports then streams an
-  itch.io-ready zip with `index.html` at the root; the folder is gitignored. The player always lists the Web novel, then
-  only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts are skipped with
-  warnings). The player has no download button. The editor's Emulator tab saves pending edits, exports and previews
+  itch.io-ready zip with `index.html` at the root; the folder is gitignored. The player lists the Web novel only when
+  Web is ticked, then only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts
+  are skipped with warnings); with Web unticked no `novel/` is written and only the native entries remain. The player
+  has no download button. The editor's Emulator tab saves pending edits, exports and previews
   the folder when it opens; the top-bar **Export player** button re-exports and reloads the preview.
   There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
   `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never

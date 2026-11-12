@@ -28,20 +28,22 @@
     if (player) player.hidden = true;
   }
 
-  if (!D || !D.web || !D.web.src) {
+  var nativeSystems = (D && Array.isArray(D.systems)) ? D.systems : [];
+  var hasWeb = !!(D && D.web && D.web.src);
+  if (!hasWeb && !nativeSystems.length) {
     fatal("This player has no game data.");
     return;
   }
   player.hidden = false;
 
-  var systems = [{ id: "web", label: D.web.label || "Web version",
-                   kind: "web", machine: "HTML5",
-                   media: D.web.media || "web",
-                   mediaLabel: D.web.mediaLabel || "Web" }].concat(
-    Array.isArray(D.systems) ? D.systems : []);
+  var systems = (hasWeb ? [{ id: "web", label: D.web.label || "Web version",
+                             kind: "web", machine: "HTML5",
+                             media: D.web.media || "web",
+                             mediaLabel: D.web.mediaLabel || "Web" }] : [])
+    .concat(nativeSystems);
   var byId = {};
   systems.forEach(function (system) { byId[system.id] = system; });
-  var current = "web";
+  var current = hasWeb ? "web" : systems[0].id;
   var bootSeq = 0;
   var emulator = null;
   var speccy = null;
@@ -55,7 +57,7 @@
       var value = window.localStorage.getItem(storageKey());
       if (value && byId[value]) return value;
     } catch (error) { /* storage unavailable */ }
-    return "web";
+    return hasWeb ? "web" : systems[0].id;
   }
 
   function setStatus(text, bad) {

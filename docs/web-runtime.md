@@ -58,7 +58,7 @@ in the player shell, and `game.js` then `app.js` in the novel.
 
 ## Selected systems
 
-The export is produced by the **Web** system (`## web`), so the player always offers the **Web version** novel. Native
+The **Web** system (`## web`) owns the **Web version** novel: the player lists it only when Web is ticked. Native
 entries come from `targets.selected_targets(doc)` (Web itself is not a native entry), in the system display order:
 
 - A selected system with a bundled web emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), SMS and Game Boy
@@ -66,8 +66,8 @@ entries come from `targets.selected_targets(doc)` (Web itself is not a native en
   and Oric Atmos (Oricutron).
 - The ZX Spectrum Next has no bundled browser emulator, so it is not included in the player.
 - A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
-- Unselected native systems are never copied or listed; the editor's **Export player** button can still write the
-  novel-only export.
+- Unselected native systems are never copied or listed. With Web unticked the export writes no `novel/` folder and the
+  player offers only the selected native systems; if nothing is selected it reports that there is no game data.
 
 The player itself has no download button. The editor's top-bar **Export player** button re-exports the combined player
 and reloads the preview.
@@ -144,7 +144,7 @@ songs that could not be rendered are removed and the scene becomes silent.
 The native `system_*` build-time flags are folded during export with the web target, so all of them are false:
 lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
 
-`player-data.js` assigns `window.RVN_PLAYER`:
+`player-data.js` assigns `window.RVN_PLAYER` (`web` is present only when the Web system is selected):
 
 ```js
 window.RVN_PLAYER = {
@@ -209,8 +209,9 @@ landscape. `image-rendering` is left at the browser default because the source i
 
 ## Player layout
 
-- The system selector is a retro right-hand sidebar of rocker keys: the Web version first, then only the selected
-  native systems. A media bay above it shows the matching tape, disk, cartridge or web icon for the current system.
+- The system selector is a retro right-hand sidebar of rocker keys: the Web version (when Web is ticked) first, then
+  only the selected native systems. A media bay above it shows the matching tape, disk, cartridge or web icon for the
+  current system.
 - The Web version uses the full mobile-first novel in an iframe.
 - Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
   aspect ratio.
@@ -220,7 +221,7 @@ landscape. `image-rendering` is left at the browser default because the source i
   `screenwrap.has-touch` layout and reserves its height when scaling the picture.
 - The panel shows the selected system, a hint, **Reload** and **Fullscreen**.
 - `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
-  `localStorage`, defaulting to the Web version.
+  `localStorage`, defaulting to the Web version (or the first native system when Web is unticked).
 
 ## Export
 
