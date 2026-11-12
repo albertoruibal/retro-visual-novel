@@ -20,7 +20,7 @@ import tempfile
 import scenefile
 
 from .base import (BuildResult, Target, TargetOption, art_margin_option,
-                   portable_sources)
+                   mono_option, portable_sources)
 
 # Keep in sync with tools/gen_port.py: the resident AY song workspace. Music
 # builds cap the CRT heap below it and keep BANK_2 free.
@@ -47,7 +47,8 @@ def _available():
 
 def _preview(path, conv, options, game=None):
     import cpcart
-    text_ink, highlight_ink, text_bg = cpcart.text_colours(game)
+    text_ink, highlight_ink, text_bg = cpcart.text_colours(
+        game, bool(options.get("mono")))
     return cpcart.preview_bytes(path, conv, options, text_ink, highlight_ink,
                                 text_bg)
 
@@ -275,6 +276,7 @@ def cpc_options(default_rows=12):
                      "14 and 16 need Mode 2 (fewer text rows remain).",
                      minimum=8, maximum=16),
         art_margin_option(),
+        mono_option(),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_MODES,
                      help="off snaps to the nearest colour; bayer2/bayer4/"

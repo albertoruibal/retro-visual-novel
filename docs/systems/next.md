@@ -4,6 +4,7 @@ The Next target is a native `+zxn` build. It uses the same portable story engine
 as the other targets, a ULA text layer, **Layer 2** 256-colour art and the
 Next's AY player. The output is a NextZXOS `.nex` executable.
 
+- **Black and white:** `mono: on` dithers the Layer 2 picture to white-on-black and forces white text.
 - **Display:** 256 x 192 Layer 2 mode (8bpp), with the picture clipped to
   character rows `1..art_rows`. The scene title is on ULA row 0, text on rows
   `art_rows+1..22`, and the inventory band on row 23. Text is 64 columns, 4x8

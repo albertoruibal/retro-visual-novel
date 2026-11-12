@@ -12,7 +12,8 @@ import re
 
 import scenefile
 
-from .base import (BuildResult, Target, TargetOption, art_margin_option,
+from .base import (BuildResult, Target, TargetOption,
+                   art_margin_option, mono_option,
                    portable_sources)
 
 
@@ -59,7 +60,8 @@ def _guard_map(path):
 
 def _preview(path, conv, options, game=None):
     import smsart
-    text_ink, _highlight_ink, text_bg = smsart.text_colours(game)
+    text_ink, _highlight_ink, text_bg = smsart.text_colours(
+        game, bool(options.get("mono")))
     return smsart.preview_bytes(path, conv, options, text_ink, text_bg)
 
 
@@ -130,6 +132,7 @@ TARGET = Target(
                      "SMS character rows of picture; 12 leaves 11 rows below it.",
                      minimum=8, maximum=12),
         art_margin_option(),
+        mono_option(),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard nearest-colour snap; floyd uses "

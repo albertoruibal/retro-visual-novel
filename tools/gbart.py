@@ -70,11 +70,15 @@ def text_ink(token):
     return rgb555(*rgb)
 
 
-def text_colours(game):
+def text_colours(game, mono=False):
     """Resolve the ``# Game`` text colours to GBC RGB555 values.
 
-    Returns ``(text_ink, highlight_ink, text_bg)``.
+    Returns ``(text_ink, highlight_ink, text_bg)``.  ``mono`` forces white
+    text on black.
     """
+    if mono:
+        white = rgb555(255, 255, 255)
+        return white, white, rgb555(0, 0, 0)
     import scenefile
     text, highlight, bg = scenefile.text_tokens(game)
     return text_ink(text), text_ink(highlight), text_ink(bg)
@@ -105,7 +109,10 @@ def _prepare(im, conv, art_rows, fill=(0, 0, 0)):
                           adj.get("contrast", 1.0),
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
-    return zxart.inset_band(im, conv.get("margin", 0), fill)
+    im = zxart.inset_band(im, conv.get("margin", 0), fill)
+    if conv.get("mono"):
+        im = zxart.to_mono_image(im, conv.get("dither"))
+    return im
 
 
 def _dither_on(conv):

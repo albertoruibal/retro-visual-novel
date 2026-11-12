@@ -552,6 +552,45 @@ def mono_image(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
     return img
 
 
+def to_mono_image(im, dither=DEFAULT_DITHER):
+    """Reduce an already-fitted RGB image to a dithered black/white image.
+
+    Unlike ``mono_band`` (which fits a source to the Spectrum's 256x16*rows
+    band) this keeps the caller's dimensions, so every target's converter can
+    apply the Black and white system option after its own crop/scale/margin.
+    """
+    from PIL import Image
+    gray = im.convert("L")
+    w, h = gray.size
+    src = gray.load()
+    out = Image.new("RGB", (w, h))
+    dst = out.load()
+    mode = mono_dither(dither)
+    if mode in _DIFFUSE:
+        err = [[float(src[x, y]) for x in range(w)] for y in range(h)]
+        wdiv, taps = _DIFFUSE[mode]
+        for y in range(h):
+            for x in range(w):
+                value = err[y][x]
+                white = value >= 128.0
+                dst[x, y] = (255, 255, 255) if white else (0, 0, 0)
+                delta = value - (255.0 if white else 0.0)
+                for dx, dy, weight in taps:
+                    x2, y2 = x + dx, y + dy
+                    if 0 <= x2 < w and 0 <= y2 < h:
+                        err[y2][x2] += delta * weight / wdiv
+        return out
+    matrix = {"bayer2": BAYER2, "bayer8": BAYER8}.get(mode, BAYER4)
+    n = len(matrix)
+    for y in range(h):
+        for x in range(w):
+            threshold = (_noise_value(x, y) if mode == "noise"
+                         else matrix[y % n][x % n])
+            dst[x, y] = ((255, 255, 255)
+                         if src[x, y] / 255.0 > threshold else (0, 0, 0))
+    return out
+
+
 def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
           palette_colors=None, margin=0, fill=(0, 0, 0)):
     """Quantise a PIL image to a BAND_W x band-height grid of SPEC indices.

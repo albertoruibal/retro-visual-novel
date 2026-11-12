@@ -1,5 +1,6 @@
 # Sega Master System
 
+- **Black and white:** `mono: on` dithers the picture to white-on-black and forces white text.
 - **Display:** 256 x `8 * art_rows` picture over a 24-row text screen; 16 colours from the VDP background palette.
   `art_rows` is 8, 10 or 12 (default 12). The text uses every row below the art (title row 0, body rows
   `art_rows+1`..23) and scrolls up/down when the wrapped text exceeds that pane; left/right moves between highlighted

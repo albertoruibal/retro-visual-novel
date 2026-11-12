@@ -707,12 +707,24 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
                 palette=flat_conv.get("palette", "none"),
                 palette_colors=flat_conv.get("palette_colors"),
                 margin=flat_conv.get("margin", 0), fill=fill), path
-        grid = zxart.nirvana_band(
-            im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
-            rows=rows, match=conv.get("match", "rgb"),
-            adjust=conv.get("adjust"), palette=conv.get("palette", "none"),
-            palette_colors=conv.get("palette_colors"),
-            margin=conv.get("margin", 0), fill=fill)
+        if conv.get("mono"):
+            mono = zxart.mono_image(
+                im, crop=conv.get("crop"),
+                dither=conv.get("dither", "off"), rows=rows,
+                adjust=conv.get("adjust"),
+                palette=conv.get("palette", "none"),
+                palette_colors=conv.get("palette_colors"),
+                margin=conv.get("margin", 0), fill=fill)
+            grid = zxart.nirvana_band(mono, rows=rows, dither="off",
+                                      match="rgb", palette="none")
+        else:
+            grid = zxart.nirvana_band(
+                im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
+                rows=rows, match=conv.get("match", "rgb"),
+                adjust=conv.get("adjust"),
+                palette=conv.get("palette", "none"),
+                palette_colors=conv.get("palette_colors"),
+                margin=conv.get("margin", 0), fill=fill)
         return zxart.band_to_art(grid, rows=rows)[2], path
     return None, None
 
@@ -1188,12 +1200,12 @@ def target_art_lines(doc):
     return scenefile.art_lines(doc.get("game") or {})
 
 
-def zx48_mono(doc):
-    """Whether the 48K `## zx48 mono` option forces black-and-white text."""
+def zx_mono(doc):
+    """Whether the active ZX target's Black and white option is enabled."""
     try:
         import targets
         target = targets.get_target(scene_target_id())
-        if target is not None and target.id == "zx48":
+        if target is not None:
             return bool(targets.target_options(doc, target).get("mono"))
     except Exception:               # noqa: BLE001 - optional build registry
         pass
@@ -1684,7 +1696,7 @@ def main():
          "} SceneHdr;",
          ""]
     colours = scenefile.text_colours(doc["game"])
-    if flat and zx48_mono(doc):
+    if zx_mono(doc):
         colours = {"text": (7, 1), "highlight": (7, 1), "bg": (0, 0)}
     bg_ink, bg_bright = colours["bg"]
     if not (bg_ink & 7):
@@ -1786,7 +1798,7 @@ def main():
         _arr(h, "adventure_font_glyphs", "unsigned char", glyphs, "%d")
         h.append("")
     write_scene_data(h, out_h)
-    if flat and zx48_mono(doc):
+    if zx_mono(doc):
         title_ink, title_bright = 7, 1
     else:
         title_ink, title_bright = zx_title_colours(doc)

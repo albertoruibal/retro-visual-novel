@@ -25,9 +25,10 @@ def _available():
 
 def _preview(path, conv, options, game=None):
     import msx2art
-    text_ink, highlight_ink, text_bg = msx2art.text_colours(game)
+    mono = bool((conv or {}).get("mono") or options.get("mono"))
+    text_ink, highlight_ink, text_bg = msx2art.text_colours(game, mono)
     return msx2art.preview_bytes(path, conv, options, text_ink, highlight_ink,
-                                 text_bg)
+                                 text_bg, mono)
 
 
 def _build(ctx):
@@ -192,6 +193,10 @@ TARGET = Target(
                      "Character rows of picture above the text pane.",
                      minimum=8, maximum=12),
         art_margin_option(),
+        TargetOption("mono", "Black and white", "bool", False,
+                     help="Render the picture as a white-on-black 1-bit band "
+                          "and force white text, instead of the V9938's "
+                          "16-colour palette."),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard nearest-colour snap; floyd uses "

@@ -10,6 +10,7 @@ and other 8-bit targets, with a shared engine and authoring UI.
 - [ZX Spectrum Next](docs/systems/next.md)
 - [Amstrad CPC 6128](docs/systems/cpc.md) (alpha)
 - [Amstrad CPC 464](docs/systems/cpc464.md) (alpha)
+- [MSX1](docs/systems/msx1.md) (alpha)
 - [MSX2](docs/systems/msx2.md) (alpha)
 - [Sega Master System](docs/systems/sms.md)  (alpha)
 - [Nintendo Game Boy Color](docs/systems/gb.md) (alpha)
@@ -41,8 +42,7 @@ It has tabs to edit the game sections:
 * Art: Allows to generate and upload images and previews them for every selected system.
 * Music: Imports PT3, converts from MIDI with spectrumizer, and plays on the AY targets (ZX Spectrum, CPC 6128/464 and
   MSX2); the Master System build converts PT3 to SN76489 PSG data and the Game Boy Color build to Game Boy APU
-  register data, so songs play there too. The Commodore 64, NES and Oric Atmos builds currently ignore
-  songs.
+  register data, so songs play there too. The MSX1, Commodore 64, NES and Oric Atmos builds currently ignore songs.
 * Scenes: Defines the text and logic for each scene.
 * Flags: Flags are game-wide and can be enabled/disabled, some scene lines and options ara available when a certain flag is set.
 * Items: Carried by the player, each item can be selected, and it has options that can be enabled only for certain scenes. 
@@ -51,7 +51,7 @@ It has tabs to edit the game sections:
 * Build: Builds the game for the selected systems. The Build log separates each system with a
   `==== name [id] ====` banner.
 * Emulator: Auto-exports and starts the combined web player: the mobile-first novel plus a browser emulator for
-  every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2,
+  every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX1/MSX2,
   CPCJS/Caprice32 for the CPC 6128 and CPC 464, EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for
   Commodore 64, EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos). Use the top-bar **Export player** button to
   re-export and reload the preview; ticking **Web** in the Systems tab also builds `<game-folder>/web/`. ZX Next is
@@ -92,6 +92,10 @@ npm run dist
 
 It uses python tools and z88dk (https://z88dk.org/site/), sccz80 with the classic lib.
 
+Every system has a **Black and white** option in its `## <system>` block (and the Systems tab). It converts the art to
+a dithered black-and-white band and forces white text on the black background; the 1-bit systems (48K, Oric) are
+already monochrome and use it to force the text colour.
+
 The build driver is a pluggable target registry (`tools/targets/`). Each target module exports a `TARGET` with its
 output names, per-game options and build, validation and preview hooks. The selected systems and their options live
 under a `# Systems` section in `game.md`.
@@ -105,7 +109,8 @@ python3 tools/build.py build <game> --all
 ```
 
 Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128), `.dsk` with the
-`-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES),
+`-cpc464` suffix (CPC 464), `.rom` (MSX2) / `-msx1.rom` (MSX1), `.gbc` (Game Boy Color), `.prg` (Commodore 64),
+`.nes` (NES),
 `<slug>-oric.tap` (Oric Atmos) and `<game-folder>/web/` (Web).
 
 The **Web** system builds the standalone player: `python3 tools/webgame.py <slug>` (or the Build button with Web

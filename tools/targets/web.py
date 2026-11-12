@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 
-from .base import BuildResult, Target
+from .base import BuildResult, Target, mono_option
 
 
 def _available():
@@ -45,6 +45,7 @@ TARGET = Target(
     description="Standalone browser player: the mobile-first novel plus a "
                 "playable web emulator for every other selected system.",
     outputs=("web/",),
+    options=(mono_option(),),
     build=_build,
     available=_available,
     emulator="webplayer",

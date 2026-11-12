@@ -149,6 +149,7 @@ function wirePane() {
           if (el.checked === !!opt.default) delete P.game.extras[key];
           else P.game.extras[key] = v;
           markDirty();
+          if (opt && opt.suffix === "mono") redrawSelection();
           return;
         }
         const def = opt ? opt.default : undefined;

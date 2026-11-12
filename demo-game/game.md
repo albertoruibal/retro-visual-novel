@@ -35,32 +35,43 @@ art_rows: 12
 ## cpc
 art_rows: 10
 columns: 32
+margin: 2
 mode: 0
 
 ## cpc464
-art_rows: 8
+art_rows: 10
 columns: 32
+margin: 2
 mode: 0
+
+## msx1
+art_rows: 10
+mono: on
+menu: popup
 
 ## msx2
 art_rows: 10
 columns: 64
+margin: 2
 
 ## gb
 art_rows: 6
 
 ## c64
 art_rows: 10
+margin: 2
 
 ## nes
-art_rows: 12
+margin: 2
 
 ## oric
 dither: bayer2
+margin: 3
 
 ## zx48
 art_rows: 12
 dither: bayer2
+margin: 8
 title_ink: white
 
 ## web

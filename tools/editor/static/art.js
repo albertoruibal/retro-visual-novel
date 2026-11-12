@@ -62,7 +62,7 @@ function fitCropToBand(rect, natW, natH) {
 
 /* Selected build systems for Art-tab previews. The Systems tab is the
  * source of truth; ZX is the backward-compatible default. */
-const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx2", "c64", "oric", "sms", "nes", "gb", "web"];
+const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx1", "msx2", "c64", "oric", "sms", "nes", "gb", "web"];
 function previewTargets() {
   const list = (typeof gameTargets === "function" ? gameTargets() : ["zx128"])
     .filter((id) => id !== "web");
@@ -81,7 +81,7 @@ function previewTargetLabel(id) {
                           next: "ZX Spectrum Next",
                           sms: "Sega Master System",
                           cpc: "Amstrad CPC 6128", cpc464: "Amstrad CPC 464",
-                          msx2: "MSX2 (V9938)",
+                          msx1: "MSX1 (TMS9918A)", msx2: "MSX2 (V9938)",
                           gb: "Nintendo Game Boy Color",
                           c64: "Commodore 64", nes: "Nintendo NES",
                           oric: "Oric Atmos" }[id] || id);
@@ -126,15 +126,15 @@ function previewTargetColors(id) {
   const m = previewTargetMeta(id);
   const n = m ? +m.colors : NaN;
   if (n > 0) return n;
-  return ({ zx128: 16, zx48: 2, next: 256, sms: 16, msx2: 16, gb: 32,
-              c64: 16, nes: 10, oric: 2 }[id] || 0);
+  return ({ zx128: 16, zx48: 2, next: 256, sms: 16, msx1: 15, msx2: 16,
+              gb: 32, c64: 16, nes: 10, oric: 2 }[id] || 0);
 }
 /* The display engine the target's preview emulates, shown under its name. */
 function previewTargetEngine(id) {
   const m = previewTargetMeta(id);
   const e = m ? m.engine : "";
   return e || ({ zx128: "NIRVANA+", zx48: "Monochrome", next: "Layer 2",
-                   c64: "VIC-II MCM", nes: "NES PPU",
+                   msx1: "TMS9918A", c64: "VIC-II MCM", nes: "NES PPU",
                    oric: "Oric HIRES" }[id] || "");
 }
 /* The system's live (possibly unsaved) dither choice. It is a Systems-tab
@@ -160,20 +160,29 @@ function previewMargin(id) {
   const n = +(ex[id + "_margin"] ?? def);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : def;
 }
+function previewMono(id) {
+  const m = previewTargetMeta(id);
+  const opt = ((m && m.options) || []).find((o) => o.suffix === "mono");
+  return !!(m && opt && targetOptionOn(opt, targetOptionValue(m, opt)));
+}
 function targetPreviewQuery(id, q) {
   const dither = "dither=" + encodeURIComponent(previewDither(id));
   const margin = "margin=" + previewMargin(id);
-  if (id === "zx128") return q + (q ? "&" : "?") + dither + "&" + margin;
+  const mono = "mono=" + (previewMono(id) ? "1" : "0");
+  if (id === "zx128")
+    return q + (q ? "&" : "?") + dither + "&" + margin + "&" + mono;
   const rows = id === "zx48" ? targetArtLines("zx48") : previewTargetRows(id);
   return q + (q ? "&" : "?") + "target=" + encodeURIComponent(id)
-           + "&rows=" + rows + "&" + dither + "&" + margin;
+           + "&rows=" + rows + "&" + dither + "&" + margin + "&" + mono;
 }
 function targetPreviewFig(id, g, aid, q, bust) {
   const src = `/api/preview/${g}/${aid}${targetPreviewQuery(id, q)}`;
   const colors = previewTargetColors(id);
-  const colorText = isCpcTarget(id) && previewCpcMode(id) === 1
-    ? ", mono"
-    : colors ? `, ${colors} colour${colors === 1 ? "" : "s"}` : "";
+  const colorText = previewMono(id)
+    ? ", black and white"
+    : isCpcTarget(id) && previewCpcMode(id) === 1
+      ? ", mono"
+      : colors ? `, ${colors} colour${colors === 1 ? "" : "s"}` : "";
   const engine = previewTargetEngine(id);
   const engineText = engine ? `<br><span class="targetnote">${esc(engine)}</span>` : "";
   return `<figure class="band target-${esc(id)}" data-tg="${esc(id)}">

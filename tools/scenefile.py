@@ -81,7 +81,9 @@ SYSTEM_FLAGS = {
     "system_sms": "sms",
     "system_cpc": ("cpc", "cpc464"),
     "system_cpc464": "cpc464",
+    "system_msx1": "msx1",
     "system_msx2": "msx2",
+    "system_msx": ("msx1", "msx2"),
     "system_gb": "gb",
     "system_next": "next",
     "system_c64": "c64",
@@ -1618,6 +1620,10 @@ def conversion_options(entry, game=None, target_id=None):
         return g.get(key) if v is None else v
 
     dither = system_dither(g, target_id)
+    sid = canonical_target_id(target_id)
+    raw_mono = ((g.get("extras") or {}).get(f"{sid}_mono")
+                if sid else None)
+    mono = str(raw_mono).strip().lower() in ("1", "true", "on", "yes")
 
     match = pick("match")
     if not isinstance(match, str) or match not in MATCH_MODES:
@@ -1641,7 +1647,8 @@ def conversion_options(entry, game=None, target_id=None):
 
     return {"crop": art_crop(entry, g), "dither": dither,
             "margin": system_margin(g, target_id), "match": match,
-            "palette": palette, "palette_colors": pc, "adjust": adjust}
+            "palette": palette, "palette_colors": pc, "adjust": adjust,
+            "mono": mono}
 
 
 def art_lines(game):

@@ -54,11 +54,14 @@ def text_ink(token):
     return pair[0] if dim else pair[1]
 
 
-def text_colours(game):
+def text_colours(game, mono=False):
     """Resolve the ``# Game`` text colours to SMS CRAM colours.
 
-    Returns ``(text_ink, highlight_ink, text_bg)``.
+    Returns ``(text_ink, highlight_ink, text_bg)``.  ``mono`` is the per-system
+    Black and white option (white ink on black).
     """
+    if mono:
+        return 0x3F, 0x3F, 0x00
     import scenefile
     text, highlight, bg = scenefile.text_tokens(game)
     return text_ink(text), text_ink(highlight), text_ink(bg)
@@ -112,6 +115,14 @@ def band_indexed(im, conv=None, art_rows=12, text_ink=None, text_bg=None):
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
     im = zxart.inset_band(im, conv.get("margin", 0), color_rgb(text_bg))
+    if conv.get("mono"):
+        im = zxart.to_mono_image(im, conv.get("dither"))
+        pal_img = Image.new("P", (1, 1))
+        pal_img.putpalette([c for value in (text_bg, text_ink)
+                            for c in color_rgb(value)]
+                           + [0] * (768 - 6))
+        indexed = im.quantize(palette=pal_img, dither=Image.Dither.NONE)
+        return list(indexed.getdata()), [text_bg, text_ink] + [0] * 14
     dither = _dither(conv.get("dither"))
     q = im.quantize(colors=14, method=Image.Quantize.MEDIANCUT, dither=dither)
     raw = q.getpalette()[:42]

@@ -25,7 +25,7 @@ INK = 7
 PAPER = 0
 
 
-def text_colours(game=None):
+def text_colours(game=None, mono=False):
     """Return the Oric ink/highlight/paper values (monochrome)."""
     return INK, INK, PAPER
 

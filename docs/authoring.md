@@ -363,11 +363,11 @@ A condition (here and everywhere in the format) only *tests* a name; see
 
 #### Build-time system flags
 
-`system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_cpc464`, `system_msx2`,
-`system_gb`, `system_c64`, `system_nes`, `system_oric` and `system_web` are reserved pseudo-flags that are true only
-while
-generating that target. `system_zx` is a legacy any-Spectrum flag true for both `zx128` and `zx48`, and
-`system_cpc` is true for both `cpc` and `cpc464`. They are folded at build time: on a matching build an `if system_zx`
+`system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_cpc464`, `system_msx1`,
+`system_msx2`, `system_gb`, `system_c64`, `system_nes`, `system_oric` and `system_web` are reserved pseudo-flags that
+are true only while generating that target. `system_zx` is a legacy any-Spectrum flag true for both `zx128` and
+`zx48`, `system_cpc` is true for both `cpc` and `cpc464`, and `system_msx` is true for both `msx1` and `msx2`. They
+are folded at build time: on a matching build an `if system_zx`
 token disappears and the line/option is always shown, while on any other build the whole line/option is omitted.
 `unless` is the inverse. They never receive a runtime flag id, are not affected by `clear`, and may appear only in
 `if`/`unless`

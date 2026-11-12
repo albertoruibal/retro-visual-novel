@@ -20,8 +20,8 @@ __all__ = [
     "option_key", "coerce_option", "targets_json", "selection_issues",
 ]
 
-DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx2", "c64",
-                 "oric", "sms", "nes", "gb", "web")
+DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx1",
+                 "msx2", "c64", "oric", "sms", "nes", "gb", "web")
 SEPARATOR_WIDTH = 72
 
 _SKIP = {"__init__", "base", "common"}

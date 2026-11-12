@@ -82,8 +82,10 @@ def text_index(token):
     return _BASE.get(t, 0x30)
 
 
-def text_colours(game):
+def text_colours(game, mono=False):
     """Resolve ``# Game`` colours to ``(ink, highlight, bg)`` NES indices."""
+    if mono:
+        return 0x30, 0x30, 0x0F
     import scenefile
     text, highlight, bg = scenefile.text_tokens(game)
     return text_index(text), text_index(highlight), text_index(bg)
@@ -425,6 +427,8 @@ def _plan(im, conv, art_rows, text_bg):
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
     im = zxart.inset_band(im, conv.get("margin", 0), bg_rgb)
+    if conv.get("mono"):
+        im = zxart.to_mono_image(im, conv.get("dither"))
     indexed = im.quantize(palette=_palette_image(),
                           dither=Image.Dither.NONE)
     indices = [i % len(NES_PALETTE) for i in indexed.getdata()]

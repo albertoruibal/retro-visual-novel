@@ -700,8 +700,8 @@ def _preview_overrides(qs):
     parameter. The dither value is still a system setting, never an art one.
     """
     out = {}
-    for key in ("dither", "margin", "match", "palette", "palette_colors") \
-            + scenefile.ADJUST_KEYS:
+    for key in ("dither", "margin", "match", "palette", "palette_colors",
+                "mono") + scenefile.ADJUST_KEYS:
         v = qs.get(key, [None])[0]
         if v is not None and v != "":
             out[key] = v
@@ -760,6 +760,9 @@ def _preview_context(slug, art_id, crop, file, lines, overrides,
                 pass
         elif key in ("dither", "match", "palette"):
             conv[key] = str(val).strip().lower()
+        elif key == "mono":
+            conv["mono"] = str(val).strip().lower() in (
+                "1", "true", "on", "yes")
     return src, conv, doc, art, max(1, lines // 2)
 
 
@@ -822,6 +825,13 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
     im = Image.open(src).convert("RGB")
     margin = conv.get("margin", 0)
     fill = zxart.background_rgb(doc["game"])
+    if conv.get("mono"):
+        img = zxart.mono_image(
+            im, crop=conv["crop"], dither=conv["dither"], rows=rows,
+            adjust=conv["adjust"], palette=conv["palette"],
+            palette_colors=conv["palette_colors"], margin=margin, fill=fill)
+        return _png_bytes(zxart.preview_margin_crop(
+            img, margin, zxart.BAND_W, zxart.band_h(rows)))
     if mode == "classic":
         img = zxart.grid_to_rgb_image(zxart.classic_band(
             im, crop=conv["crop"], rows=rows, adjust=conv["adjust"],

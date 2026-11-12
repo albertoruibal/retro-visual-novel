@@ -1,5 +1,6 @@
 # MSX2 (V9938)
 
+- **Black and white:** `mono: on` renders the picture as a white-on-black 1-bit band and forces white text.
 - **Display:** Screen 7 (512 x 212, 4 bits per pixel, 16 colours from the V9938's RGB333 palette). The full-width 512 x
   `8 * art_rows` picture sits above a 64- or 80-column text pane. Title row 0, art rows 1..`art_rows`, text rows
   `1+art_rows`..22 and the inventory on row 23.

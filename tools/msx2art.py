@@ -90,11 +90,14 @@ def text_ink(token):
     return pair[0] if dim else pair[1]
 
 
-def text_colours(game):
+def text_colours(game, mono=False):
     """Resolve the ``# Game`` text colours to MSX2 RGB333 colours.
 
-    Returns ``(text_ink, highlight_ink, text_bg)``.
+    Returns ``(text_ink, highlight_ink, text_bg)``.  ``mono`` is the per-system
+    Black and white option (white ink on black).
     """
+    if mono:
+        return (7, 7, 7), (7, 7, 7), (0, 0, 0)
     import scenefile
     text, highlight, bg = scenefile.text_tokens(game)
     return text_ink(text), text_ink(highlight), text_ink(bg)
@@ -179,8 +182,59 @@ def _pack(indexed, art_rows):
     return bytes(out)
 
 
+def _mono_palette(text_bg):
+    """Screen 7 palette for the black-and-white option."""
+    bg = tuple(int(v) & 7 for v in (text_bg or (0, 0, 0)))
+    white = (7, 7, 7)
+    return [bg] + [bg] * 13 + [white, white]
+
+
+def _mono_bits(im, conv, art_rows, text_bg):
+    """Return the 256-wide packed 1bpp mono band (8*art_rows rows)."""
+    import zxart
+    return zxart.mono_band(
+        im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
+        rows=int(art_rows) // 2, adjust=conv.get("adjust"),
+        palette=conv.get("palette", "none"),
+        palette_colors=conv.get("palette_colors"),
+        margin=conv.get("margin", 0),
+        fill=_bg_rgb(text_bg))
+
+
+def _mono_bitmap(bits, art_rows):
+    """Expand packed 1bpp pixels to 512-wide Screen 7 nibbles."""
+    out = bytearray()
+    for y in range(8 * int(art_rows)):
+        row = bits[y * 32:(y + 1) * 32]
+        for byte in row:
+            for bit in range(7, -1, -1):
+                v = 0x0F if byte & (1 << bit) else 0
+                out.append((v << 4) | v)
+    return bytes(out)
+
+
+def _mono_art(im, conv, art_rows, text_bg):
+    pal, _rgb = _palette_bytes(_mono_palette(text_bg))
+    return pal + _mono_bitmap(_mono_bits(im, conv, art_rows, text_bg),
+                              art_rows)
+
+
+def _mono_image(im, conv, art_rows, text_bg):
+    from PIL import Image
+    bits = _mono_bits(im, conv, art_rows, text_bg)
+    img = Image.new("RGB", (512, 8 * int(art_rows)), (0, 0, 0))
+    px = img.load()
+    for y in range(8 * int(art_rows)):
+        row = bits[y * 32:(y + 1) * 32]
+        for x in range(256):
+            white = row[x >> 3] & (0x80 >> (x & 7))
+            for dx in (0, 1):
+                px[x * 2 + dx, y] = (255, 255, 255) if white else (0, 0, 0)
+    return img
+
+
 def art_blob(path, conv=None, options=None, text_ink=None, highlight_ink=None,
-             text_bg=None):
+             text_bg=None, mono=False):
     """Return the MSX2 art blob for ``path``, or None if unreadable."""
     from PIL import Image
     if not path:
@@ -192,6 +246,8 @@ def art_blob(path, conv=None, options=None, text_ink=None, highlight_ink=None,
     conv = conv or {}
     options = options or {}
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
+    if mono or options.get("mono"):
+        return _mono_art(im, conv, art_rows, text_bg)
     im = _fit(im, conv.get("crop"), art_rows)
     adj = conv.get("adjust") or {}
     import zxart
@@ -206,8 +262,11 @@ def art_blob(path, conv=None, options=None, text_ink=None, highlight_ink=None,
 
 
 def blank_blob(art_rows=DEFAULT_ART_ROWS, text_ink=None, highlight_ink=None,
-               text_bg=None):
+               text_bg=None, mono=False):
     """A background band with the reserved text palette."""
+    if mono:
+        pal, _rgb = _palette_bytes(_mono_palette(text_bg))
+        return pal + bytes(256 * 8 * int(art_rows))
     if text_ink is None or highlight_ink is None or text_bg is None:
         default_text, default_hi, default_bg = text_colours(None)
         text_ink = default_text if text_ink is None else text_ink
@@ -222,8 +281,12 @@ def blank_blob(art_rows=DEFAULT_ART_ROWS, text_ink=None, highlight_ink=None,
 
 def band(im, crop=None, art_rows=DEFAULT_ART_ROWS, dither="off", adjust=None,
          match="rgb", options=None, text_ink=None, highlight_ink=None,
-         text_bg=None, margin=0):
+         text_bg=None, margin=0, mono=False):
     """Return the MSX2 band as an RGB image."""
+    if mono:
+        conv = {"crop": crop, "dither": dither, "adjust": adjust or {},
+                "margin": margin}
+        return _mono_image(im, conv, art_rows, text_bg)
     from PIL import Image
     import zxart
 
@@ -244,7 +307,7 @@ def band(im, crop=None, art_rows=DEFAULT_ART_ROWS, dither="off", adjust=None,
 
 
 def preview_bytes(path, conv=None, options=None, text_ink=None,
-                  highlight_ink=None, text_bg=None):
+                  highlight_ink=None, text_bg=None, mono=False):
     from PIL import Image
     conv = conv or {}
     options = options or {}
@@ -253,12 +316,13 @@ def preview_bytes(path, conv=None, options=None, text_ink=None,
     except Exception:                          # noqa: BLE001 - missing/corrupt
         return None
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
+    mono = bool(mono or (conv or {}).get("mono") or options.get("mono"))
     img = band(im, crop=conv.get("crop"), art_rows=art_rows,
                dither=conv.get("dither", "off"),
                adjust=conv.get("adjust"),
                match=conv.get("match", "rgb"),
                text_ink=text_ink, highlight_ink=highlight_ink,
-               text_bg=text_bg, margin=conv.get("margin", 0))
+               text_bg=text_bg, margin=conv.get("margin", 0), mono=mono)
     import zxart
     img = zxart.preview_margin_crop(img, conv.get("margin"), 512,
                                     8 * art_rows)

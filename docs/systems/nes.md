@@ -1,5 +1,6 @@
 # Nintendo Entertainment System
 
+- **Black and white:** `mono: on` dithers the picture to white-on-black and forces white text.
 - **Display:** 32 x 30 background tiles. Row 0 is blank, the scene title is on row 1, the art band occupies rows
   2..`art_rows + 1`, and the text pane runs from row `art_rows + 2` through row 29. (Row 1 keeps the title out of the
   8-scanline top overscan that emulators such as FCEUmm crop by default.) `art_rows` is 8, 10 or 12 (default

@@ -49,7 +49,10 @@ def _band(im, conv, rows, fill=(0, 0, 0)):
     im = zxart.preprocess(
         im, conv.get("saturation", 1.0), conv.get("contrast", 1.0),
         conv.get("brightness", 1.0), conv.get("gamma", 1.0))
-    return zxart.inset_band(im, conv.get("margin", 0), fill)
+    im = zxart.inset_band(im, conv.get("margin", 0), fill)
+    if conv.get("mono"):
+        im = zxart.to_mono_image(im, conv.get("dither"))
+    return im
 
 
 def _spectrum_palette():

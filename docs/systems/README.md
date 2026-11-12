@@ -3,7 +3,7 @@
 One page per build system. The shared runtime (`src/portable/core/`) handles scenes, flags, items, selectable words
 and the inventory on **every** target, including the Spectrum; each page records the display, art conversion, storage
 and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `src/next/plat_next.c`,
-`src/sms/plat_sms.c`, `src/cpc/plat_cpc.c` (shared by the 6128 and 464), `src/msx2/plat_msx2.c`,
+`src/sms/plat_sms.c`, `src/cpc/plat_cpc.c` (shared by the 6128 and 464), `src/msx1/plat_msx1.c`, `src/msx2/plat_msx2.c`,
 `src/gb/plat_gb.c`, `src/c64/plat_c64.c`, `src/nes/plat_nes.c` and `src/oric/plat_oric.c`.
 
 | System | Page | Output |
@@ -14,6 +14,7 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 | Sega Master System (alpha) | [sms.md](sms.md) | `.sms` |
 | Amstrad CPC 6128 (alpha) | [cpc.md](cpc.md) | `.dsk` |
 | Amstrad CPC 464 (alpha) | [cpc464.md](cpc464.md) | `<slug>-cpc464.dsk` |
+| MSX1 (TMS9918A) (alpha) | [msx1.md](msx1.md) | `<slug>-msx1.rom` |
 | MSX2 (V9938) (alpha) | [msx2.md](msx2.md) | `.rom` |
 | Nintendo Game Boy Color (alpha) | [gb.md](gb.md) | `.gbc` |
 | Commodore 64 (alpha) | [c64.md](c64.md) | `.prg` |
@@ -40,6 +41,10 @@ Every art-capable system also accepts `margin:` (default `0`): the whole picture
 cells on the left and right, keeps its aspect ratio, and the side border is filled with the system's `text_bg` colour.
 Margin `0` is the old full-bleed band; a positive value can only reduce the art tiles. Editor previews show the scaled
 picture inside the margins, without the blank border.
+
+Every art-capable system also accepts `mono: on` (the **Black and white** option in the Systems tab): it converts the
+picture to a dithered black-and-white band and forces white text on the black background. The 1-bit targets (48K,
+Oric) are already monochrome and use the option for the text colours; the Web target grayscales the novel art.
 
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.

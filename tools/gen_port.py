@@ -15,6 +15,8 @@ Per-target art handling:
   * CPC 464 ``--cpc464``: the same bank files are written to the disk, but the
     runtime loads one compressed art/song blob at a time through AMSDOS instead
     of paging the extra 16K banks (the 464 has no extra RAM).
+  * MSX1 ``--msx1``: TMS9918A SCREEN 2 tile bands with two colours per 8x1
+    cell row, one per ASCII16 bank; scene data in bank 1.
   * MSX2 ``--msx2``: V9938 Screen 7 4bpp bitmap bands with a per-art palette,
     one per ASCII16 bank; scene data in bank 1.
   * GB ``--gb``: raw 2bpp tile/map blobs in MBC1 banks; scene data is split
@@ -312,6 +314,16 @@ def _write_cpc_font(gdir):
         f.write("\n".join(lines) + "\n")
 
 
+def _msx1_font8_bytes():
+    """Return the 8x8 font bit-reversed for the TMS9918a pattern table.
+
+    Pixel Operator's font bytes are stored LSB-left, while Graphics II reads
+    pattern bytes MSB-left.  Reversing each byte once at build time keeps the
+    runtime text path a plain memory copy.
+    """
+    return bytes(int(f"{b:08b}"[::-1], 2) for b in _msx2_font8_bytes())
+
+
 def _msx2_font8_bytes():
     """Return the raw 8x8 font for 64-column Screen 7 text.
 
@@ -343,7 +355,7 @@ def main():
     arg = args[0] if args else None
     if not arg:
         sys.exit("usage: gen_port.py <game-dir-or-slug> "
-                 "[--sms|--cpc|--cpc464|--msx2|--gb|--next|--c64|--nes|--oric|"
+                 "[--sms|--cpc|--cpc464|--msx1|--msx2|--gb|--next|--c64|--nes|--oric|"
                  "--target <id>]")
     if os.path.isdir(arg):
         gdir = os.path.abspath(arg)
@@ -375,7 +387,8 @@ def main():
     if not system:
         for flag, name in (("--sms", "sms"), ("--cpc", "cpc"),
                            ("--cpc464", "cpc464"),
-                           ("--msx2", "msx2"), ("--gb", "gb"),
+                           ("--msx1", "msx1"), ("--msx2", "msx2"),
+                           ("--gb", "gb"),
                            ("--next", "next"), ("--c64", "c64"),
                            ("--nes", "nes"), ("--oric", "oric")):
             if flag in raw:
@@ -394,6 +407,7 @@ def main():
     use_sms = "--sms" in raw or target_id == "sms"
     use_cpc464 = "--cpc464" in raw or target_id == "cpc464"
     use_cpc = "--cpc" in raw or target_id == "cpc" or use_cpc464
+    use_msx1 = "--msx1" in raw or target_id == "msx1"
     use_msx2 = "--msx2" in raw or target_id == "msx2"
     use_gb = "--gb" in raw or target_id == "gb"
     use_next = "--next" in raw or target_id == "next"
@@ -467,6 +481,9 @@ def main():
     port_text_ink = 13
     port_highlight_ink = 18
     port_text_bg = 0
+    msx1_options = {}
+    msx1_font_bank = 0
+    msx1_mono = False
     msx2_options = {}
     msx2_font_bank = 0
     cpc_ws_base = CPC_SONG_WS
@@ -503,12 +520,26 @@ def main():
         next_text = colours["text"]
         next_highlight = colours["highlight"]
         next_bg = colours["bg"]
+        if next_options.get("mono"):
+            next_text = (7, 1)
+            next_highlight = (7, 1)
+            next_bg = (0, 0)
         token = next_options.get("title_ink")
-        if not token or token == scenefile.TITLE_INK_INHERIT:
+        if next_options.get("mono"):
+            next_title = next_text
+        elif not token or token == scenefile.TITLE_INK_INHERIT:
             next_title = next_text
         else:
             next_title = scenefile.WORD_INKS.get(str(token).strip().lower(),
                                                  next_text)
+    if use_msx1:
+        import targets
+        target = targets.get_target("msx1")
+        if target is None:
+            sys.exit("MSX1 target is not registered")
+        msx1_options = targets.target_options(doc, target)
+        art_rows = int(msx1_options.get("art_rows") or 10)
+        msx1_mono = bool(msx1_options.get("mono"))
     if use_msx2:
         import targets
         target = targets.get_target("msx2")
@@ -516,6 +547,7 @@ def main():
             sys.exit("MSX2 target is not registered")
         msx2_options = targets.target_options(doc, target)
         art_rows = int(msx2_options.get("art_rows") or 12)
+        msx2_mono = bool(msx2_options.get("mono"))
     if use_gb:
         import gbart
         import targets
@@ -524,7 +556,8 @@ def main():
             sys.exit("Game Boy Color target is not registered")
         gb_options = targets.target_options(doc, target)
         art_rows = int(gb_options.get("art_rows") or 8)
-        text_ink, highlight_ink, text_bg = gbart.text_colours(game)
+        text_ink, highlight_ink, text_bg = gbart.text_colours(
+            game, bool(gb_options.get("mono")))
         gb_text_palette = [text_bg, text_bg, text_bg, text_ink,
                            text_bg, text_bg, text_bg, highlight_ink]
         gb_text_pal = gbart.TEXT_PALETTE
@@ -539,7 +572,7 @@ def main():
         c64_options = targets.target_options(doc, target)
         art_rows = int(c64_options.get("art_rows") or 8)
         port_text_ink, port_highlight_ink, port_text_bg = \
-            c64art.text_colours(game)
+            c64art.text_colours(game, bool(c64_options.get("mono")))
         _write_sms_font(bdir)
     if use_nes:
         import nesart
@@ -550,7 +583,7 @@ def main():
         nes_options = targets.target_options(doc, target)
         art_rows = int(nes_options.get("art_rows") or 10)
         port_text_ink, port_highlight_ink, port_text_bg = \
-            nesart.text_colours(game)
+            nesart.text_colours(game, bool(nes_options.get("mono")))
     if use_oric:
         import oricart
         import targets
@@ -588,7 +621,7 @@ def main():
         _write_sms_font(bdir)
         import smsart
         port_text_ink, port_highlight_ink, port_text_bg = \
-            smsart.text_colours(game)
+            smsart.text_colours(game, bool(sms_options.get("mono")))
         art_root = os.path.join(gdir, "assets", "art")
         gen_dir = os.path.join(gdir, "assets", "gen")
         for art in arts:
@@ -640,7 +673,7 @@ def main():
     elif use_cpc:
         import cpcart
         port_text_ink, port_highlight_ink, port_text_bg = \
-            cpcart.text_colours(game)
+            cpcart.text_colours(game, bool(cpc_options.get("mono")))
         art_root = os.path.join(gdir, "assets", "art")
         gen_dir = os.path.join(gdir, "assets", "gen")
         # Banks 4..7 are the 6128's extra 64K.  BANK_2 is base RAM at
@@ -723,10 +756,63 @@ def main():
             f.write("PUBLIC _inv_ws\n")
             f.write("defc _scene_ws = 0x%04X\n" % cpc_ws_base)
             f.write("defc _inv_ws = 0x%04X\n" % cpc_ws_base)
+    elif use_msx1:
+        import msx1art
+        msx1_text, msx1_highlight, msx1_bg = msx1art.text_colours(
+            game, msx1_mono)
+        port_text_ink = msx1art.colour_byte(msx1_text, msx1_bg)
+        port_highlight_ink = msx1art.colour_byte(msx1_highlight, msx1_bg)
+        port_text_bg = msx1_bg & 0x0F
+        art_root = os.path.join(gdir, "assets", "art")
+        gen_dir = os.path.join(gdir, "assets", "gen")
+        asm = ["; generated by tools/gen_port.py - do not edit"]
+        for art in arts:
+            path = scenefile.resolve_art_image(art_root, art, gen_dir)
+            conv = scenefile.conversion_options(art, game, system)
+            blob = None
+            if path and os.path.exists(path):
+                blob = msx1art.art_blob(
+                    path, conv,
+                    {"art_rows": art_rows, "mono": msx1_mono}, msx1_bg)
+            if blob is None:
+                blob = msx1art.blank_blob(art_rows, msx1_bg, msx1_mono)
+            packed = gen_scenes.pack_blob(gen_scenes.zx0_compress(blob, gdir))
+            if len(packed) > 0x4000:
+                sys.exit(f"art {art['id']!r}: compressed {len(packed)}B does "
+                         "not fit one 16K MSX1 bank")
+            bank = 2 + len(art_blobs)
+            if bank > 0xFF:
+                sys.exit("MSX1 art data needs more than 254 banks")
+            out_bin = os.path.join(bdir, f"port_art_bank{bank}.bin")
+            with open(out_bin, "wb") as f:
+                f.write(packed)
+            rel = os.path.relpath(out_bin, ROOT).replace(os.sep, "/")
+            asm.append(f"SECTION BANK_{bank:02X}")
+            asm.append(f'    BINARY "{rel}"')
+            art_bank.append(bank)
+            art_off.append(0)
+            art_blobs.append(bytes(blob))
+            art_ntiles.append(blob[0])
+        with open(os.path.join(bdir, "port_art.asm"), "w",
+                  encoding="utf-8") as f:
+            f.write("\n".join(asm) + "\n")
+        msx1_font = _msx1_font8_bytes()
+        msx1_font_bank = 2 + len(arts)
+        if msx1_font_bank > 0xFF:
+            sys.exit("MSX1 font data needs more than 255 banks")
+        font_bin = os.path.join(bdir, f"port_font_bank{msx1_font_bank}.bin")
+        with open(font_bin, "wb") as f:
+            f.write(msx1_font)
+        rel = os.path.relpath(font_bin, ROOT).replace(os.sep, "/")
+        with open(os.path.join(bdir, "port_font.asm"), "w",
+                  encoding="utf-8") as f:
+            f.write("; generated by tools/gen_port.py - do not edit\n")
+            f.write("SECTION BANK_%02X\n" % msx1_font_bank)
+            f.write('    BINARY "%s"\n' % rel)
     elif use_msx2:
         import msx2art
         msx2_text_ink, msx2_highlight_ink, msx2_bg = \
-            msx2art.text_colours(game)
+            msx2art.text_colours(game, msx2_mono)
         port_text_ink = msx2art.palette_pair(msx2_text_ink)
         port_highlight_ink = msx2art.palette_pair(msx2_highlight_ink)
         port_text_bg = msx2art.palette_pair(msx2_bg)
@@ -738,12 +824,13 @@ def main():
             conv = scenefile.conversion_options(art, game, system)
             blob = None
             if path and os.path.exists(path):
-                blob = msx2art.art_blob(path, conv, {"art_rows": art_rows},
-                                        msx2_text_ink, msx2_highlight_ink,
-                                        msx2_bg)
+                blob = msx2art.art_blob(
+                    path, conv, {"art_rows": art_rows, "mono": msx2_mono},
+                    msx2_text_ink, msx2_highlight_ink, msx2_bg)
             if blob is None:
                 blob = msx2art.blank_blob(art_rows, msx2_text_ink,
-                                          msx2_highlight_ink, msx2_bg)
+                                          msx2_highlight_ink, msx2_bg,
+                                          mono=msx2_mono)
             palette = blob[:32]
             bitmap = blob[32:]
             packed = bytearray(palette)
@@ -1089,21 +1176,23 @@ def main():
     for name in names:
         name_off.append(len(name_bytes))
         name_bytes += gen_scenes.esc_bytes(name)
-    if use_msx2:
+    if use_msx1 or use_msx2:
+        label = "MSX1" if use_msx1 else "MSX2"
         data_size = len(data) + len(inv_store or b"") + len(name_bytes) + 32
         if music_target and songs:
             data_size += len(scenes) + 3 * len(songs)
         if data_size > 0x4000:
-            sys.exit(f"MSX2 scene/inventory data is {data_size}B but must fit "
-                     "one 16K bank; shorten the game")
+            sys.exit(f"{label} scene/inventory data is {data_size}B but must "
+                     "fit one 16K bank; shorten the game")
     h = []
     c = []
-    have_art = (use_sms or use_cpc or use_msx2 or use_gb or use_next
-                or use_c64 or use_nes or use_oric)
+    have_art = (use_sms or use_cpc or use_msx1 or use_msx2 or use_gb
+                or use_next or use_c64 or use_nes or use_oric)
     port_cols = (40 if use_c64 or use_oric else
                  32 if use_nes else
                  20 if use_gb else
                  64 if use_next else
+                 32 if use_msx1 else
                  int(msx2_options.get("columns") or 64) if use_msx2 else
                  int(cpc_options.get("columns") or 32) if use_cpc else 32)
     port_art_mode = int(cpc_options.get("mode") or 0) if use_cpc else 0
@@ -1112,6 +1201,7 @@ def main():
     overlay_menu = (use_sms or use_gb or use_c64 or use_nes
                     or (use_oric and bool(oric_options.get("menu")))
                     or (use_cpc and bool(cpc_options.get("menu")))
+                    or (use_msx1 and bool(msx1_options.get("menu")))
                     or (use_msx2 and bool(msx2_options.get("menu")))
                     or (use_next and bool(next_options.get("menu"))))
     if use_next:
@@ -1168,10 +1258,11 @@ def main():
         ("PORT_SCROLL_UP", '"\\x01"' if (use_sms or use_gb) else '"^"'),
         ("PORT_SCROLL_DOWN", '"\\x02"' if (use_sms or use_gb) else '"v"'),
         ("PORT_SIMPLE_OPTIONS", 1 if (use_cpc or use_next) else 0),
-        ("PORT_KEEP_ART", 1 if (use_msx2 or use_cpc or use_next
+        ("PORT_KEEP_ART", 1 if (use_msx1 or use_msx2 or use_cpc or use_next
                                 or use_c64 or use_nes or use_oric) else 0),
         ("PORT_ART_CLEARS_TEXT", 1 if use_cpc else 0),
-        ("PORT_NO_TEXT_SCROLL", 1 if (use_msx2 or (use_next and not overlay_menu)) else 0),
+        ("PORT_NO_TEXT_SCROLL", 1 if (use_msx2
+                                     or (use_next and not overlay_menu)) else 0),
         ("PORT_NO_DESC_SCROLL", 1 if (use_next and not overlay_menu) else 0),
         ("PORT_NO_ENTRY_WRAP", 1 if (use_next and not overlay_menu) else 0),
         ("PORT_MARKER_BODY", 1 if use_nes else 0),
@@ -1230,10 +1321,17 @@ def main():
         defines.append(("PORT_INV_OVERWRITES_ART", 1))
         defines.append(("PORT_ART_FROM_DISK", 1 if use_cpc464 else 0))
         defines.append(("CPC_ART_LOAD_SIZE", cpc_art_load_size))
+    if use_msx1:
+        defines.append(("PORT_DATA_BANK", 1))
+        defines.append(("MSX1_FONT_BANK", msx1_font_bank))
+        defines.append(("PORT_ART_WS",
+                        max(1, max(map(len, art_blobs), default=1))))
+        defines.append(("MSX1_MONO", 1 if msx1_mono else 0))
     if use_msx2:
         defines.append(("PORT_DATA_BANK", 1))
         defines.append(("MSX2_FONT_BANK", msx2_font_bank))
         defines.append(("MSX2_TEXT_8PX", 1 if port_cols == 64 else 0))
+        defines.append(("MSX2_MONO", 1 if msx2_options.get("mono") else 0))
     elif use_gb:
         defines.append(("PORT_DATA_BANK", 0))
     h.append("/* generated by tools/gen_port.py - do not edit */")
@@ -1319,7 +1417,8 @@ def main():
     elif use_cpc:
         banks = art_bank or [0]
         offs_art = art_off or [0]
-    elif use_msx2 or use_gb or use_next or use_c64 or use_nes or use_oric:
+    elif use_msx1 or use_msx2 or use_gb or use_next or use_c64 or use_nes \
+            or use_oric:
         banks = art_bank or [0]
         offs_art = art_off or [0]
     else:
@@ -1383,7 +1482,7 @@ def main():
     with open(os.path.join(bdir, "port_data.c"), "w", encoding="utf-8") as f:
         f.write("/* generated by tools/gen_port.py - do not edit */\n")
         f.write('#include "port_data.h"\n\n')
-        if use_msx2:
+        if use_msx1 or use_msx2:
             f.write("#pragma bank 1\n\n")
         f.write("\n".join(c) + "\n")
     label = "raw" if use_gb else "compressed"

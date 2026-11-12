@@ -104,6 +104,15 @@ class Target:
         return self.id + "_"
 
 
+def mono_option() -> TargetOption:
+    """The shared per-system Black and white art/text setting."""
+    return TargetOption(
+        "mono", "Black and white", "bool", False,
+        help="Render the picture as a dithered black-and-white band and force "
+             "white text on the black background, instead of using the "
+             "system's colour palette.")
+
+
 def art_margin_option() -> TargetOption:
     """The shared per-system art-margin setting (N 8x8 cells per side)."""
     return TargetOption(

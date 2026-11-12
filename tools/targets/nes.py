@@ -21,7 +21,8 @@ import tempfile
 
 import cc65path
 import scenefile
-from .base import (BuildResult, Target, TargetOption, art_margin_option,
+from .base import (BuildResult, Target, TargetOption,
+                   art_margin_option, mono_option,
                    portable_sources)
 
 ART_ROWS = (8, 10, 12)
@@ -146,6 +147,7 @@ TARGET = Target(
                      "Character rows of picture; 12 leaves 16 text rows.",
                      minimum=8, maximum=12),
         art_margin_option(),
+        mono_option(),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_BINARY_MODES,
                      help="off uses a hard four-colour snap; floyd uses "

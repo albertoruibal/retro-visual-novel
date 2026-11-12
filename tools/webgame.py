@@ -106,6 +106,7 @@ EMU_ASPECT = {
     "gb": 160 / 144,
     "cpc": 768 / 540,
     "cpc464": 768 / 540,
+    "msx1": 4 / 3,
     "msx2": (544 * 1.14) / 456,
     "oric": 640 / 720,
 }
@@ -320,6 +321,15 @@ def webgame_data(slug):
     start_scene = scenes[0]["id"] if scenes else ""
 
     text, highlight, bg = scenefile.text_tokens(game)
+    try:
+        import targets
+        web_target = targets.get_target("web")
+        mono = bool(web_target and
+                    targets.target_options(doc, web_target).get("mono"))
+    except Exception:               # noqa: BLE001 - optional registry
+        mono = False
+    if mono:
+        text, highlight, bg = "white", "white", "black"
     return {
         "format": 1,
         "slug": rec["slug"],
@@ -332,6 +342,7 @@ def webgame_data(slug):
         "passwordLabel": scenefile.password_label(game),
         "popupHint": str(game.get("popup_hint") or "").strip(),
         "inventory": scenefile.inventory_strings(game),
+        "mono": mono,
         "textColors": {
             "ink": _colour(text),
             "highlight": _colour(highlight),

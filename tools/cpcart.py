@@ -100,11 +100,15 @@ def text_ink(token):
     return pair[0] if dim else pair[1]
 
 
-def text_colours(game):
+def text_colours(game, mono=False):
     """Resolve the ``# Game`` text colours to CPC hardware inks.
 
-    Returns ``(text_ink, highlight_ink, text_bg)``.
+    Returns ``(text_ink, highlight_ink, text_bg)``.  ``mono`` uses the bright
+    white pen on black (Mode 1 already uses its grey ramp).
     """
+    if mono:
+        white = text_ink("white")
+        return white, white, text_ink("black")
     import scenefile
     text, highlight, bg = scenefile.text_tokens(game)
     return text_ink(text), text_ink(highlight), text_ink(bg)
@@ -349,6 +353,8 @@ def _convert(im, conv=None, options=None, text_ink=None, highlight_ink=None,
                           adj.get("gamma", 1.0))
     fill = CPC_PALETTE[0 if mode == 1 else text_bg]
     im = zxart.inset_band(im, conv.get("margin", 0), fill)
+    if conv.get("mono") and mode != 1:
+        im = zxart.to_mono_image(im, conv.get("dither"))
 
     if mode == 1:
         # A mono picture needs dithering to resolve more than the three neutral

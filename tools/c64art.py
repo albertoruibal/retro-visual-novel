@@ -73,8 +73,10 @@ def text_bg_index(token):
     return _TEXT_INDEX.get(t, 0)
 
 
-def text_colours(game):
+def text_colours(game, mono=False):
     """Resolve the ``# Game`` colours to ``(ink, highlight, bg)`` C64 indices."""
+    if mono:
+        return 1, 1, 0
     import scenefile
     text, highlight, bg = scenefile.text_tokens(game)
     return text_ink(text), text_ink(highlight), text_bg_index(bg)
@@ -173,6 +175,8 @@ def _plan(im, conv, art_rows, text_bg):
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
     im = zxart.inset_band(im, conv.get("margin", 0), C64_PALETTE[bg])
+    if conv.get("mono"):
+        im = zxart.to_mono_image(im, conv.get("dither"))
     dither = _dither(conv.get("dither"))
     indexed = list(im.quantize(palette=_palette_image(), dither=dither)
                    .getdata())

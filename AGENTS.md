@@ -7,7 +7,7 @@ Guidance for coding agents working in this repository.
 Retro Visual Novel is an 8-bit visual novel authoring + build system for the **ZX Spectrum 128K**, **ZX Spectrum
 48K**, **ZX Spectrum Next** and six portable targets. The story engine is shared by every target
 (`src/portable/core/`); each platform
-supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx2/`, `src/gb/`,
+supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx1/`, `src/msx2/`, `src/gb/`,
 `src/c64/`, `src/nes/`, `src/oric/`). The three 6502 targets share `src/6502/zx0.c`.
 NIRVANA+ is vendored under `vendor/`. A game
 is a self-contained folder whose story lives in `game.md`; this repository ships a single demo game in `demo-game/`.
@@ -27,7 +27,8 @@ constraints live in `docs/systems/zx128.md`.
     src/z80/zx0_wrap.asm     shared Z80 C wrapper for the vendored ZX0 decoder
     src/6502/zx0.c           shared 6502 C ZX0 decoder (C64 + NES + Oric)
     src/sms/ src/cpc/        platform layers and paging/vram asm
-    src/msx2/ src/gb/        platform layers (GB APU player in src/gb/gb_music.c)
+    src/msx1/ src/msx2/      MSX platform layers (MSX1 TMS9918A, MSX2 V9938)
+    src/gb/                  platform layer (GB APU player in src/gb/gb_music.c)
     src/c64/ src/nes/        6502 platform layers (VIC-II MCM / NES PPU, MMC1 asm)
     src/oric/                Oric Atmos HIRES platform layer + atmos.cfg
     vendor/zx0/              pinned ZX0 decoder (69-byte standard, BSD-3)
@@ -51,6 +52,7 @@ constraints live in `docs/systems/zx128.md`.
     tools/nesart.py          NES 4-colour tile art preview/CHR bank conversion
     tools/oricart.py         Oric HIRES monochrome band preview/conversion
     tools/cc65path.py        locate the cc65 6502 toolchain (C64/NES/Oric)
+    tools/msx1art.py         MSX1 TMS9918A Screen 2 art preview/build conversion
     tools/msx2art.py         MSX2 V9938 Screen 7 art preview/build conversion
     tools/gbart.py           Game Boy Color art preview/build conversion
     tools/gen_images.py      game.md art sections -> PNG via Qwen/SD server
@@ -386,9 +388,8 @@ There is no test suite and no configured linter. Verify by:
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
   live `?match=`/`?palette=` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
 - **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms` / `system_cpc` /
-  `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` / `system_oric` / `system_web` are
-  reserved build-time
-  pseudo-flags**
+  `system_cpc464` / `system_msx1` / `system_msx2` / `system_msx` / `system_gb` / `system_c64` / `system_nes` /
+  `system_oric` / `system_web` are reserved build-time pseudo-flags**
   (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and by
   the web export, where only `system_web` is true), never assigned a flag id or runtime state. Using one as a
   declaration, `start:`, `ending:`, effect or selectable-word flag is an error.
@@ -656,6 +657,14 @@ There is no test suite and no configured linter. Verify by:
   `CPC_WS_BASE`; the target checks `__BSS_END_tail`. Output is
   `<slug>-cpc464.dsk` (`artifact_suffix="-cpc464"`), and the Emulator tab lists the 464 model only when that target is
   selected (like every other system).
+- **MSX1 runtime:** `tools/targets/msx1.py` builds a `zcc +msx -subtype=rom` ASCII16 ROM (`<slug>-msx1.rom`)
+  with `tools/gen_port.py --msx1`. `tools/msx1art.py` fits the band to 256 x `8*art_rows` pixels and converts each
+  8x1 row to two TMS9918A colours; art blobs are `[u8 ntiles][cell[32*art_rows][1 pnt + 8 colour bytes]][patterns]`
+  in banks 2+, with scene/inventory data in bank 1 and a bit-reversed Pixel Operator font bank after the art. The
+  platform layer (`src/msx1/plat_msx1.c`, `msx1_vram.asm`) uses Graphics II (32x24 tiles), copies the font into all
+  three pattern banks, and writes art name/colour entries and 8x8 patterns into banks 0/1. `mono: on` builds a
+  dithered white-on-black picture and forces white text; `dither:` selects the mono scheme; `menu: popup` selects the
+  overlay dialog. The target has no music yet. ZEsarUX is not bundled; use WebMSX (`MACHINE=MSX1`) or openMSX.
 - **MSX2 runtime:** `tools/gen_port.py --msx2` converts each band with `tools/msx2art.py` and stores the
   scenes/inventory blob in ASCII16 ROM bank 1; each art gets one 16K bank from 2 up and `port_art.asm` maps them with
   `SECTION BANK_NN`. `plat_msx2.c` uses V9938 Screen 7 (512x212, 4bpp): the full-width 512-pixel art band starts at x=0,

@@ -125,6 +125,7 @@
   function setColours() {
     var colours = D.textColors || {};
     var root = document.documentElement.style;
+    if (D.mono) document.documentElement.classList.add("mono");
     root.setProperty("--ink", colours.ink || "#c0c0c0");
     root.setProperty("--highlight", colours.highlight || "#00ff00");
     root.setProperty("--bg", colours.bg || "#000000");

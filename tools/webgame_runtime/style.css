@@ -418,3 +418,5 @@ input:focus-visible {
   .inventory button:active,
   .primary:active { transform: none; }
 }
+
+html.mono img { filter: grayscale(1) contrast(1.15); }
