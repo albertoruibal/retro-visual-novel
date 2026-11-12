@@ -25,6 +25,7 @@ height: 256
 
 ## zx128
 art_rows: 12
+dither: bayer2
 title_ink: white
 
 ## next
@@ -45,8 +46,9 @@ margin: 2
 mode: 0
 
 ## msx1
-art_rows: 10
-mono: on
+art_rows: 8
+dither: bayer2
+margin: 2
 menu: popup
 
 ## msx2
@@ -72,10 +74,11 @@ margin: 3
 art_rows: 12
 dither: bayer2
 margin: 8
-mono: off
+mono: 0
 title_ink: white
 
 ## web
+art_rows: 16
 
 # Art
 
