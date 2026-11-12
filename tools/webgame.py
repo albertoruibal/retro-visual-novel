@@ -222,19 +222,19 @@ def _web_options(doc):
 def render_web_art(im, conv, rows):
     """Render a Web band: dithered 1-bit with mono, else the fitted source.
 
-    ``rows`` is the band height in 16px tile rows (Web ``art_rows`` / 2). With
-    mono an explicit crop is re-fitted to the Web band aspect before baking, so
-    a crop authored for another target never stretches.
+    ``rows`` is the band height in 16px tile rows (Web ``art_rows`` / 2). An
+    explicit crop is always re-fitted to the Web band aspect before baking, so
+    a crop authored for another target never stretches, in mono or colour.
     """
     import zxart
 
     conv = conv or {}
     rows = max(1, int(rows))
     crop = conv.get("crop")
+    if crop:
+        im = zxart.crop_for_band(im, crop, rows)
+        crop = None
     if conv.get("mono"):
-        if crop:
-            im = zxart.crop_for_band(im, crop, rows)
-            crop = None
         return zxart.mono_image(
             im, crop=crop, dither=conv.get("dither", scenefile.DEFAULT_DITHER),
             rows=rows, adjust=conv.get("adjust"),

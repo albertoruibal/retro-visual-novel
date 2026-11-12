@@ -215,9 +215,11 @@ The Web system has its own options under `## web`:
   Black and white is off, when the full-colour source is copied unchanged.
 
 `crop: x y w h` is the same percentage rectangle as the editor's Art tab. An art without an explicit crop uses the
-centred band-aspect window, where the aspect is `256 / (8 * artRows)`. A missing art shows a neutral placeholder. The
-Art tab lists a **Web** preview alongside the selected native previews, using the Web options above (including unsaved
-control changes).
+centred band-aspect window, where the aspect is `256 / (8 * artRows)`. An explicit crop keeps its full width and
+re-centres its vertical window to that aspect (clamped to the source), so a crop authored for another band height is
+never stretched; the colour runtime does this in CSS while mono bakes it at export. A missing art shows a neutral
+placeholder. The Art tab lists a **Web** preview alongside the selected native previews, using the Web options above
+(including unsaved control changes).
 
 The art frame is capped at `45dvh` and keeps its aspect ratio, so the picture does not swallow a phone screen in
 landscape. Colour art keeps the browser's default image scaling; baked mono art uses `image-rendering: pixelated` so

@@ -241,7 +241,27 @@
   function cropRect(crop, natW, natH) {
     if (Array.isArray(crop) && crop.length === 4) {
       var given = crop.map(Number);
-      if (given[2] > 0 && given[3] > 0) return given;
+      if (given[2] > 0 && given[3] > 0) {
+        var x0 = Math.max(0, Math.min(natW, given[0] / 100 * natW));
+        var y0 = Math.max(0, Math.min(natH, given[1] / 100 * natH));
+        var x1 = Math.max(x0 + 1,
+                          Math.min(natW, (given[0] + given[2]) / 100 * natW));
+        var y1 = Math.max(y0 + 1,
+                          Math.min(natH, (given[1] + given[3]) / 100 * natH));
+        var cw = x1 - x0;
+        var ch = cw / bandAspect;
+        if (ch <= natH) {
+          var nh = Math.max(1, Math.min(natH, Math.round(ch)));
+          var ny0 = Math.round((y0 + y1) / 2 - nh / 2);
+          ny0 = Math.max(0, Math.min(natH - nh, ny0));
+          return [x0 / natW * 100, ny0 / natH * 100,
+                  cw / natW * 100, nh / natH * 100];
+        }
+        var nw = Math.max(1, Math.min(natW, Math.round(natH * bandAspect)));
+        var nx0 = Math.round((x0 + x1) / 2 - nw / 2);
+        nx0 = Math.max(0, Math.min(natW - nw, nx0));
+        return [nx0 / natW * 100, 0, nw / natW * 100, 100];
+      }
     }
     var w = 100;
     var h = 100;
