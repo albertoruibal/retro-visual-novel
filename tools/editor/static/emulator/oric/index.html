@@ -42,7 +42,10 @@
   const original = ccall;
   ccall = function (ident, ret, argTypes, args) {
     if (ident === 'www_async_dload' && typeof ENV !== 'undefined' && ENV.FILE) {
-      const clean = String(ENV.FILE).split('?')[0].replace(/^https?:\/\/[^/]+/, '');
+      /* Oricutron saves ENV.FILE verbatim under /readwritefs, including any
+       * scheme/host when the player supplies an absolute URL, so mirror the
+       * exact path components before it opens the file. */
+      const clean = String(ENV.FILE);
       const parts = clean.split('/').filter(Boolean).slice(0, -1);
       let path = '/readwritefs';
       for (const part of parts) {
