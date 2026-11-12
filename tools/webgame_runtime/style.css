@@ -419,4 +419,4 @@ input:focus-visible {
   .primary:active { transform: none; }
 }
 
-html.mono img { filter: grayscale(1) contrast(1.15); }
+html.mono .artframe img { image-rendering: pixelated; }

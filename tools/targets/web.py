@@ -8,9 +8,24 @@ produce the web player alongside the native builds.
 """
 from __future__ import annotations
 
+import io
 import os
 
-from .base import BuildResult, Target, mono_option
+import scenefile
+
+from .base import BuildResult, Target, TargetOption, mono_option
+
+
+def _preview(src, conv, options, game=None):
+    import webgame
+    from PIL import Image
+
+    rows = max(1, int(options.get("art_rows") or 10) // 2)
+    im = Image.open(src).convert("RGB")
+    img = webgame.render_web_art(im, conv or {}, rows)
+    out = io.BytesIO()
+    img.save(out, "PNG")
+    return out.getvalue()
 
 
 def _available():
@@ -43,11 +58,29 @@ TARGET = Target(
     id="web",
     label="Web",
     description="Standalone browser player: the mobile-first novel plus a "
-                "playable web emulator for every other selected system.",
+                "playable web emulator for every other selected system. Every "
+                "build refreshes the emulator player; ticking Web adds the "
+                "novel.",
     outputs=("web/",),
-    options=(mono_option(),),
+    options=(
+        TargetOption(
+            "art_rows", "Art rows", "choice", 10,
+            (8, 10, 12, 14, 16),
+            "Height of the novel's picture band in 8px character rows (even "
+            "8..16, default 10 = 256x80). Independent of the native systems.",
+            minimum=8, maximum=16),
+        mono_option(),
+        TargetOption(
+            "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
+            scenefile.DITHER_MODES,
+            help="Used by Black and white: off becomes a 2x2 Bayer dither, "
+                 "ordered schemes range from coarse (2x2) to fine (8x8), and "
+                 "the error-diffusion kernels smooth gradients."),
+    ),
     build=_build,
+    preview=_preview,
     available=_available,
     emulator="webplayer",
     machine="HTML5",
+    engine="HTML5",
 )

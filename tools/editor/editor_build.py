@@ -24,25 +24,38 @@ def _build_env_for(slug):
 
 
 
+def _selected_build_ids(doc, requested=None):
+    """Selected targets plus the always-built web emulator player."""
+    ids = targets.ordered_targets(
+        str(t).strip().lower() for t in (requested or [])
+        if str(t).strip())
+    if not ids:
+        ids = targets.ordered_targets(targets.selected_targets(doc))
+    if ids and "web" not in ids:
+        ids = targets.ordered_targets(ids + ["web"])
+    return ids
+
+
 def _run_build(build_id, slug, requested=None):
     """Build every target selected in game.md (or an explicit override).
 
     Each target runs as its own tools/build.py child so one platform failing
     does not stop the others; the combined log keeps the ``[target]`` prefixes
-    emitted by the dispatcher, and ``targets`` holds per-platform status.
+    emitted by the dispatcher, and ``targets`` holds per-platform status. The
+    web player is always built last: ticking Web adds the novel, otherwise the
+    export refreshes only the native emulator entries.
     """
     _builds[build_id]["status"] = "running"
     log = []
     results = {}
     try:
         env = _build_env_for(slug)
+        # Each child is one target; the orchestrator appends the web step, so
+        # a child must not auto-export the player after its own build.
+        env["RVN_WEB_AUTO"] = "0"
         game = _game_or_error(slug)
         doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
-        ids = targets.ordered_targets(
-            str(t).strip().lower() for t in (requested or [])
-            if str(t).strip())
-        if not ids:
-            ids = targets.ordered_targets(targets.selected_targets(doc))
+        ids = _selected_build_ids(doc, requested)
         _builds[build_id]["targets"] = {t: {"status": "queued", "log": []}
                                         for t in ids}
         if not ids:
@@ -100,11 +113,7 @@ def _run_build(build_id, slug, requested=None):
 def start_build(slug, requested=None):
     game = _game_or_error(slug)
     doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
-    ids = targets.ordered_targets(
-        str(t).strip().lower() for t in (requested or [])
-        if str(t).strip())
-    if not ids:
-        ids = targets.ordered_targets(targets.selected_targets(doc))
+    ids = _selected_build_ids(doc, requested)
     cc65_targets = ("c64", "nes", "oric")
     if any(t not in cc65_targets and t != "web" for t in ids):
         missing = z88dk_missing_tools()

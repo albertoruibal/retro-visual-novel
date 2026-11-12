@@ -1,9 +1,10 @@
 # Web player
 
-The web player plays a game in any modern browser. It contains the mobile-first story runtime and, for each system
-ticked in the Systems tab, the matching web emulator and the built file it plays. Systems that are not selected are
-never included. **Web is itself a system**: tick `## web` in the Systems tab (or in `game.md`) and the Build button
-produces `<game-folder>/web/` after the native builds.
+The web player plays a game in any modern browser. It bundles the browser emulator and built file for each system
+ticked in the Systems tab and, when Web is ticked, the mobile-first story runtime. **Every build writes
+`<game-folder>/web/`** so the native emulator player is always available. Web is itself a system: ticking `## web`
+adds the mobile-first novel (the **Web version** entry) to that player. Systems that are not selected are never
+included.
 
 There are two ways to run it:
 
@@ -58,8 +59,9 @@ in the player shell, and `game.js` then `app.js` in the novel.
 
 ## Selected systems
 
-The **Web** system (`## web`) owns the **Web version** novel: the player lists it only when Web is ticked. Native
-entries come from `targets.selected_targets(doc)` (Web itself is not a native entry), in the system display order:
+The **Web** system (`## web`) owns the **Web version** novel: the player lists it only when Web is ticked, and only
+then is `novel/` written. Native entries come from `targets.selected_targets(doc)` (Web itself is not a native entry),
+in the system display order:
 
 - A selected system with a bundled web emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), SMS and Game Boy
   Color (EmulatorJS), MSX2 (WebMSX), CPC 6128/464 (CPCJS/Caprice32), C64 (EmulatorJS VICE), NES (EmulatorJS FCEUmm)
@@ -67,7 +69,8 @@ entries come from `targets.selected_targets(doc)` (Web itself is not a native en
 - The ZX Spectrum Next has no bundled browser emulator, so it is not included in the player.
 - A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
 - Unselected native systems are never copied or listed. With Web unticked the export writes no `novel/` folder and the
-  player offers only the selected native systems; if nothing is selected it reports that there is no game data.
+  player offers only the selected native systems; if nothing is selected it reports that there is no game data. The
+  build still refreshes the player, because the Web target always runs last.
 
 The player itself has no download button. The editor's top-bar **Export player** button re-exports the combined player
 and reloads the preview.
@@ -93,7 +96,9 @@ window.RVN_GAME = {
   format: 1,
   slug: "demo-game",
   title: "The Lighthouse Keeper",
-  artRows: 12,                  // selected system's art_rows (even, 8..16)
+  artRows: 12,                  // Web art_rows (even, 8..16)
+  mono: false,                  // baked mono art + white text when true
+  dither: "off",                // mono dither scheme
   startScene: "start",
   startItems: [],
   carry: 0,
@@ -197,15 +202,26 @@ The runtime mirrors `src/portable/core/game.c` and `src/portable/core/scene.c`:
 ## Art
 
 Each art uses its selected source PNG, either the per-art `image:` candidate or the same fallback resolution as the
-8-bit build. No palette conversion, dithering or NIRVANA+ processing is applied: the web wants the full source image.
+8-bit build. By default no palette conversion, dithering or NIRVANA+ processing is applied: the web wants the full
+source image.
+
+The Web system has its own options under `## web`:
+
+- `art_rows:` (even 8..16, default 10) sets the novel band height to 256 x `8 * art_rows` pixels, independent of the
+  native systems.
+- `mono: on` (the Systems tab's **Black and white**) bakes each art to a dithered 1-bit black-and-white PNG at the Web
+  band size, forces white text on black, and re-fits an explicit crop to the Web band aspect before conversion.
+- `dither:` chooses the mono scheme (`bayer2`…`sierra`); `off` becomes the 2x2 Bayer dither. It has no effect while
+  Black and white is off, when the full-colour source is copied unchanged.
 
 `crop: x y w h` is the same percentage rectangle as the editor's Art tab. An art without an explicit crop uses the
-centred band-aspect window, where the aspect is `256 / (8 * artRows)` — the same framing the selected platform uses.
-`artRows` comes from the first selected system that has an `art_rows` option (ZX first), so the web band follows the
-target being authored; it falls back to the ZX/default `art_lines`. A missing art shows a neutral placeholder.
+centred band-aspect window, where the aspect is `256 / (8 * artRows)`. A missing art shows a neutral placeholder. The
+Art tab lists a **Web** preview alongside the selected native previews, using the Web options above (including unsaved
+control changes).
 
 The art frame is capped at `45dvh` and keeps its aspect ratio, so the picture does not swallow a phone screen in
-landscape. `image-rendering` is left at the browser default because the source is high resolution.
+landscape. Colour art keeps the browser's default image scaling; baked mono art uses `image-rendering: pixelated` so
+the dither stays crisp.
 
 ## Player layout
 
@@ -226,22 +242,24 @@ landscape. `image-rendering` is left at the browser default because the source i
 ## Export
 
 ```bash
-python3 tools/build.py build <game> web     # Web system -> <game-folder>/web/
+python3 tools/build.py build <game>         # builds the native systems + web player
+python3 tools/build.py build <game> web     # export the player/novel directly
 python3 tools/webgame.py <slug>             # same export directly
 python3 tools/webgame.py <slug> --json      # inspect the novel data
 ```
 
-`## web` under `# Systems` makes the ordinary Build button run the export last, after the native artifacts it
-bundles. The folder is replaced atomically. The zip produced by `GET /api/webzip/<slug>` has `index.html` at the
-archive root and is ready to upload to itch.io as an HTML game. The folder is gitignored (`<game-folder>/web/`; in
-this repo `/demo-game/web/`).
+Every build runs the Web target last, after the native artifacts it bundles, so `<game-folder>/web/` is always
+refreshed. Ticking `## web` under `# Systems` adds the `novel/` subtree and the **Web version** entry; unticked, the
+player has only the selected native emulators. The folder is replaced atomically. The zip produced by
+`GET /api/webzip/<slug>` has `index.html` at the archive root and is ready to upload to itch.io as an HTML game. The
+folder is gitignored (`<game-folder>/web/`; in this repo `/demo-game/web/`).
 
 ## Limits and notes
 
 - The Web novel has music, but no save slots; progress (current scene + flags) is saved automatically in `localStorage`
   under `rvn.web.<slug>.state` and restored on reload. **Restart** is the only state reset.
 - The password is checked in the browser; the value is present in `game.js`.
-- The runtime does not convert art, so changing a platform palette or dither mode does not change the web picture.
+- Colour novel art is not converted; the Web `mono`/`dither` options apply to the baked black-and-white band only.
 - The web band height is a framing choice only; the story has no screen-budget limits, so long text and many options
   simply scroll.
 - Native emulator entries need a web server (or a host such as itch.io/GitHub Pages); opening the player from

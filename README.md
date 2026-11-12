@@ -48,14 +48,15 @@ It has tabs to edit the game sections:
 * Items: Carried by the player, each item can be selected, and it has options that can be enabled only for certain scenes. 
 * Graph: Draws a graph of the scene relationship.
 * Source: Allows to directly edit the Markdown of the game with syntax validation and navigation via CTRL + click.
-* Build: Builds the game for the selected systems. The Build log separates each system with a
+* Build: Builds the game for the selected systems. Every build also refreshes the browser player
+  (`<game-folder>/web/`) with the selected systems' emulators. The Build log separates each system with a
   `==== name [id] ====` banner.
-* Emulator: Auto-exports and starts the combined web player: the mobile-first novel plus a browser emulator for
-  every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX1/MSX2,
-  CPCJS/Caprice32 for the CPC 6128 and CPC 464, EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for
-  Commodore 64, EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos). Use the top-bar **Export player** button to
-  re-export and reload the preview; ticking **Web** in the Systems tab also builds `<game-folder>/web/`. ZX Next is
-  not bundled in the browser; use `python3 tools/build.py run <game> next` with ZEsarUX.
+* Emulator: Auto-exports and starts the combined web player: the mobile-first novel (when **Web** is ticked) plus a
+  browser emulator for every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS
+  for MSX1/MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464, EmulatorJS/Gambatte for Game Boy Color,
+  EmulatorJS/VICE x64sc for Commodore 64, EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos). Use the top-bar
+  **Export player** button to re-export and reload the preview. ZX Next is not bundled in the browser; use
+  `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
 
@@ -95,7 +96,7 @@ It uses python tools and z88dk (https://z88dk.org/site/), sccz80 with the classi
 Every colour system has a **Black and white** option in its `## <system>` block (and the Systems tab). It converts
 the art to a dithered black-and-white band and forces white text on the black background. On the 48K, turning it off
 uses classic 8x8 attribute-colour art and the Game-tab text colours; the Oric Atmos is always monochrome and has no
-such option.
+such option. The Web novel also bakes its art this way and has its own `art_rows` and `dither` settings.
 
 The build driver is a pluggable target registry (`tools/targets/`). Each target module exports a `TARGET` with its
 output names, per-game options and build, validation and preview hooks. The selected systems and their options live
@@ -114,10 +115,11 @@ Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128)
 `.nes` (NES),
 `<slug>-oric.tap` (Oric Atmos) and `<game-folder>/web/` (Web).
 
-The **Web** system builds the standalone player: `python3 tools/webgame.py <slug>` (or the Build button with Web
-ticked) writes a `<game-folder>/web/` folder containing the novel, the selected systems' web emulators and their
-playable files. The Emulator tab auto-exports and previews the same player; the top-bar **Export player** button
-re-exports and reloads it. See [the web player](docs/web-runtime.md).
+Every build writes the standalone player to `<game-folder>/web/`: `python3 tools/webgame.py <slug>` does the same
+export directly. The folder always contains the selected systems' web emulators and playable files; ticking **Web**
+adds the mobile-first novel, framed by its own `art_rows` and optionally baked as dithered black-and-white art. The
+Emulator tab auto-exports and previews the same player; the top-bar **Export player** button re-exports and reloads
+it. See [the web player](docs/web-runtime.md).
 
 ## Licenses
 

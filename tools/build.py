@@ -757,6 +757,8 @@ def build_selected(slug, requested=None, build_all=False):
     ids = _target_ids(doc, requested, build_all)
     if not ids:
         raise SystemExit("no build targets selected (add targets: to game.md)")
+    if "web" not in ids and os.environ.get("RVN_WEB_AUTO", "1") != "0":
+        ids = targets.ordered_targets(list(ids) + ["web"])
     if _needs_z88dk(ids):
         missing = _z88dk_missing(env)
         if missing:

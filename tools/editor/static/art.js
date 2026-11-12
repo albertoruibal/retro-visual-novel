@@ -64,8 +64,7 @@ function fitCropToBand(rect, natW, natH) {
  * source of truth; ZX is the backward-compatible default. */
 const SYSTEM_ORDER = ["zx128", "zx48", "next", "cpc", "cpc464", "msx1", "msx2", "c64", "oric", "sms", "nes", "gb", "web"];
 function previewTargets() {
-  const list = (typeof gameTargets === "function" ? gameTargets() : ["zx128"])
-    .filter((id) => id !== "web");
+  const list = (typeof gameTargets === "function" ? gameTargets() : ["zx128"]);
   const rank = (id) => {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;

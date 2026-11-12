@@ -45,11 +45,12 @@ picture inside the margins, without the blank border.
 Every colour art system also accepts `mono: on` (the **Black and white** option in the Systems tab): it converts the
 picture to a dithered black-and-white band and forces white text on the black background. On the 48K, turning it off
 uses classic 8x8 attribute-colour art and the Game-tab text colours; the Oric Atmos is always monochrome and has no
-such option. The Web target grayscales the novel art.
+such option. The Web target bakes its novel art to a dithered black-and-white band when Black and white is on, and has
+its own `art_rows` and `dither` options.
 
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.
 
-The browser player is a `## Systems` build target (`## web`): selecting it builds `<game-folder>/web/` with the saved
-story framed by the first selected native system's `art_rows` and lists only the selected systems' emulators and
-files. See [the web player](../web-runtime.md).
+Every build refreshes `<game-folder>/web/` with the selected systems' emulators and files. The `## web` system adds
+the saved story novel, framed by its own `art_rows`, and the Art tab includes its preview. See
+[the web player](../web-runtime.md).

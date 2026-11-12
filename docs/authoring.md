@@ -189,26 +189,31 @@ overrides the prompt line above the input ("Enter the password:" by default).
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
     menu: popup             # optional: options/items in a SPACE dialog
     ## web
-                            # builds <game-folder>/web/ (no native binary)
+    art_rows: 10            # novel band rows, even (default 10)
+    mono: on                # optional: bake dithered B&W art + white text
+    dither: bayer2          # used by mono; off becomes bayer2
 
 A build compiles the selected systems in the system-list display order (ZX 128K, ZX 48K, Next, CPC 6128, CPC 464,
 MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color, Web); each system's log is separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
 (`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
-`.nes`, `<slug>-oric.tap`, and the `<game-folder>/web/` player for `## web`). An absent `# Systems`
+`.nes`, `<slug>-oric.tap`). Every build also writes the `<game-folder>/web/` player with the selected native
+emulators; a `## web` block adds the mobile-first novel to it. An absent `# Systems`
 means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
 `<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
 one second-level sub-tab per platform.
 
 `art_rows:` sets the art band height in 8px character rows, so it is the single most content-visible setting: rows
-1..`art_rows` carry the picture (NIRVANA+ on 128K, Layer 2 on Next, mono or classic attributes on 48K), the scene title renders on
-row 0 above it, scene text and options occupy rows `art_rows+1..22`, and the inventory band lives on row 23. Even
+1..`art_rows` carry the picture (NIRVANA+ on 128K, Layer 2 on Next, mono or classic attributes on 48K), the scene
+title renders on row 0 above it, scene text and options occupy rows `art_rows+1..22`, and the inventory band lives on
+row 23. Even
 numbers only — one NIRVANA+ tile is 16px = 2 rows — and 8..16, default 10 (the classic 256x80 band). A taller band
 races more of the screen for the picture and leaves less room for text; see [Screen budgets](#screen-budgets).
-`zx128` and `zx48` now have independent bands: the 128K value is stored as the legacy `# Game art_lines` setting,
+`zx128` and `zx48` have independent bands: the 128K value is stored as the legacy `# Game art_lines` setting,
 while `## zx48 art_rows` lives in its own block. A legacy shared value is copied into the 48K setting on load when
-that block has no `art_rows`, so existing games keep their layout.
+that block has no `art_rows`, so existing games keep their layout. `## web art_rows` is a separate framing choice for
+the novel's picture band and does not follow the native systems.
 
 `menu: popup` (ZX, CPC, MSX2 and Oric; default `inline`) moves the scene options and held items out of the text band
 and into the action dialog: `SPACE` on ZX, CPC and Oric, and `SPACE` or joystick button 2 on MSX2. The scene text then
@@ -222,12 +227,13 @@ variant or `dim_black`…`dim_white` — selects an exact Spectrum ink. The boot
 same colour.
 
 `dither:` (default `off`) picks how each pixel chooses between its cell's colours, per build system. The ZX 128K/48K,
-CPC and Oric targets accept the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered matrices
-from coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
+CPC, Oric and Web targets accept the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered
+matrices from coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
 error-diffusion kernels (jarvis smoothest, atkinson highest contrast). The other targets accept `off` or `floyd`
 (Floyd-Steinberg). Monochrome targets cannot honour `off` (a hard threshold would leave only black and white), so
-`zx48` and `oric` substitute a 2x2 Bayer dither, and CPC Mode 1 substitutes a 4x4 Bayer dither for its
-black/grey/white ramp. Set
+`zx48`, `oric` and a Web novel with **Black and white** substitute a 2x2 Bayer dither, and CPC Mode 1 substitutes a
+4x4 Bayer dither for its black/grey/white ramp. Web uses `dither:` only for its baked mono art; with Black and white
+off the novel keeps the full-colour source image. Set
 it in each system's block so one game can use an ordered pattern on ZX and Floyd-Steinberg where the palette is
 richer. Older files with a single `# Game dither:` line migrate it to each selected system on load; a per-art
 `dither:` is dropped, because art no longer owns that setting.

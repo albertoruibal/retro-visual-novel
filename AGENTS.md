@@ -588,23 +588,27 @@ There is no test suite and no configured linter. Verify by:
 - **Web player:** the frontend is split into the story runtime (`tools/webgame_runtime/`, classic
   `index.html` + `game.js` + `app.js` + `style.css`, data assigned to `window.RVN_GAME`, never fetched) and the player
   shell (`tools/webplayer_runtime/`, data assigned to `window.RVN_PLAYER`). `tools/webgame.py` is the export/build
-  step: it parses `game.md` through `scenefile.py`, writes both data files, copies source art, renders used PT3 songs to
-  22050 Hz mono WAVs in `novel/assets/music/` with `spectrumizer.play` (cache in `assets/gen/`), copies only the
-  selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`. `POST /api/web_export` writes that
-  folder, `GET /play/<slug>/...` serves it statically, and `GET /api/webzip/<slug>` re-exports then streams an
-  itch.io-ready zip with `index.html` at the root; the folder is gitignored. The player lists the Web novel only when
+  step: it parses `game.md` through `scenefile.py`, writes both data files, copies or converts the art, renders used
+  PT3 songs to 22050 Hz mono WAVs in `novel/assets/music/` with `spectrumizer.play` (cache in `assets/gen/`),
+  copies only the selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`.
+  `POST /api/web_export` writes that folder, `GET /play/<slug>/...` serves it statically, and
+  `GET /api/webzip/<slug>` re-exports then streams an itch.io-ready zip with `index.html` at the root; the folder is
+  gitignored. The player lists the Web novel only when
   Web is ticked, then only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts
   are skipped with warnings); with Web unticked no `novel/` is written and only the native entries remain. The player
   has no download button. The editor's Emulator tab saves pending edits, exports and previews
   the folder when it opens; the top-bar **Export player** button re-exports and reloads the preview.
   There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
   `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never
-  grow request-time story generation or rendering. **Web is a `# Systems` target** (`tools/targets/web.py`): ticking it
-  in the Systems tab makes the Build button run `tools/webgame.py` after the native builds (`## web` selects it,
-  `system_web` is its pseudo-flag); the Emulator tab previews the export regardless. The art band aspect
-  follows the first selected *native* target's `art_rows` (ZX first, default 10). Keep the novel **mobile-first** (fluid
-  single column, 44px taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry
-  semantics, and update `docs/web-runtime.md` with any data/route/export change.
+  grow request-time story generation or rendering. **Web is a `# Systems` target** (`tools/targets/web.py`) that the
+  build always runs last, so the emulator player is always refreshed; `build.py` auto-appends it unless
+  `RVN_WEB_AUTO=0` (the editor orchestrator sets that on its per-target children and appends the Web child itself).
+  Ticking `## web` only adds the novel (`## web` selects it, `system_web` is its pseudo-flag); the Emulator tab
+  previews the export regardless. The Web system has its own `art_rows` (novel band, default 10), `mono` and
+  `dither`; mono is baked at export into a dithered 256 x `8*art_rows` PNG with the art crop re-fitted to that band,
+  and the Art tab previews it. Keep the novel **mobile-first** (fluid single column, 44px taps, safe areas, bottom
+  item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and update `docs/web-runtime.md`
+  with any data/route/export change.
 - **ZX Next runtime:** `tools/targets/next.py` builds a native `+zxn` `.nex` with `tools/gen_port.py --next`.
   The shared portable core draws text/title/inventory on the ULA and the picture on a Layer 2 256-colour band clipped
   to rows 1..`## next art_rows` (even 8..16, default 10). `tools/nextart.py` converts art (median-cut 256 colours or a

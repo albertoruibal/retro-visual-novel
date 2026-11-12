@@ -19,9 +19,11 @@ novel works from ``file://``; the native emulator entries need an HTTP host
     python3 tools/webgame.py <slug>          # write <game-folder>/web/
     python3 tools/webgame.py <slug> --json   # print the novel data
 
-Only the systems ticked in ``# Systems`` are included.  The Web novel is listed
-when the Web system is selected, and a selected system with a bundled web
-emulator gets a playable entry.
+Only the systems ticked in ``# Systems`` are included.  Every build runs the
+Web target last, so the player always contains the selected native systems'
+emulators and files.  The Web novel (``novel/``) is listed when the Web system
+is selected; its art is baked to a dithered black-and-white band when ``mono``
+is on, using the Web ``art_rows``/``dither`` options.
 Systems without a browser emulator (such as the ZX Spectrum Next) and missing
 build artifacts are skipped with a warning.  The player itself has no download
 button; the editor's Emulator toolbar downloads the current system's built file.
@@ -168,11 +170,23 @@ def _art_sources(rec, doc):
 def selected_art_rows(doc):
     """The art-band height used by the web layout.
 
-    Prefer the selected systems in registry order (ZX first) so the web band
-    keeps the framing of the target the author is previewing.  An even 8..16
-    value is required; otherwise fall back to the ZX/default ``art_lines``
-    setting.
+    The Web system has its own ``## web art_rows`` (even 8..16, default 10).
+    Fall back to the selected native systems (ZX first) only when the target
+    registry is unavailable, then to the legacy shared ``art_lines``.
     """
+    try:
+        target = targets.get_target("web")
+        if target is not None:
+            options = targets.target_options(doc, target)
+            rows = options.get("art_rows")
+            try:
+                rows = int(rows)
+            except (TypeError, ValueError):
+                rows = None
+            if rows is not None and 8 <= rows <= 16:
+                return rows - (rows & 1)
+    except Exception:               # noqa: BLE001 - optional registry
+        pass
     for target_id in targets.selected_targets(doc):
         target = targets.get_target(target_id)
         if target is None:
@@ -187,6 +201,47 @@ def selected_art_rows(doc):
         if 8 <= rows <= 16:
             return rows - (rows & 1)
     return scenefile.art_lines((doc or {}).get("game") or {})
+
+
+def _web_options(doc):
+    """Resolve the Web target's ``mono`` and ``dither`` settings."""
+    try:
+        target = targets.get_target("web")
+        if target is not None:
+            options = targets.target_options(doc, target)
+            mon = bool(options.get("mono"))
+            dither = options.get("dither") or scenefile.DEFAULT_DITHER
+            if dither not in scenefile.DITHER_MODES:
+                dither = scenefile.DEFAULT_DITHER
+            return mon, dither
+    except Exception:               # noqa: BLE001 - optional registry
+        pass
+    return False, scenefile.DEFAULT_DITHER
+
+
+def render_web_art(im, conv, rows):
+    """Render a Web band: dithered 1-bit with mono, else the fitted source.
+
+    ``rows`` is the band height in 16px tile rows (Web ``art_rows`` / 2). With
+    mono an explicit crop is re-fitted to the Web band aspect before baking, so
+    a crop authored for another target never stretches.
+    """
+    import zxart
+
+    conv = conv or {}
+    rows = max(1, int(rows))
+    crop = conv.get("crop")
+    if conv.get("mono"):
+        if crop:
+            im = zxart.crop_for_band(im, crop, rows)
+            crop = None
+        return zxart.mono_image(
+            im, crop=crop, dither=conv.get("dither", scenefile.DEFAULT_DITHER),
+            rows=rows, adjust=conv.get("adjust"),
+            palette=conv.get("palette", scenefile.DEFAULT_PALETTE),
+            palette_colors=conv.get("palette_colors"),
+            margin=conv.get("margin", 0), fill=(0, 0, 0))
+    return zxart._fit_band(im, crop, rows)
 
 
 def _conds(text):
@@ -260,9 +315,9 @@ def _colour(token):
     return "#%02x%02x%02x" % rgb
 
 
-def _art_entry(art, source, art_id):
+def _art_entry(art, source, art_id, mono=False):
     crop = art.get("crop")
-    if not (isinstance(crop, list) and len(crop) == 4):
+    if mono or not (isinstance(crop, list) and len(crop) == 4):
         crop = None
     src = None
     if source and os.path.isfile(source):
@@ -288,8 +343,12 @@ def webgame_data(slug):
         scenefile.declared_items(game, item_meta),
         item_names=item_names, item_meta=item_meta)
 
+    art_rows = selected_art_rows(doc)
+    mono, dither = _web_options(doc)
+
     sources = _art_sources(rec, doc)
-    arts = {art["id"]: _art_entry(art, sources.get(art["id"]), art["id"])
+    arts = {art["id"]: _art_entry(art, sources.get(art["id"]), art["id"],
+                                  mono=mono)
             for art in doc.get("arts") or []}
 
     system = "web"
@@ -322,20 +381,13 @@ def webgame_data(slug):
     start_scene = scenes[0]["id"] if scenes else ""
 
     text, highlight, bg = scenefile.text_tokens(game)
-    try:
-        import targets
-        web_target = targets.get_target("web")
-        mono = bool(web_target and
-                    targets.target_options(doc, web_target).get("mono"))
-    except Exception:               # noqa: BLE001 - optional registry
-        mono = False
     if mono:
         text, highlight, bg = "white", "white", "black"
     return {
         "format": 1,
         "slug": rec["slug"],
         "title": game.get("title") or rec["slug"],
-        "artRows": selected_art_rows(doc),
+        "artRows": art_rows,
         "startScene": start_scene,
         "startItems": list(game.get("start") or []),
         "carry": int(game.get("carry") or 0),
@@ -344,6 +396,7 @@ def webgame_data(slug):
         "popupHint": str(game.get("popup_hint") or "").strip(),
         "inventory": scenefile.inventory_strings(game),
         "mono": mono,
+        "dither": dither,
         "textColors": {
             "ink": _colour(text),
             "highlight": _colour(highlight),
@@ -518,6 +571,23 @@ def _render_music(rec, doc, novel_dir, warnings):
     return rendered
 
 
+def _write_web_art(src, dest, art, game, rows, warnings):
+    """Write one novel art, baking the Web mono/dither setting when enabled."""
+    try:
+        from PIL import Image
+
+        conv = scenefile.conversion_options(art, game, "web")
+        im = Image.open(src).convert("RGB")
+        img = render_web_art(im, conv, max(1, int(rows) // 2))
+        img.save(dest, "PNG")
+        return
+    except Exception as err:            # noqa: BLE001 - fall back to the source
+        warnings.append(
+            f"{art.get('id', os.path.basename(src))}: web black-and-white "
+            f"conversion failed: {err}; using the source image")
+    shutil.copyfile(src, dest)
+
+
 def _export_rev(tmp, sources):
     """Fingerprint the exported player so the editor reloads only on change."""
     digest = hashlib.sha1()
@@ -537,7 +607,8 @@ def _export_rev(tmp, sources):
         digest.update(
             f"{art_id}\0{os.path.basename(src)}\0{st.st_size}\0{st.st_mtime_ns}\n"
             .encode("utf-8"))
-    for sub in (FILES_EXPORT_DIR, os.path.join(NOVEL_DIRNAME, "assets", "music")):
+    for sub in (FILES_EXPORT_DIR, os.path.join(NOVEL_DIRNAME, "assets", "music"),
+                os.path.join(NOVEL_DIRNAME, ART_SUBDIR)):
         root = os.path.join(tmp, sub)
         for base, _dirs, files in os.walk(root):
             for name in sorted(files):
@@ -556,6 +627,9 @@ def export_web(slug):
     include_web = _web_selected(doc)
     sources = _art_sources(rec, doc) if include_web else {}
     data = webgame_data(slug) if include_web else None
+    mono = bool(data.get("mono")) if data else False
+    art_rows = selected_art_rows(doc)
+    art_by_id = {art["id"]: art for art in doc.get("arts") or []}
     systems, emulator_dirs, warnings = _player_systems(rec, doc)
     dest = os.path.join(rec["dir"], WEB_DIRNAME)
     tmp = dest + ".tmp"
@@ -582,8 +656,13 @@ def export_web(slug):
             for art_id, src in sources.items():
                 if not src or not os.path.isfile(src):
                     continue
-                shutil.copyfile(src, os.path.join(novel, ART_SUBDIR,
-                                                  f"{art_id}.png"))
+                target = os.path.join(novel, ART_SUBDIR, f"{art_id}.png")
+                if mono:
+                    _write_web_art(src, target, art_by_id.get(art_id)
+                                   or {"id": art_id}, doc["game"], art_rows,
+                                   warnings)
+                else:
+                    shutil.copyfile(src, target)
         _copy_emulators(tmp, emulator_dirs, warnings)
         files_dir = os.path.join(tmp, FILES_EXPORT_DIR)
         if systems:
