@@ -216,8 +216,8 @@ landscape. `image-rendering` is left at the browser default because the source i
   aspect ratio.
 - On a coarse-pointer (touch) device the native ZX Spectrum entry also draws a `.speccy-touch` pad below the screen:
   a D-pad plus `ENTER`, `SPACE` and `P`. The buttons synthesize the key events JSSpeccy expects (bare `5`/`6`/`7`/`8`
-  for the directions), because JSSpeccy has no soft keyboard. It shares `screenwrap.has-touch` layout and reserves
-  its height when scaling the picture.
+  for the directions, `SPACE` for the pop-up action dialog), because JSSpeccy has no soft keyboard. It shares the
+  `screenwrap.has-touch` layout and reserves its height when scaling the picture.
 - The panel shows the selected system, a hint, **Reload** and **Fullscreen**.
 - `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
   `localStorage`, defaulting to the Web version.

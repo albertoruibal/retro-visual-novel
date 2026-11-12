@@ -26,10 +26,10 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 | Web player | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
 The editor's **Emulator** tab runs the ZX Spectrum in JSSpeccy, the C64 in VICE, the NES in FCEUmm and the Oric Atmos
-in Oricutron. On a phone or tablet the Spectrum emulator shows an on-screen pad below the picture: arrows move, `ENTER`
-confirms, `SPACE` opens the menu and `P` toggles music, so a hardware keyboard is not needed. Click the Oric
-picture first so the canvas takes keyboard focus; the cursor keys, `RETURN` and `SPACE` are forwarded to the emulated
-machine. Click the C64 picture first; the page
+in Oricutron. On a phone or tablet the Spectrum emulator shows an on-screen pad below the picture: arrows move,
+`ENTER` confirms, `SPACE` opens the action dialog when the game uses it, and `P` toggles music, so a hardware
+keyboard is not needed. Click the Oric picture first so the canvas takes keyboard focus; the cursor keys, `RETURN` and
+`SPACE` are forwarded to the emulated machine. Click the C64 picture first; the page
 forwards the physical keyboard (cursor keys/`W` `A` `S` `D`, `RETURN`, `SPACE`). For the NES, EmulatorJS's defaults
 are arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and `Enter` = Start; remap them in
 its Control Settings.

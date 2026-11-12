@@ -96,7 +96,7 @@
     if (system.kind === "web") {
       hintEl.textContent = "The mobile-first web novel. Tap or click an option, word or item.";
     } else if (system.emulator === "jsspeccy" && speccyTouchWanted()) {
-      hintEl.textContent = "Use the on-screen pad. The arrows move, ENTER confirms and SPACE opens the menu.";
+      hintEl.textContent = "Use the on-screen pad: the arrows move, ENTER confirms and SPACE opens the action dialog.";
     } else {
       hintEl.textContent = "Click the screen first so the emulator receives the keyboard.";
     }
@@ -293,6 +293,7 @@
         button.addEventListener("pointerdown", press);
         button.addEventListener("pointerup", release);
         button.addEventListener("pointercancel", release);
+        button.addEventListener("pointerleave", release);
         button.addEventListener("lostpointercapture", release);
         button.addEventListener("contextmenu", function (event) {
           event.preventDefault();

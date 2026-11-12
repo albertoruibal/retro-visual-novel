@@ -245,6 +245,7 @@ function buildSpeccyTouchPad(host) {
     button.addEventListener("pointerdown", press);
     button.addEventListener("pointerup", release);
     button.addEventListener("pointercancel", release);
+    button.addEventListener("pointerleave", release);
     button.addEventListener("lostpointercapture", release);
     button.addEventListener("contextmenu", (event) => event.preventDefault());
   });
