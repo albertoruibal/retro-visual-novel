@@ -30,14 +30,42 @@ _sms_psg_stop:
         jp      asm_PSGlib_Stop
 
 PUBLIC _sms_detect_region
-EXTERN asm_SMSlib_detect_VDP_type
-EXTERN __SMSlib_VDPType
 
+; unsigned char sms_detect_region(void) __smallc;
+; Returns VDP_PAL (0x80) on a 50 Hz console, VDP_NTSC (0x40) otherwise.
+; Sample the VCounter until it is stable, wait for line 0x80, then return the
+; last line before the counter runs back: NTSC ends at 0xDA (0xEA with 224
+; lines), PAL at 0xF2.  The older SMSlib routine compared two reads one
+; instruction apart and often missed the one-line drop, reporting 60 Hz NTSC
+; consoles as PAL (music then played 20% fast).
 _sms_detect_region:
-        call    asm_SMSlib_detect_VDP_type
-        ld      a,(__SMSlib_VDPType)
+smsdet_wait_start:
+        in      a,(0x7E)
+        ld      b,a
+        in      a,(0x7E)
+        cp      b
+        jr      nz,smsdet_wait_start
+        cp      0x80
+        jr      nz,smsdet_wait_start
+        ld      l,a              ; l = last stable line
+smsdet_wait_back:
+        in      a,(0x7E)
+        ld      b,a
+        in      a,(0x7E)
+        cp      b
+        jr      nz,smsdet_wait_back
+        cp      l
+        jr      z,smsdet_wait_back
+        jr      c,smsdet_detected
         ld      l,a
+        jr      smsdet_wait_back
+smsdet_detected:
+        ld      a,l
+        cp      0xEE
+        ld      l,0x40           ; NTSC
         ld      h,0
+        ret     c
+        ld      l,0x80           ; PAL
         ret
 
 PUBLIC _z80_rst_38h
