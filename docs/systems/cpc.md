@@ -5,10 +5,10 @@ the compressed art/song blobs from the disk instead of paging the extra banks.
 
 - **Display:** Mode 1 by default (320x200, four monochrome shades); Mode 0 (160px, 16 inks) and Mode 2 (640px, two
   inks) are selectable. Text uses 32, 40 or 62 columns on 25 rows; Mode 0 fits at most 40 (4px font for 32/40), while
-  Modes 1/2 use the 8px font for 32/40 and the compact 4px font for 62. Mode 0 gives the text every row below the art
-  and shows the options/items in a `SPACE`-key overlay dialog (the list scrolls with the cursor, Enter/fire confirms
-  and `SPACE` closes; a long item description scrolls with up/down); Modes 1/2 keep the text pane with pinned options
-  unless the system sets `menu: popup`, which gives them the same `SPACE`-key dialog.
+  Modes 1/2 use the 8px font for 32/40 and the compact 4px font for 62. By default every mode keeps the text pane
+  with pinned options and the inventory row; `menu: popup` gives it the `SPACE`-key overlay dialog instead (the text
+  then uses every row below the art, the list scrolls with the cursor, Enter/fire confirms and `SPACE` closes, and a
+  long item description scrolls with up/down).
 - **Art:** `mode_width` x `8 * art_rows` (160/320/640 wide); Mode 1 is 320 x `8 * art_rows`. Mode 1 is monochrome:
   the source is reduced to luminance and dithered onto a black/grey/white Gate Array ramp, using all four Mode 1 pens.
   `dither:` selects the scheme on every mode: `off` snaps to the nearest ink (Mode 1 substitutes a 4x4 Bayer dither
@@ -46,12 +46,11 @@ the compressed art/song blobs from the disk instead of paging the extra banks.
   the scene/inventory buffer and below `0xA600`); the CRT heap is capped at `CPC_WS_BASE`, `BANK_2` stays free, and
   the map guard checks the linked BSS ends before the fixed workspaces. Press `P` to toggle music.
 - **Options:** `mode`, `columns`, `art_rows`, `margin` (N 8x8-cell side borders; Mode 1's border is black, Modes 0/2 use
-  `text_bg`), `dither`, and `menu: popup` (Modes 1/2; Mode 0 always uses the dialog). The dialog key is `SPACE`;
+  `text_bg`), `dither`, and `menu: popup` (any mode; the default keeps pinned options). The dialog key is `SPACE`;
   `ENTER`/fire confirms.
 - **Controls:** arrow keys or W/A/S/D move the cursor; Enter or the joystick fire button chooses (Space also chooses
-  on the pinned Modes 1/2 layout). `P` toggles music. In Mode 0 up/down scrolls long scene text (left/right moves
-  between highlighted words) and `SPACE` opens/closes the action dialog. Modes 1/2 use the same dialog when
-  `menu: popup` is set.
+  on the pinned layout). `P` toggles music. With `menu: popup`, up/down scrolls long scene text (left/right moves
+  between highlighted words) and `SPACE` opens/closes the action dialog in every mode.
   Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
 - **Build:** `zcc +cpc -subtype=dsk`; the internal file name is the fixed 8.3 `GAME` so emulators can auto-run it.
   Output `<slug>.dsk`.

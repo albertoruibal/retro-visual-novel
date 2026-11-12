@@ -210,11 +210,6 @@ function targetOptionOn(o, v) {
       s === "off" || s === "no") return false;
   return false;
 }
-function cpcMenuForced(target, o) {
-  if (!isCpcBuild(target) || o.suffix !== "menu") return false;
-  const ex = (P && P.game && P.game.extras) || {};
-  return +(ex[target.id + "_mode"] ?? 1) === 0;
-}
 function systemTargets() {
   return (TARGETS && TARGETS.targets) || [];
 }
@@ -274,10 +269,8 @@ function systemCard(t) {
             return optionTag(esc(c), String(v) === String(c), esc(label));
           }).join("")}</select>`;
         } else if (o.kind === "bool") {
-          const forced = cpcMenuForced(t, o);
-          const on = forced || targetOptionOn(o, v);
           field = `<input id="topt-${esc(o.key)}" type="checkbox"` +
-            `${on ? " checked" : ""}${forced ? " disabled" : ""}>`;
+            `${targetOptionOn(o, v) ? " checked" : ""}>`;
         } else if (o.kind === "int") {
           field = `<input id="topt-${esc(o.key)}" type="number" value="${esc(v)}"`;
           if (o.minimum != null) field += ` min="${esc(o.minimum)}"`;

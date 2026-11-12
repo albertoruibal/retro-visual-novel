@@ -7,7 +7,7 @@ changes is how you move, confirm and open the inventory/action list. The built g
 The text of a scene is above the options, and an option that is hidden by a flag is simply not shown. Highlighted
 `{{words}}` are one-shot: selecting one sets its flag and redraws the scene. A system with `menu: popup` enabled in
 `# Systems` puts its options and held items in a dialog instead of the pinned list (the Master System, Game Boy
-Color, Commodore 64, NES and CPC Mode 0 always do this).
+Color, Commodore 64 and NES always do this).
 
 ## Controls at a glance
 
@@ -15,8 +15,7 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 |---|---|---|---|
 | ZX Spectrum 128K | Cursor keys or W/A/S/D | Enter | Bottom inventory row, or `SPACE` dialog |
 | ZX Spectrum Next | Cursor keys, W/A/S/D, arrow keys or joystick | Enter or fire | Bottom inventory row, or `SPACE` dialog |
-| Amstrad CPC (Mode 0) | Cursor/WASD/8/2/4/6/joystick | Enter/fire | `SPACE` opens/closes action dialog |
-| Amstrad CPC (Modes 1/2) | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned/inventory, or `SPACE` dialog |
+| Amstrad CPC | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned/inventory, or `SPACE` dialog |
 | MSX2 | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
 | Sega Master System | D-pad | Button 2 | Button 1 opens/closes the action dialog |
 | Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
@@ -95,14 +94,13 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 - **Confirm:** `ENTER` or the joystick fire button when the dialog is enabled; with pinned options `SPACE` also
   confirms.
 - **Words:** `LEFT`/`RIGHT` move between highlighted words.
-- **Mode 0:** the text uses every row below the art. `SPACE` opens and closes an action dialog listing the
+- **Default (pinned):** the options stay pinned below the text and row 24 is the inventory band. `DOWN` from the
+  last option enters it, `LEFT`/`RIGHT` step through the items, `UP` returns and `ENTER` opens the selected item.
+  `LEFT`/`RIGHT` also scroll a long scene body when it has no highlighted words.
+- **`menu: popup`:** the text uses every row below the art. `SPACE` opens and closes an action dialog listing the
   scene options first and then the held items (prefixed `*`); `UP`/`DOWN` move and scroll it, `ENTER`/fire confirms,
   and `SPACE` closes it. A long scene body scrolls with `UP`/`DOWN` (or `LEFT`/`RIGHT` when the scene has no
   words). On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry.
-- **Modes 1/2:** by default the options stay pinned below the text and row 24 is the inventory band. `DOWN` from the
-  last option enters it, `LEFT`/`RIGHT` step through the items, `UP` returns and `ENTER` opens the selected item.
-  `LEFT`/`RIGHT` also scroll a long scene body when it has no highlighted words. With `## cpc menu: popup`, `SPACE`
-  opens and closes the same action dialog as Mode 0 instead.
 
 ## MSX2
 
@@ -180,7 +178,6 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
   removes the item and frees its slot.
 - A game's `# Game carry:` cap limits how many items are held; when the pack is full, `pick` options are hidden, so
   dropping an item is how you make room.
-- On the targets with a permanent inventory row (ZX, MSX2, CPC Modes 1/2) the item screen also has **Drop** and
-  **Back** entries. On the dialog targets (SMS, Game Boy Color, Commodore 64, NES, CPC Mode 0, and any system with
-  `menu: popup`) the
-  action dialog is the only way in.
+- On the targets with a permanent inventory row (ZX, MSX2, CPC by default) the item screen also has **Drop** and
+  **Back** entries. On the dialog targets (SMS, Game Boy Color, Commodore 64, NES, and any system with
+  `menu: popup`) the action dialog is the only way in.

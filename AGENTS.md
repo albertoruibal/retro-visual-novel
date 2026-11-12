@@ -634,10 +634,11 @@ There is no test suite and no configured linter. Verify by:
   rebuild.
   `tools/targets/cpc.py`
   checks the link map, and checks `__BSS_END_tail < 0x8000` only when `port_art.asm` actually emits `SECTION BANK_2` (a
-  stale `port_art_bank2.bin` from an earlier build must not trip the guard). Mode 0 builds with
-  `PORT_OVERLAY_MENU=1`: the text uses every row below the art, the `SPACE` key opens/closes an options/items
-  dialog over that pane, and the old pinned-option/inventory paths compile out. `cpc_mode`, `cpc_columns` and
-  `cpc_art_rows` are emitted into `port_data.h`.
+  stale `port_art_bank2.bin` from an earlier build must not trip the guard). Any mode builds with
+  `PORT_OVERLAY_MENU=1` when the system sets `menu: popup`: the text uses every row below the art, the `SPACE` key
+  opens/closes an options/items dialog over that pane, and the old pinned-option/inventory paths compile out. By
+  default every mode keeps the pinned options. `cpc_mode`, `cpc_columns` and `cpc_art_rows` are emitted into
+  `port_data.h`.
 - **CPC 464 runtime:** `tools/targets/cpc464.py` builds the same 6128-style disk but with the CRT loader disabled
   (`CRT_DISABLELOADER=1`), because the 464 has 64K and no paging. `gen_port.py --cpc464` still packs the compressed
   art/song blobs into the `BANK_4..BANK_7` (and optional `BANK_2`) files, but `appmake` writes them to the `.dsk`
@@ -755,10 +756,10 @@ There is no test suite and no configured linter. Verify by:
   The text layer uses z88dk's newlib `arch/sms.h` helpers, not SMSlib.
 - **Portable under-art dialog:** `PORT_OVERLAY_MENU` makes `show_scene` give the text every row from `PORT_TEXT_TOP`
   to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color, Commodore
-  64, NES and CPC mode 0;
-  ZX, MSX2, Oric and CPC modes 1/2 opt in with the system's `menu: popup` target option (ZX/CPC/Oric `SPACE`, MSX2
-  `SPACE` or joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text` also clears row 23
-  when it is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane:
+  64 and NES;
+  ZX, MSX2, Oric, the CPC (any mode) and Next opt in with the system's `menu: popup` target option (ZX/CPC/Oric
+  `SPACE`, MSX2 `SPACE` or joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text`
+  also clears row 23 when it is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane:
   visible scene options first, then held items prefixed `*`, labels wrapped, `>` marker on the selection and `^`/`v`
   when the list scrolls. Moving the cursor repaints only the old and new entry, falling back to a full pane redraw
   when the scroll window shifts. `B`/Enter/button 2 (CPC: Enter/Space/fire) activates an entry (or sets a highlighted
@@ -766,9 +767,10 @@ There is no test suite and no configured linter. Verify by:
   scene body scrolls with UP/DOWN (LEFT/RIGHT moves between highlighted words, or scrolls when the scene has none), and
   `drop_screen` scrolls an overlong item description with UP/DOWN while the cursor is on the first entry.
   `collect_options`/`collect_items` rebuild the list on each open, so item effects and flag changes are reflected; the
-  old pinned-option/inventory code is compiled out on these targets. `PORT_SIMPLE_OPTIONS` now only affects CPC modes
-  1/2. On ZX the inventory blob shares `_art_ws`, so returning from `drop_screen` with `cur_art == 0xFF` returns to
-  `main` for a full `show_scene` redraw; `menu_entry_rows` is one row per entry under `PORT_NO_WRAP` (no `count_rows`).
+  old pinned-option/inventory code is compiled out on these targets. `PORT_SIMPLE_OPTIONS` affects the CPC pinned
+  layout in every mode. On ZX the inventory blob shares `_art_ws`, so returning from `drop_screen` with
+  `cur_art == 0xFF` returns to `main` for a full `show_scene` redraw; `menu_entry_rows` is one row per entry under
+  `PORT_NO_WRAP` (no `count_rows`).
 - The Source tab is a **vendored Monaco 0.52.2** (offline; `static/monaco/`, classic AMD `min/vs`), served through
   `/monaco/<file>` like JSSpeccy's `/emulator/`. Only `editor.main.js/.css`, `loader.js`, the markdown language and the
   worker/font are committed; `raw.js` loads it lazily on first opening the tab, so no other tab pays for it. Keep the

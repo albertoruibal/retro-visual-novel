@@ -163,13 +163,13 @@ overrides the prompt line above the input ("Enter the password:" by default).
     columns: 32             # text columns 32|40|62 (default 32)
     art_rows: 12            # default 12; 14/16 need mode 2
     dither: off             # off|floyd in modes 0/2; mode 1 always dithers
-    menu: popup             # optional in modes 1/2; mode 0 always uses it
+    menu: popup             # optional: options/items in a SPACE dialog
     ## cpc464
     mode: 1                 # same mode/columns/art_rows options as cpc
     columns: 32
     art_rows: 8             # default 8; art is streamed from the disk
     dither: off             # off|floyd in modes 0/2; mode 1 always dithers
-    menu: popup             # optional in modes 1/2; mode 0 always uses it
+    menu: popup             # optional: options/items in a SPACE dialog
     ## msx2
     columns: 64             # text columns 64|80 (default 64)
     art_rows: 12            # default 12
@@ -211,9 +211,8 @@ races more of the screen for the picture and leaves less room for text; see [Scr
 `menu: popup` (ZX, CPC, MSX2 and Oric; default `inline`) moves the scene options and held items out of the text band
 and into the action dialog: `SPACE` on ZX, CPC and Oric, and `SPACE` or joystick button 2 on MSX2. The scene text then
 owns every row below the art (rows `art_rows+1..23` on ZX/MSX2, and rows `art_rows+1..24` on Oric) and the permanent
-inventory row disappears. The dialog is **always** used on the Master System, Game Boy Color, Commodore 64, NES and CPC
-Mode 0, which have no pinned-option layout; the CPC checkbox is shown checked and disabled in Mode 0. The editor's
-**Systems** tab sets this per system.
+inventory row disappears. The dialog is **always** used on the Master System, Game Boy Color, Commodore 64 and NES,
+which have no pinned-option layout. The editor's **Systems** tab sets this per system.
 
 `title_ink:` (ZX only; default `text`) colours the scene title on row 0 and the item screen's title. `text` follows
 the Game tab's `text_ink:`; any colour token from the [text colours](#game-settings) — `black`…`white` for the bright

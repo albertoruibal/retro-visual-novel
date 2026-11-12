@@ -283,9 +283,9 @@ def cpc_options(default_rows=12):
                           "error (smoother, but larger blobs). Mode 1's grey "
                           "ramp always dithers (off uses Bayer 4x4)."),
         TargetOption("menu", "Pop-up options", "bool", False,
-                     help="Modes 1/2 only: use the SPACE-key dialog instead of "
-                          "pinned options and the inventory row. Mode 0 "
-                          "always uses the dialog.",
+                     help="Use the SPACE-key dialog for the options and held "
+                          "items instead of pinned options and the inventory "
+                          "row.",
                      on_value="popup", off_value="inline"),
     )
 
@@ -294,7 +294,8 @@ TARGET = Target(
     id="cpc",
     label="Amstrad CPC 6128",
     description="Amstrad CPC Mode 0/1/2 text runtime with compressed art in "
-                "the extra 16K banks; Mode 0 uses the under-art action dialog.",
+                "the extra 16K banks; any mode can use the under-art action "
+                "dialog.",
     outputs=(".dsk",),
     options=cpc_options(12),
     build=_build,
