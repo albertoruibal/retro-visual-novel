@@ -33,6 +33,11 @@ _SYSTEM_OPTION_ALIASES = {
     ("zx", "art_lines"): ("art_lines", ART_LINES_DEFAULT),
     ("zx128", "art_lines"): ("art_lines", ART_LINES_DEFAULT),
 }
+# The 48K band height is a normal per-system option; its old `art_lines`
+# spelling (shared with zx128) is read as `art_rows` but stays in its block.
+_SYSTEM_KEY_ALIASES = {
+    ("zx48", "art_lines"): "art_rows",
+}
 # A per-system `margin:` insets the converted picture inside the art band by N
 # 8x8 cells on each side (0 = full band). The border uses the system's text_bg.
 # A `prompt:` value is written as a first line plus continuation lines. A
@@ -544,7 +549,7 @@ def parse(md):
     item_meta = {}
     cur, mode = None, None
     section, style = None, None
-    _, game_opts = _target_meta()
+    target_ids, game_opts = _target_meta()
     system_order, system_options = [], {}
     legacy_dither = None
 
@@ -668,6 +673,10 @@ def parse(md):
                         # per-system overrides so a save drops them.
                         continue
                     if sid and re.match(r"^[a-z][a-z0-9_]*$", key):
+                        key_alias = _SYSTEM_KEY_ALIASES.get((sid, key))
+                        if key_alias:
+                            system_options[sid][key_alias] = val.strip()
+                            continue
                         game_key = (game_opts.get((sid, key))
                                     or _SYSTEM_OPTION_ALIASES.get((sid, key)))
                         if game_key:
@@ -857,6 +866,10 @@ def parse(md):
                 key, _, val = s.partition(":")
                 key = key.strip()
                 if re.match(r"^[a-z][a-z0-9_]*$", key):
+                    prefix, sep, suffix = key.partition("_")
+                    if sep and suffix == "art_lines" \
+                            and prefix in target_ids:
+                        key = prefix + "_art_rows"
                     cur.setdefault("extras", {})[key] = val.strip()
 
     # A Systems section selects its systems and stores each option as the
@@ -866,6 +879,15 @@ def parse(md):
             game["extras"][f"{sid}_{key}"] = val
     if system_order:
         game["targets"] = system_order
+    # The old shared ZX `art_lines` also set the 48K band. Keep those games
+    # unchanged now that `## zx48 art_rows` is independent: copy a non-default
+    # legacy value into the 48K extras only when its block omits it.
+    selected = [canonical_target_id(t) for t in (game.get("targets") or [])
+                if str(t).strip()] or ["zx128"]
+    if "zx48" in selected and "zx48_art_rows" not in game["extras"]:
+        legacy_lines = art_lines(game)
+        if legacy_lines != ART_LINES_DEFAULT:
+            game["extras"]["zx48_art_rows"] = str(legacy_lines)
     # Migrate a legacy global dither to every selected system that has no
     # per-system value yet. A per-art dither cannot map to systems and is dropped.
     if legacy_dither in _DITHER_MODES and legacy_dither != DEFAULT_DITHER:

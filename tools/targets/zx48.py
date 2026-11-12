@@ -32,11 +32,20 @@ def _preview(src, conv, options, game=None):
 
     rows = int(options.get("art_rows") or 10) // 2
     im = Image.open(src).convert("RGB")
+    # The crop box follows the primary ZX band; re-fit an explicit crop to the
+    # 48K aspect instead of stretching it when the two bands differ.
+    flat_conv = conv
+    if conv.get("crop"):
+        im = zxart.crop_for_band(im, conv["crop"], rows)
+        flat_conv = dict(conv)
+        flat_conv["crop"] = None
     img = zxart.mono_image(
-        im, crop=conv.get("crop"), dither=conv.get("dither", "off"), rows=rows,
-        adjust=conv.get("adjust"), palette=conv.get("palette", "none"),
-        palette_colors=conv.get("palette_colors"),
-        margin=conv.get("margin", 0), fill=(0, 0, 0))
+        im, crop=flat_conv.get("crop"),
+        dither=flat_conv.get("dither", "off"), rows=rows,
+        adjust=flat_conv.get("adjust"),
+        palette=flat_conv.get("palette", "none"),
+        palette_colors=flat_conv.get("palette_colors"),
+        margin=flat_conv.get("margin", 0), fill=(0, 0, 0))
     img = zxart.preview_margin_crop(img, conv.get("margin", 0),
                                     zxart.BAND_W, zxart.band_h(rows))
     out = io.BytesIO()
@@ -96,11 +105,16 @@ TARGET = Target(
         TargetOption(
             "art_rows", "Art rows", "choice", 10,
             (8, 10, 12, 14, 16),
-            "Height of the monochrome picture band, shared with the 128K "
+            "Height of the monochrome picture band, independent of the 128K "
             "target; only even 8..16 rows are valid (256x8*rows pixels, "
             "default 10 = 256x80).",
-            minimum=8, maximum=16, game_key="art_lines"),
+            minimum=8, maximum=16),
         art_margin_option(),
+        TargetOption(
+            "mono", "Black and white", "bool", False,
+            help="Force white text on black for the whole screen. The 48K "
+                 "picture is always monochrome; turn this off to use the "
+                 "Game tab's text and highlight colours."),
         TargetOption(
             "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
             scenefile.DITHER_MODES,

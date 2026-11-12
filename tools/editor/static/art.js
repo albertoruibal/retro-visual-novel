@@ -15,13 +15,22 @@ function artCropSpec(a) {
   return r ? r.map((v) => Math.round(v)).join(",") : "";
 }
 
-/* Art-band height in character rows (even 8..16, default 10); mirrors
- * scenefile.art_lines. A NIRVANA+ tile is 16px = 2 rows, so the value is even. */
+/* Art-band height in character rows (even 8..16, default 10). ZX 128K and
+ * 48K now carry independent `art_rows` target options; a NIRVANA+ tile is
+ * 16px = 2 rows, so the value is even. `artLines()` is the primary (first
+ * selected native) target, whose aspect the crop box follows. */
 const ART_LINE_OPTIONS = [8, 10, 12, 14, 16];
 const DEFAULT_ART_LINES = 10;
-function artLines() {
-  const n = P && P.game ? +P.game.art_lines : NaN;
+function targetArtLines(id) {
+  const m = previewTargetMeta(id);
+  const opt = ((m && m.options) || []).find((o) => o.suffix === "art_rows");
+  const n = m && opt
+    ? +targetOptionValue(m, opt)
+    : +((P && P.game && P.game.art_lines) || DEFAULT_ART_LINES);
   return ART_LINE_OPTIONS.includes(n) ? n : DEFAULT_ART_LINES;
+}
+function artLines() {
+  return targetArtLines(previewTargets()[0] || "zx128");
 }
 function artBandH() { return 8 * artLines(); }
 
@@ -86,7 +95,7 @@ function previewTargetRows(id) {
     choices = choices.filter((n) => n <= 12);
   const def = +(opt && opt.default != null ? opt.default : 12);
   const ex = (P && P.game && P.game.extras) || {};
-  const n = +(ex[id + "_art_rows"] ?? def);
+  const n = +(m && opt ? targetOptionValue(m, opt) : (ex[id + "_art_rows"] ?? def));
   return choices.includes(n) ? n : def;
 }
 /* CPC video mode (0/1/2, default 1); the mode sets both the pixel width and
@@ -104,7 +113,8 @@ function previewTargetWidth(id) {
   return width;
 }
 function previewTargetSize(id) {
-  if (id === "zx128" || id === "zx48") return `256×${artBandH()}`;
+  if (id === "zx128" || id === "zx48")
+    return `256×${8 * targetArtLines(id)}`;
   return `${previewTargetWidth(id)}×${8 * previewTargetRows(id)}`;
 }
 /* Palette size the target's converter quantises to; CPC follows the selected
@@ -154,7 +164,7 @@ function targetPreviewQuery(id, q) {
   const dither = "dither=" + encodeURIComponent(previewDither(id));
   const margin = "margin=" + previewMargin(id);
   if (id === "zx128") return q + (q ? "&" : "?") + dither + "&" + margin;
-  const rows = id === "zx48" ? artLines() : previewTargetRows(id);
+  const rows = id === "zx48" ? targetArtLines("zx48") : previewTargetRows(id);
   return q + (q ? "&" : "?") + "target=" + encodeURIComponent(id)
            + "&rows=" + rows + "&" + dither + "&" + margin;
 }
@@ -175,8 +185,8 @@ function targetPreviewFig(id, g, aid, q, bust) {
 
 /* Art pane puts the source image and every selected system preview in one
  * responsive grid; the Original carries a resizable crop box (see
- * initCropBox) that keeps the band aspect (32/art_lines); the preview always
- * uses the art's own (possibly unsaved) crop, so it agrees with the box. */
+ * initCropBox) that keeps the primary band (32/art_rows); each preview uses
+ * the art's own (possibly unsaved) crop, re-fitting it to a different band. */
 function drawArtView(id, mode, viewId = "artview") {
   const v = $(viewId);
   if (!v) return;

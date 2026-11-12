@@ -363,6 +363,21 @@ def band_crop_rect(crop, w, h, aspect):
     return x0, y0, x1, y1
 
 
+def crop_for_band(im, crop, rows=None, width=BAND_W):
+    """Crop an explicit art rectangle to the target band aspect.
+
+    Unlike ``_fit_band`` this never stretches a mismatched crop: the width and
+    x are kept and the height is re-centred to the band aspect (clamped to the
+    source), exactly like the non-ZX converters use ``band_crop_rect``. It lets
+    a crop authored for the 128K band be reused by a 48K band of another height.
+    """
+    if not crop:
+        return im
+    w, h = im.size
+    box = band_crop_rect(crop, w, h, width / float(band_h(rows)))
+    return im.crop(box)
+
+
 def _fit_band(im, crop=None, rows=None):
     """Return the source cropped to its ``crop`` rectangle, scaled to the band.
 

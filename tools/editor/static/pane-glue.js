@@ -155,6 +155,7 @@ function wirePane() {
         if (String(v) === String(def)) delete P.game.extras[key];
         else P.game.extras[key] = v;
         markDirty();
+        if (opt && opt.suffix === "art_rows") redrawSelection();
         if (target && (target.id === "cpc" || target.id === "cpc464")
             && opt && opt.key === "mode") {
           const rowsKey = target.id + "_art_rows";

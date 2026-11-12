@@ -18,7 +18,8 @@ storage): the ``port_*`` names, struct aliases and ZX layout/feature flags.
     Art blob (before compression):
         map[8*L]  row-major 16x(L/2) tile indices into the tile area
         tiles[N]  48-byte 16x16 bicolor btiles (N <= 8*L)
-                  L = `## zx128 art_rows` (even 8..16, default 10 -> map[80])
+                  L = the active target's `art_rows` (even 8..16, default 10);
+                  128K and 48K have independent `## zx128`/`## zx48` values
     Scene blob (before compression):
         SceneHdr (102 bytes):
             u8   art          art index (into the art directory)
@@ -135,6 +136,8 @@ game.md format (author-facing):
     dither: <scheme>       # optional: dither for this system (off)
     menu: popup            # optional: options/items in a SPACE dialog (inline)
     title_ink: <colour>    # optional: scene/item title (text = inherit text_ink)
+    ## zx48
+    art_rows: <even 8..16> # optional: independent 48K band height (10)
     ## sms
     art_rows: 8|10|12      # optional: SMS picture rows (12)
     dither: off|floyd      # optional: dither for this system (off)
@@ -690,12 +693,20 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
         import zxart
         im = Image.open(path).convert("RGB")
         if scene_flat():
+            # The crop box follows the primary ZX band; re-fit it to this
+            # target's aspect so the 48K picture is never squeezed vertically.
+            flat_conv = conv
+            if conv.get("crop"):
+                im = zxart.crop_for_band(im, conv["crop"], rows)
+                flat_conv = dict(conv)
+                flat_conv["crop"] = None
             return zxart.mono_band(
-                im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
-                rows=rows, adjust=conv.get("adjust"),
-                palette=conv.get("palette", "none"),
-                palette_colors=conv.get("palette_colors"),
-                margin=conv.get("margin", 0), fill=fill), path
+                im, crop=flat_conv.get("crop"),
+                dither=flat_conv.get("dither", "off"),
+                rows=rows, adjust=flat_conv.get("adjust"),
+                palette=flat_conv.get("palette", "none"),
+                palette_colors=flat_conv.get("palette_colors"),
+                margin=flat_conv.get("margin", 0), fill=fill), path
         grid = zxart.nirvana_band(
             im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
             rows=rows, match=conv.get("match", "rgb"),
@@ -1158,6 +1169,37 @@ def write_scene_data(header, out_h):
     open(out_c, "w", encoding="utf-8").write("\n".join(defs) + "\n")
 
 
+def target_art_lines(doc):
+    """The active ZX target's art-band height in character rows (even 8..16).
+
+    The 48K keeps its own `## zx48 art_rows`; the 128K reads its `art_rows`
+    (stored as the legacy shared `# Game art_lines`), so each build uses its
+    own band rather than whichever system block was parsed last.
+    """
+    try:
+        import targets
+        target = targets.get_target(scene_target_id())
+        if target is not None:
+            rows = targets.target_options(doc, target).get("art_rows")
+            if rows is not None and str(rows).strip() != "":
+                return scenefile.art_lines({"art_lines": int(rows)})
+    except Exception:               # noqa: BLE001 - optional build registry
+        pass
+    return scenefile.art_lines(doc.get("game") or {})
+
+
+def zx48_mono(doc):
+    """Whether the 48K `## zx48 mono` option forces black-and-white text."""
+    try:
+        import targets
+        target = targets.get_target(scene_target_id())
+        if target is not None and target.id == "zx48":
+            return bool(targets.target_options(doc, target).get("mono"))
+    except Exception:               # noqa: BLE001 - optional build registry
+        pass
+    return False
+
+
 def zx_popup_menu(doc):
     """Whether the active ZX system enables its optional pop-up dialog."""
     try:
@@ -1380,10 +1422,11 @@ def main():
     for a in arts:
         assert a["id"] not in ("game", ""), f"bad art id {a['id']!r}"
 
-    # Art band height: the ZX `art_rows` option (even 8..16, default 10) character
-    # rows. A NIRVANA+ tile row is 16px = 2 character rows, so the engine races
-    # `lines` attribute rows (1..lines) and the tile map is 8*lines bytes.
-    lines = scenefile.art_lines(doc["game"])
+    # Art band height: this target's `art_rows` option (even 8..16, default 10)
+    # character rows. A NIRVANA+ tile row is 16px = 2 character rows, so the
+    # engine races `lines` attribute rows (1..lines) and the tile map is
+    # 8*lines bytes. The 48K has its own setting, independent of the 128K.
+    lines = target_art_lines(doc)
     tile_rows = lines // 2
     art_map_len = 8 * lines
 
@@ -1641,6 +1684,8 @@ def main():
          "} SceneHdr;",
          ""]
     colours = scenefile.text_colours(doc["game"])
+    if flat and zx48_mono(doc):
+        colours = {"text": (7, 1), "highlight": (7, 1), "bg": (0, 0)}
     bg_ink, bg_bright = colours["bg"]
     if not (bg_ink & 7):
         bg_bright = 0          # black is black whether or not BRIGHT is set
@@ -1741,7 +1786,10 @@ def main():
         _arr(h, "adventure_font_glyphs", "unsigned char", glyphs, "%d")
         h.append("")
     write_scene_data(h, out_h)
-    title_ink, title_bright = zx_title_colours(doc)
+    if flat and zx48_mono(doc):
+        title_ink, title_bright = 7, 1
+    else:
+        title_ink, title_bright = zx_title_colours(doc)
     write_port_data_h(os.path.join(os.path.dirname(out_h), "port_data.h"),
                       title_ink, title_bright,
                       have_inv_blob=(inv_blob is not None),

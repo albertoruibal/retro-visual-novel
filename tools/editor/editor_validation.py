@@ -195,31 +195,31 @@ def _validate(doc, slug):
     art_ids = [a["id"] for a in arts]
     ref_ids = [r["id"] for r in refs]
     scene_ids = [s["id"] for s in scenes]
-    # Art band height in character rows (even 8..16); it drives the scene row
-    # budget and how many item-description lines fit (see below).
-    band_lines = scenefile.art_lines(g)
-    # The row budget below is the ZX layout. Next uses the same layout with its
-    # own art_rows/menu options, so validate the tighter of the selected ZX
-    # systems (and fold the matching system_* conditions).
+    # Art band height in character rows (even 8..16) drives the scene row
+    # budget and how many item-description lines fit (see below). zx128 and
+    # zx48 now have independent art_rows, so validate each selected ZX/Next
+    # layout separately; a system_* condition is folded for its own system.
     selected_systems = targets.selected_targets(doc) or ["zx128"]
-    fit_system = "zx128"
     zx_target = targets.get_target("zx128")
     zx48_target = targets.get_target("zx48")
     next_target = targets.get_target("next")
-    zx_family = [t for t in (zx_target, zx48_target)
-                 if t is not None and t.id in selected_systems]
-    # The pinned layout must fit if any selected ZX-family target uses it.
-    zx_popup = bool(zx_family) and all(
-        bool(targets.target_options(doc, t).get("menu")) for t in zx_family)
-    if zx_family and "zx128" not in selected_systems:
-        fit_system = "zx48"
-    if next_target is not None and "next" in selected_systems:
-        next_opts = targets.target_options(doc, next_target)
-        next_rows = int(next_opts.get("art_rows") or 10)
-        if not zx_family or next_rows > band_lines:
-            band_lines = next_rows
-            fit_system = "next"
-            zx_popup = bool(next_opts.get("menu"))
+    layouts = []
+    for _tid in ("zx128", "zx48", "next"):
+        if _tid not in selected_systems:
+            continue
+        _target = targets.get_target(_tid)
+        if _target is None:
+            continue
+        _opts = targets.target_options(doc, _target)
+        _rows = int(_opts.get("art_rows") or 10)
+        layouts.append({
+            "system": _tid,
+            "rows": scenefile.art_lines({"art_lines": _rows}),
+            "popup": bool(_opts.get("menu")),
+        })
+    if not layouts:
+        _rows = scenefile.art_lines(g)
+        layouts = [{"system": "zx128", "rows": _rows, "popup": False}]
 
     for dup in {x for x in art_ids if art_ids.count(x) > 1}:
         issues.append({"level": "error", "section": "art", "id": dup,
@@ -400,7 +400,7 @@ def _validate(doc, slug):
         lines = [x for x in lines if x]
         opts = [str(x).strip() for x in (meta.get("opts") or [])]
         opts = [x for x in opts if x]
-        fit_entries = []
+        fit_entries = {x["system"]: [] for x in layouts}
         if not lines and not disp and not opts:
             issues.append({"level": "warn", "section": "item", "id": name,
                            "msg": "empty description"})
@@ -430,13 +430,15 @@ def _validate(doc, slug):
                                    "id": name, "need": ln,
                                    "msg": f"condition '{cname}' is not a "
                                           "declared or set flag/item"})
-            folded = scenefile.filter_system_conditions(conds, fit_system)
-            if folded is None:
-                continue
-            need, clear = _cond_sets(folded)
-            fit_entries.append(
-                (scenefile.text_rows(rendered, TEXT_COLS), need, clear,
-                 None, None))
+            for _layout in layouts:
+                folded = scenefile.filter_system_conditions(
+                    conds, _layout["system"])
+                if folded is None:
+                    continue
+                need, clear = _cond_sets(folded)
+                fit_entries[_layout["system"]].append(
+                    (scenefile.text_rows(rendered, TEXT_COLS), need, clear,
+                     None, None))
         opt_over = _over_limit(
             {system: len(_active_options(opts, system))
              for system in selected_systems}, 6)
@@ -499,29 +501,34 @@ def _validate(doc, slug):
                                    "id": name, "need": o,
                                    "msg": f"condition '{cname}' is not a "
                                           "declared or set flag/item"})
-            folded = scenefile.filter_system_conditions(conds, fit_system)
-            if folded is None:
+            for _layout in layouts:
+                folded = scenefile.filter_system_conditions(
+                    conds, _layout["system"])
+                if folded is None:
+                    continue
+                need, clear = _cond_sets(folded)
+                pick = re.search(r"\bpick\s+(\S+)", rest)
+                pick_name = pick.group(1) if pick else None
+                if pick_name:
+                    clear.add(pick_name)
+                fit_entries[_layout["system"]].append(
+                    (1, need, clear, ic.group(1) if ic else None, pick_name))
+        for _layout in layouts:
+            if _layout["popup"]:
                 continue
-            need, clear = _cond_sets(folded)
-            pick = re.search(r"\bpick\s+(\S+)", rest)
-            pick_name = pick.group(1) if pick else None
-            if pick_name:
-                clear.add(pick_name)
-            fit_entries.append((1, need, clear,
-                                ic.group(1) if ic else None, pick_name))
-        if not zx_popup:
             fixed = 1 if carry > 0 else 0
             fixed += 1
-            total = _max_visible_rows(fit_entries, scene_bits,
-                                      item_names=item_names, carry=carry) + fixed
-            available = 21 - band_lines
+            total = _max_visible_rows(
+                fit_entries[_layout["system"]], scene_bits,
+                item_names=item_names, carry=carry) + fixed
+            available = 21 - _layout["rows"]
             if total > available:
                 issues.append({
                     "level": "warn", "section": "item", "id": name,
                     "msg": f"worst-case description + entries = {total} rows "
-                           f"> {available} with art_rows={band_lines}; extra "
-                           "rows are not shown. Enable Pop-up options or "
-                           "shorten a line/option."})
+                           f"> {available} with art_rows={_layout['rows']} "
+                           f"({_layout['system']}); extra rows are not shown. "
+                           "Enable Pop-up options or shorten a line/option."})
         if name not in used and name not in g.get("items", []):
             issues.append({"level": "warn", "section": "item", "id": name,
                            "msg": f"item '{name}' has a section but is never "
@@ -570,18 +577,32 @@ def _validate(doc, slug):
     # NIRVANA+ tile is 16px = 2 rows, so it must be an even 8..16. An odd or
     # out-of-range value still builds (scenefile.art_lines clamps it) but
     # changes the band silently.
-    raw_lines = g.get("art_lines", scenefile.ART_LINES_DEFAULT)
-    try:
-        raw_lines = int(raw_lines)
-    except (TypeError, ValueError):
-        raw_lines = None
-    if raw_lines is None or raw_lines < scenefile.ART_LINES_MIN \
-            or raw_lines > scenefile.ART_LINES_MAX or raw_lines % 2:
-        issues.append({"level": "warn", "section": "game", "id": "art_rows",
-                       "msg": f"art_rows must be an even "
-                              f"{scenefile.ART_LINES_MIN}.."
-                              f"{scenefile.ART_LINES_MAX}; using "
-                              f"{scenefile.art_lines(g)}"})
+    for _tid in ("zx128", "zx48", "next"):
+        if _tid not in selected_systems:
+            continue
+        _target = targets.get_target(_tid)
+        if _target is None:
+            continue
+        if _tid == "zx128":
+            raw_lines = g.get("art_lines", scenefile.ART_LINES_DEFAULT)
+        else:
+            raw_lines = (g.get("extras") or {}).get(
+                f"{_tid}_art_rows", scenefile.ART_LINES_DEFAULT)
+        try:
+            raw_lines = int(raw_lines)
+        except (TypeError, ValueError):
+            raw_lines = None
+        if raw_lines is None or raw_lines < scenefile.ART_LINES_MIN \
+                or raw_lines > scenefile.ART_LINES_MAX or raw_lines % 2:
+            _used = raw_lines if raw_lines is not None \
+                else scenefile.ART_LINES_DEFAULT
+            issues.append({
+                "level": "warn", "section": "game", "id": "art_rows",
+                "target": _tid,
+                "msg": f"{_tid} art_rows must be an even "
+                       f"{scenefile.ART_LINES_MIN}.."
+                       f"{scenefile.ART_LINES_MAX}; using "
+                       f"{scenefile.art_lines({'art_lines': _used})}"})
 
     # `text_ink:`/`highlight_ink:` colour the body and every selection;
     # selectable words always use highlight_ink, while inventory items use
@@ -829,7 +850,7 @@ def _validate(doc, slug):
         if text_over:
             issues.append({"level": "error", "section": "scene", "id": sid,
                            "msg": f"text lines: {text_over}"})
-        fit_entries = []
+        fit_entries = {x["system"]: [] for x in layouts}
         for wi, t in enumerate(s["text"]):
             rendered, conds = scenefile.split_text_line(t)
             if len(conds) > scenefile.MAX_CONDITIONS:
@@ -877,13 +898,15 @@ def _validate(doc, slug):
                                           f"'{w['word']}' is not directly "
                                           f"below its line; move the "
                                           f"`-> if {flag}` line up"})
-            folded = scenefile.filter_system_conditions(conds, fit_system)
-            if folded is None:
-                continue
-            need, clear = _cond_sets(folded)
-            fit_entries.append(
-                (scenefile.text_rows(clean, TEXT_COLS), need, clear,
-                 None, None))
+            for _layout in layouts:
+                folded = scenefile.filter_system_conditions(
+                    conds, _layout["system"])
+                if folded is None:
+                    continue
+                need, clear = _cond_sets(folded)
+                fit_entries[_layout["system"]].append(
+                    (scenefile.text_rows(clean, TEXT_COLS), need, clear,
+                     None, None))
         word_over = _over_limit(
             {system: sum(
                 len(scenefile.parse_words(
@@ -958,26 +981,33 @@ def _validate(doc, slug):
                                    "id": sid, "need": o,
                                    "msg": f"condition '{cname}' is not a "
                                           "declared or set flag/item"})
-            folded = scenefile.filter_system_conditions(conds, fit_system)
-            if folded is None:
+            for _layout in layouts:
+                folded = scenefile.filter_system_conditions(
+                    conds, _layout["system"])
+                if folded is None:
+                    continue
+                need, clear = _cond_sets(folded)
+                pick = re.search(r"\bpick\s+(\S+)", om.group(3))
+                pick_name = pick.group(1) if pick else None
+                if pick_name:
+                    clear.add(pick_name)
+                fit_entries[_layout["system"]].append(
+                    (1, need, clear, None, pick_name))
+        for _layout in layouts:
+            if _layout["popup"]:
                 continue
-            need, clear = _cond_sets(folded)
-            pick = re.search(r"\bpick\s+(\S+)", om.group(3))
-            pick_name = pick.group(1) if pick else None
-            if pick_name:
-                clear.add(pick_name)
-            fit_entries.append((1, need, clear, None, pick_name))
-        if not zx_popup:
-            budget = _max_visible_rows(fit_entries, item_names=item_names,
-                                       carry=carry)
-            band = 22 - band_lines
+            budget = _max_visible_rows(
+                fit_entries[_layout["system"]], item_names=item_names,
+                carry=carry)
+            band = 22 - _layout["rows"]
             if budget > band:
-                issues.append({"level": "warn", "section": "scene", "id": sid,
-                               "msg": f"worst-case wrapped text + options = "
-                                      f"{budget} > {band} rows with "
-                                      f"art_rows={band_lines}; extra rows are "
-                                      "not shown. Enable Pop-up options or "
-                                      "shorten a line/option."})
+                issues.append({
+                    "level": "warn", "section": "scene", "id": sid,
+                    "msg": f"worst-case wrapped text + options = "
+                           f"{budget} > {band} rows with "
+                           f"art_rows={_layout['rows']} "
+                           f"({_layout['system']}); extra rows are not shown. "
+                           "Enable Pop-up options or shorten a line/option."})
     issues.extend(targets.selection_issues(doc))
     return issues
 

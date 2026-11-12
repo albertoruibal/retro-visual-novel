@@ -147,7 +147,7 @@ overrides the prompt line above the input ("Enter the password:" by default).
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour (default: text_ink)
     ## zx48
-    art_rows: 10            # shares the 128K band; monochrome, no music on 48K
+    art_rows: 10            # independent 48K band; monochrome, no music on 48K
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
     menu: popup             # optional: options/items in a SPACE dialog
     ## next
@@ -201,12 +201,14 @@ means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
 one second-level sub-tab per platform.
 
-`art_rows:` sets the ZX art band height (shared by `zx128` and `zx48`) in 8px character rows, so it is the single most
-content-visible setting: rows
+`art_rows:` sets the art band height in 8px character rows, so it is the single most content-visible setting: rows
 1..`art_rows` carry the picture (NIRVANA+ on 128K, Layer 2 on Next, dithered monochrome on 48K), the scene title renders on
 row 0 above it, scene text and options occupy rows `art_rows+1..22`, and the inventory band lives on row 23. Even
 numbers only — one NIRVANA+ tile is 16px = 2 rows — and 8..16, default 10 (the classic 256x80 band). A taller band
 races more of the screen for the picture and leaves less room for text; see [Screen budgets](#screen-budgets).
+`zx128` and `zx48` now have independent bands: the 128K value is stored as the legacy `# Game art_lines` setting,
+while `## zx48 art_rows` lives in its own block. A legacy shared value is copied into the 48K setting on load when
+that block has no `art_rows`, so existing games keep their layout.
 
 `menu: popup` (ZX, CPC, MSX2 and Oric; default `inline`) moves the scene options and held items out of the text band
 and into the action dialog: `SPACE` on ZX, CPC and Oric, and `SPACE` or joystick button 2 on MSX2. The scene text then

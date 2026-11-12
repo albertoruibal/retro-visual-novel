@@ -227,12 +227,15 @@ There is no test suite and no configured linter. Verify by:
   cursor is on the band (the item/Drop screen also clears it while its details show; the scene redraw on return restores
   it). **`## zx128 art_rows` (even 8..16, default 10) sets the band height in character rows**: the engine is built with
   `TOTAL_ROWS = art_rows`, `TEXT_TOP = 1 + ART_LINES`, `TEXT_BOT = 22`, so the text band is rows `art_rows+1..22` and
-  the budget is `22 - art_rows`. Scene text and item descriptions may be any length and word-wrap at 62 columns;
-  options/labels are <= 62 columns. Keep <= 8 logical text lines and <= 6 options. On the pinned layout the server
-  validates the worst-case wrapped text rows + options over all flag/item combinations against `22 - art_rows`
-  (and the item screen's description + entries against `21 - art_rows`); with `## zx128 menu: popup` the text and item
-  descriptions scroll and there is no fit limit. Scene text is top-aligned and the options are pinned to the
-  bottom of the band (last option on `TEXT_BOT`); the item/drop (`ITEM_DESC_TOP`/`ITEM_DESC_ROWS`/`TEXT_BOT`) and
+  the budget is `22 - art_rows`. **`## zx48 art_rows` is an independent per-system option** (default 10), so lowering
+  the 48K band frees text rows without changing the 128K band; a legacy shared `# Game art_lines` value is copied
+  into `zx48_art_rows` on load when the 48K block has no `art_rows`. Scene text and item descriptions may be any
+  length and word-wrap at 62 columns; options/labels are <= 62 columns. Keep <= 8 logical text lines and <= 6
+  options. On the pinned layout the server validates the worst-case wrapped text rows + options over all flag/item
+  combinations against each selected layout's `22 - art_rows` (and the item screen's description + entries against
+  `21 - art_rows`); with `menu: popup` the text and item descriptions scroll and there is no fit limit. Scene text
+  is top-aligned and the options are pinned to the bottom of the band (last option on `TEXT_BOT`); the item/drop
+  (`ITEM_DESC_TOP`/`ITEM_DESC_ROWS`/`TEXT_BOT`) and
   boot-password screens are band-relative so they fit any height, and on the pinned layouts the item screen's
   options/Drop/Back entries are pinned to the bottom the same way. The description is clamped so the entries fit
   (`21 - art_rows - entries` description lines). On the dialog layouts (`PORT_OVERLAY_MENU`) the entries instead start
@@ -294,7 +297,10 @@ There is no test suite and no configured linter. Verify by:
   the **inventory** blob are emitted as `const art_data`/`inv_data` arrays in `build/scene_data.c` and linked into the
   main image, which may use `0x8000-0xFFFF` (32,768 B) because there is no engine at `0xDC03`.
   `tools/gen_scenes.py` runs with `SCENE_FLAT=1`, writes `build/scene_flat.bin` (scenes only, padded), and converts art
-  with `zxart.mono_band`; `off` dither becomes `bayer2` (see `zxart.mono_dither`). `plat_load` decodes scenes from
+  with `zxart.mono_band`; `off` dither becomes `bayer2` (see `zxart.mono_dither`). The band height is the independent
+  `## zx48 art_rows` option (`ART_LINES`), not the 128K `# Game art_lines`. An explicit `crop:` authored for the
+  primary ZX band is re-fitted to the 48K aspect with `zxart.crop_for_band`, so a different band height never
+  stretches the picture. `plat_load` decodes scenes from
   `FLAT_DATA_ADDR+off+2` and inventory from `inv_data+off+2` with `port_unpack` (no paging); `plat_draw_art` decodes
   `art_data+art_off+2` into `_art_ws` and copies rows into the bitmap under `ZX48`, with no tile map/attribute race. The
   build fails with a `48K build does not fit: ...` message when either budget is exceeded. The 48K has no AY, so songs

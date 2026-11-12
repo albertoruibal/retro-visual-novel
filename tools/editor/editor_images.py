@@ -729,7 +729,13 @@ def _preview_context(slug, art_id, crop, file, lines, overrides,
         except (TypeError, ValueError):
             lines = None
     if lines is None:
-        lines = scenefile.art_lines(doc["game"])
+        target = targets.get_target(target_id or "zx128")
+        target_rows = (targets.target_options(doc, target).get("art_rows")
+                       if target is not None else None)
+        if target_rows is not None:
+            lines = scenefile.art_lines({"art_lines": int(target_rows)})
+        else:
+            lines = scenefile.art_lines(doc["game"])
     if isinstance(crop, str):
         crop = [t for t in crop.replace(",", " ").split()] or None
     if crop is not None:
@@ -784,8 +790,8 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
                       file=None, lines=None):
     """Return a band PNG preview of the art as the Spectrum will show it.
 
-    The band is the source cropped to ``crop`` and scaled to 256 x (8*art_lines)
-    (the ZX ``## zx128 art_rows``; 256x80 for the default 10). ``lines``
+    The band is the source cropped to ``crop`` and scaled to 256 x (8*art_rows)
+    (the selected ZX target's band; 256x80 for the default 10). ``lines``
     overrides that height with the Art tab's current (possibly unsaved) value,
     so the previews track the control before a save; it is clamped to the valid
     even 8..16 range. ``crop``
