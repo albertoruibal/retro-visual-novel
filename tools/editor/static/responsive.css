@@ -43,7 +43,6 @@
   .artview .artgrid { grid-template-columns: 1fr; }
   #graphwrap { padding: 12px; }
   #emuhost { padding: 12px; }
-  #emubar { flex-wrap: wrap; gap: 8px; }
 
   /* Let the verbose hint text take its own row so the controls beside it
    * get full width instead of being squeezed into a narrow column. */

@@ -50,14 +50,12 @@ It has tabs to edit the game sections:
 * Source: Allows to directly edit the Markdown of the game with syntax validation and navigation via CTRL + click.
 * Build: Builds the game for the selected systems. The Build log separates each system with a
   `==== name [id] ====` banner.
-* Emulator: Plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
-  EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464,
-  EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64,
-  EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos. Ticking **Web** in the Systems tab builds
-  `<game-folder>/web/`; its Emulator entry exports and previews the player: the mobile-first novel plus only the
-  selected systems that have a browser emulator. The toolbar also downloads the current system's built file or
-  toggles fullscreen. ZX Next is not bundled in
-  the browser; use `python3 tools/build.py run <game> next` with ZEsarUX.
+* Emulator: Auto-exports and starts the combined web player: the mobile-first novel plus a browser emulator for
+  every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2,
+  CPCJS/Caprice32 for the CPC 6128 and CPC 464, EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for
+  Commodore 64, EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos). Use the top-bar **Export player** button to
+  re-export and reload the preview; ticking **Web** in the Systems tab also builds `<game-folder>/web/`. ZX Next is
+  not bundled in the browser; use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
 
@@ -112,8 +110,8 @@ Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128)
 
 The **Web** system builds the standalone player: `python3 tools/webgame.py <slug>` (or the Build button with Web
 ticked) writes a `<game-folder>/web/` folder containing the novel, the selected systems' web emulators and their
-playable files. The editor's **Emulator → Web** entry previews the same export. See
-[the web player](docs/web-runtime.md).
+playable files. The Emulator tab auto-exports and previews the same player; the top-bar **Export player** button
+re-exports and reloads it. See [the web player](docs/web-runtime.md).
 
 ## Licenses
 

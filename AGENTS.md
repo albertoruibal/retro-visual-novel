@@ -559,22 +559,21 @@ There is no test suite and no configured linter. Verify by:
   so top-level `let`/`const`/`function` names must stay **unique across files** and each file needs its own `"use
   strict";`. CSS is likewise split (`base.css`…`responsive.css`, linked in that order; the cascade is the same as one
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
-- **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX (the
-  picker lists only the systems ticked in the Systems tab — including Web, which exports/previews the combined player
-  — so `zx128` and `zx48` each appear only
-  when selected and the 48K option serves `<slug>-48k.tap`); local
-  iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS),
-  CPC 6128/464 (`emulator/cpc`, CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte),
-  Commodore 64 (`emulator/c64`, EmulatorJS VICE x64sc, direct keyboard input), NES (`emulator/nes`,
-  EmulatorJS FCEUmm) and Oric Atmos (`emulator/oric`, Oricutron WASM). The SMS, GBC, C64 and NES pages share the
-  pinned EmulatorJS data in `emulator/emulatorjs/data`; Oricutron has its own `emulator/oric/` bundle. Built artifacts are served by
-  `/api/artifact/<slug>/<file>`;
-  `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
-  via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name. On a coarse-pointer device
-  JSSpeccy also gets `#emutouch` (`buildSpeccyTouchPad()`): a D-pad plus ENTER/SPACE/P that dispatches synthetic
-  keydown/keyup events at the canvas parent (the JSSpeccy keyboard root), using bare `5`/`6`/`7`/`8` for the
-  directions. The same pad is drawn below `.screen` in `tools/webplayer_runtime/player.js` as `#speccy-touch`, and
-  both reserve its height when scaling the picture.
+- **Emulator tab:** a player-only preview. Opening it saves pending edits, exports the combined web player
+  (`POST /api/web_export`) and mounts it in `#emu` (the top-bar **Export player** button re-exports and reloads it).
+  There is no per-tab system picker, Play/Stop, download or fullscreen control. The exported player shell
+  (`tools/webplayer_runtime/player.js`) supplies the right-hand system selector and embeds each selected system's
+  offline vendored emulator: JSSpeccy inline for ZX; local iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus),
+  MSX2 (`emulator/msx`, WebMSX C-BIOS), CPC 6128/464 (`emulator/cpc`, CPCJS/Caprice32), Game Boy Color
+  (`emulator/gb`, EmulatorJS Gambatte), Commodore 64 (`emulator/c64`, EmulatorJS VICE x64sc, direct keyboard input),
+  NES (`emulator/nes`, EmulatorJS FCEUmm) and Oric Atmos (`emulator/oric`, Oricutron WASM). The SMS, GBC, C64 and
+  NES pages share the pinned EmulatorJS data in `emulator/emulatorjs/data`; Oricutron has its own `emulator/oric/`
+  bundle. Built artifacts are served by `/api/artifact/<slug>/<file>`; `tools/editor/static/emulator/THIRD_PARTY.md`
+  records licenses. Keep emulator assets offline and pinned. CPC auto-runs via Caprice32 `-a "RUN"GAME"`, matching
+  the CPC build's fixed 8.3 internal `GAME` name. On a coarse-pointer device the player draws `#speccy-touch` below
+  `.screen` (`tools/webplayer_runtime/player.js`): a D-pad plus ENTER/SPACE/P that dispatches synthetic key
+  events at the canvas parent, using bare `5`/`6`/`7`/`8` for the directions, and reserves its height when scaling
+  the picture.
 - **Web player:** the frontend is split into the story runtime (`tools/webgame_runtime/`, classic
   `index.html` + `game.js` + `app.js` + `style.css`, data assigned to `window.RVN_GAME`, never fetched) and the player
   shell (`tools/webplayer_runtime/`, data assigned to `window.RVN_PLAYER`). `tools/webgame.py` is the export/build
@@ -584,14 +583,13 @@ There is no test suite and no configured linter. Verify by:
   folder, `GET /play/<slug>/...` serves it statically, and `GET /api/webzip/<slug>` re-exports then streams an
   itch.io-ready zip with `index.html` at the root; the folder is gitignored. The player always lists the Web novel, then
   only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts are skipped with
-  warnings). The player has no download button; the editor's Emulator toolbar downloads the current built file. The
-  editor's **Emulator → Web player** entry saves pending edits, exports and previews the folder; the Emulator toolbar
-  also exports, downloads the current system's built file and toggles fullscreen.
+  warnings). The player has no download button. The editor's Emulator tab saves pending edits, exports and previews
+  the folder when it opens; the top-bar **Export player** button re-exports and reloads the preview.
   There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
   `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never
   grow request-time story generation or rendering. **Web is a `# Systems` target** (`tools/targets/web.py`): ticking it
   in the Systems tab makes the Build button run `tools/webgame.py` after the native builds (`## web` selects it,
-  `system_web` is its pseudo-flag), and the exported player and Emulator entry appear only then. The art band aspect
+  `system_web` is its pseudo-flag); the Emulator tab previews the export regardless. The art band aspect
   follows the first selected *native* target's `art_rows` (ZX first, default 10). Keep the novel **mobile-first** (fluid
   single column, 44px taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry
   semantics, and update `docs/web-runtime.md` with any data/route/export change.

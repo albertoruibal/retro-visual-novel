@@ -36,16 +36,15 @@ its Control Settings.
 
 ## Web player
 
-The exported web player and the editor's **Emulator → Web** entry (tick **Web** in the Systems tab) use the same
+The exported web player and the editor's Emulator tab (which auto-exports and previews it) use the same
 mobile-first novel. Tap or
 click an option, a highlighted word or an inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the
 focused control, and `Escape` closes the item screen. The inventory bar stays at the bottom on phones, and
 **Restart** resets the story. Use the **Sound: on/off** button to mute the music; browsers may wait for the first
 click or key press before starting it. The player lists only the systems ticked in the Systems tab. When a native
 ZX Spectrum entry is selected on a touch device, the same on-screen pad (arrows/`ENTER`/`SPACE`/`P`) appears below the
-picture. The editor's
-Emulator toolbar can download the current system's built file. See [the web player](web-runtime.md) for export and
-implementation details.
+picture. The editor's top-bar **Export player** button re-exports and reloads the preview. See
+[the web player](web-runtime.md) for export and implementation details.
 
 ## ZX Spectrum 128K
 

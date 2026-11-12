@@ -30,6 +30,7 @@
     </span>
     <span class="spacer"></span>
     <span id="dirty" class="status"></span>
+    <button id="exportplayer" title="Export the combined web player">Export player</button>
     <button id="save" class="primary">Save</button>
     <button id="editorsettings" title="Editor-wide settings (z88dk/cc65 toolchains, image server)">Settings</button>
   </div>
@@ -146,20 +147,6 @@
   </div>
 
   <div id="view-emu" class="view">
-    <div id="emubar">
-      <span id="runbar">
-        <label for="emusystem" class="hint" style="margin:0">System</label>
-        <select id="emusystem"></select>
-        <button id="run" class="primary" disabled>▶ Play</button>
-        <span id="runstatus" class="status"></span>
-      </span>
-      <span class="spacer"></span>
-      <button id="emuplayer">Export player</button>
-      <a id="emudownload" class="linkbutton" hidden download>Download</a>
-      <button id="emufullscreen" disabled>Fullscreen</button>
-      <span id="emustatus" class="status"></span>
-      <span class="hint" id="emuhint">Select a system in the Systems tab.</span>
-    </div>
     <div id="emuhost"><div id="emu"></div></div>
   </div>
 

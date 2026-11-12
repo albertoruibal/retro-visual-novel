@@ -26,17 +26,8 @@ async function loadServerSettings() {
   catch { /* server down; keep the last known values */ }
 }
 
-/* A build output from a previous session may already exist — enable Play if so. */
-async function refreshRunButton() {
-  if (!game) return;
-  try {
-    const r = await fetch(`/api/tap/${encodeURIComponent(game)}/${encodeURIComponent(game)}.tap`,
-                          { cache: "no-store" });
-    $("run").disabled = r.status !== 200;
-    if (r.status !== 200) stopEmulator();
-  } catch { /* server down; leave as is */ }
-}
-
+/* A game's built artifacts may already exist; the Export player button is
+ * available whenever a game is open. */
 function renderGameBar() {
   const g = GAMES.find(x => x.slug === game) || null;
   const el = $("gamelabel");
@@ -47,6 +38,8 @@ function renderGameBar() {
   renderGameMenu();
   const reload = $("reload");
   if (reload) reload.disabled = !game;
+  const exportPlayer = $("exportplayer");
+  if (exportPlayer) exportPlayer.disabled = !game;
   renderStopButton();
 }
 

@@ -69,10 +69,9 @@ async function runBuild() {
             (t.error ? ": " + t.error : "")).join("\n");
         }
         $("buildlog").textContent += `\n[${b.status} rc=${b.returncode}]` + extra;
-        $("run").disabled = b.status !== "done";
         setBuildStatus(b.status === "done" ? "done" : b.status,
                        b.status === "done" ? "ok" : "bad");
-        refreshEmuSystems();
+        refreshEmuSystems(true);
       }
     };
     tick();

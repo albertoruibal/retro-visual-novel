@@ -4,17 +4,10 @@
  * export itself (story runtime, selected emulators, downloadable files and
  * rendered music) is a build step in tools/webgame.py; the server only writes
  * <game>/web/ and serves those files.  Pending edits are saved before an
- * export or preview. */
+ * export or preview.  The top-bar Export player button drives playerExport(). */
 
 let playerLoadedGame = null;
 let playerLoadedRev = null;
-
-function playerSetStatus(message, bad) {
-  const el = $("emustatus");
-  if (!el) return;
-  el.textContent = message || "";
-  el.className = "status " + (bad ? "bad" : "");
-}
 
 async function playerEnsureSaved() {
   if (view === "raw" && rawDirty) {
@@ -39,23 +32,31 @@ async function playerExportNow() {
     playerLoadedGame = game;
     playerLoadedRev = result.rev || null;
     const warnings = result.warnings || [];
-    const systems = (result.systems || []).length;
-    playerSetStatus(
-      `exported ${systems} system${systems === 1 ? "" : "s"}` +
-      (warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? "" : "s"}` : ""),
-      false);
     if (warnings.length) console.warn("player export:\n" + warnings.join("\n"));
     return result;
   } catch (e) {
-    playerSetStatus("export failed: " + e.message, true);
+    console.error("player export failed:", e);
     return null;
   }
 }
 
 async function playerExport() {
-  if (!(await playerEnsureSaved())) return;
-  const result = await playerExportNow();
-  if (result) playerSetStatus(`exported to ${result.path}`);
+  if (!game || playerStarting) return;
+  const button = $("exportplayer");
+  playerStarting = true;
+  try {
+    if (!(await playerEnsureSaved())) return;
+    if (button) { button.disabled = true; button.textContent = "Exporting…"; }
+    const result = await playerExportNow();
+    if (!result) {
+      alert("Export failed — see the browser console for details.");
+      return;
+    }
+    if (typeof reloadPlayerPreview === "function") reloadPlayerPreview();
+  } finally {
+    playerStarting = false;
+    if (button) { button.disabled = false; button.textContent = "Export player"; }
+  }
 }
 
-if ($("emuplayer")) $("emuplayer").onclick = playerExport;
+if ($("exportplayer")) $("exportplayer").onclick = playerExport;

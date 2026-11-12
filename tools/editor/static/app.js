@@ -25,15 +25,6 @@ $("regenall").onclick = regenAll;
 $("regenmissing").onclick = regenMissing;
 $("stopgen").onclick = stopGeneration;
 $("build").onclick = runBuild;
-$("run").onclick = runEmulator;
-$("emusystem").onchange = () => {
-  const v = $("emusystem").value;
-  if (game) localStorage.setItem(emuStorageKey(), v);
-  if (emu) stopEmulator();
-  updateEmuHint();
-  updateEmuDownload(emuSelectedMeta());
-  refreshRunButton();
-};
 document.querySelectorAll(".viewtab").forEach((b) =>
   b.addEventListener("click", () => setView(b.dataset.view)));
 $("mobsel").onchange = (e) => {
@@ -48,7 +39,6 @@ $("mobsel").onchange = (e) => {
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !$("gamepickpop").hidden) { closeGameMenu(); return; }
   if (e.key === "Escape" && !$("settingsmodal").hidden) { closeServerSettings(); return; }
-  if (e.key === "Escape" && emu) stopEmulator();
 });
 $("addart").onclick = addArt;
 $("addref").onclick = addRef;

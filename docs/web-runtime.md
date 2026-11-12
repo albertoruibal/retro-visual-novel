@@ -7,9 +7,9 @@ produces `<game-folder>/web/` after the native builds.
 
 There are two ways to run it:
 
-- **Editor Emulator tab** — with Web selected, choose **Web** as the system. The editor saves pending edits, exports
-  the player and previews the exported folder in an iframe. The same tab can export the folder, download the current
-  system's built file, or toggle fullscreen.
+- **Editor Emulator tab** — the tab saves pending edits, exports the player and auto-starts the exported folder in an
+  iframe. It has no selector or toolbar of its own; the editor's top-bar **Export player** button re-exports and
+  reloads the preview.
 - **Exported folder** — a self-contained `<game-folder>/web/` tree that can be copied to any static host, uploaded to
   itch.io, or opened directly (the Web novel works from `file://`; the native emulators need an HTTP host).
 
@@ -69,8 +69,8 @@ entries come from `targets.selected_targets(doc)` (Web itself is not a native en
 - Unselected native systems are never copied or listed; the editor's **Export player** button can still write the
   novel-only export.
 
-The player itself has no download button. The editor's Emulator toolbar downloads the current system's built file
-when a native system is selected.
+The player itself has no download button. The editor's top-bar **Export player** button re-exports the combined player
+and reloads the preview.
 
 ## Routes
 
@@ -252,16 +252,17 @@ this repo `/demo-game/web/`).
 - **Web player entry is missing pieces**: build the selected systems first; the export lists the missing filenames.
 - **Blank scene**: check that `game.md` has at least one scene and the first scene has valid `art:` and options.
 - **Missing art**: the art needs a selected image; generation-only references are not exported.
-- **Old art in the player**: click **Export player** or **Reload**; the iframe only reloads when the export revision
-  changes.
+- **Old art in the player**: click the editor's top-bar **Export player** button (it re-exports and reloads the
+  preview) or the player's **Reload**.
 - **No music**: check that the game declares `songs:` and `assets/music/<id>.pt3` exists, and that the export reported
   no song warning.
 
 ## Verification
 
 1. `python3 -m py_compile tools/webgame.py tools/editor/editor_web.py tools/editor/server.py`
-2. Build the selected systems (with Web ticked), then open the editor **Emulator** tab and choose **Web**.
+2. Open the editor **Emulator** tab; it saves pending edits, exports and starts the player automatically.
 3. Exercise the novel, including sound on/off, a scene music change and **Restart**.
-4. Switch to a native system and confirm it boots; the editor toolbar's download matches the played file.
+4. Use the top-bar **Export player** button and confirm the preview reloads; switch to a native system and confirm it
+   boots.
 5. `python3 tools/webgame.py <slug>`, serve the folder over HTTP and repeat; verify only selected systems appear and
    the zip has `index.html` at its root.
