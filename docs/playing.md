@@ -25,7 +25,9 @@ Color, Commodore 64, NES and CPC Mode 0 always do this).
 | Oric Atmos | Cursor keys or W/A/S/D | Return | Bottom inventory row, or `SPACE` dialog |
 | Web player | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 
-The editor's **Emulator** tab runs the C64 in VICE, the NES in FCEUmm and the Oric Atmos in Oricutron. Click the Oric
+The editor's **Emulator** tab runs the ZX Spectrum in JSSpeccy, the C64 in VICE, the NES in FCEUmm and the Oric Atmos
+in Oricutron. On a phone or tablet the Spectrum emulator shows an on-screen pad below the picture: arrows move, `ENTER`
+confirms, `SPACE` opens the menu and `P` toggles music, so a hardware keyboard is not needed. Click the Oric
 picture first so the canvas takes keyboard focus; the cursor keys, `RETURN` and `SPACE` are forwarded to the emulated
 machine. Click the C64 picture first; the page
 forwards the physical keyboard (cursor keys/`W` `A` `S` `D`, `RETURN`, `SPACE`). For the NES, EmulatorJS's defaults
@@ -34,12 +36,15 @@ its Control Settings.
 
 ## Web player
 
-The exported web player and the editor's **Emulator → Web player** entry use the same mobile-first novel. Tap or
+The exported web player and the editor's **Emulator → Web** entry (tick **Web** in the Systems tab) use the same
+mobile-first novel. Tap or
 click an option, a highlighted word or an inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the
 focused control, and `Escape` closes the item screen. The inventory bar stays at the bottom on phones, and
 **Restart** resets the story. Use the **Sound: on/off** button to mute the music; browsers may wait for the first
-click or key press before starting it. The player lists only the systems ticked in the Systems tab, and each native
-system has a **Download** button for the exact file it plays. See [the web player](web-runtime.md) for export and
+click or key press before starting it. The player lists only the systems ticked in the Systems tab. When a native
+ZX Spectrum entry is selected on a touch device, the same on-screen pad (arrows/`ENTER`/`SPACE`/`P`) appears below the
+picture. The editor's
+Emulator toolbar can download the current system's built file. See [the web player](web-runtime.md) for export and
 implementation details.
 
 ## ZX Spectrum 128K

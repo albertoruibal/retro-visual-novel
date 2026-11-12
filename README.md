@@ -53,9 +53,10 @@ It has tabs to edit the game sections:
 * Emulator: Plays the selected system with offline, vendored web emulators: JSSpeccy for ZX,
   EmulatorJS/smsplus for SMS, WebMSX C-BIOS for MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464,
   EmulatorJS/Gambatte for Game Boy Color, EmulatorJS/VICE x64sc for Commodore 64,
-  EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos. The **Web player** entry previews the exported player:
-  the mobile-first novel plus only the selected systems, with a download link for each native file. The same toolbar
-  exports `<game-folder>/web/`, opens it in a new tab, or downloads an itch.io-ready zip. ZX Next is not bundled in
+  EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos. Ticking **Web** in the Systems tab builds
+  `<game-folder>/web/`; its Emulator entry exports and previews the player: the mobile-first novel plus only the
+  selected systems that have a browser emulator. The toolbar also downloads the current system's built file or
+  toggles fullscreen. ZX Next is not bundled in
   the browser; use `python3 tools/build.py run <game> next` with ZEsarUX.
 
 The engine and tools ship with the app.
@@ -106,12 +107,12 @@ python3 tools/build.py build <game> --all
 ```
 
 Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128), `.dsk` with the
-`-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES) and
-`<slug>-oric.tap` (Oric Atmos).
+`-cpc464` suffix (CPC 464), `.rom` (MSX2), `.gbc` (Game Boy Color), `.prg` (Commodore 64), `.nes` (NES),
+`<slug>-oric.tap` (Oric Atmos) and `<game-folder>/web/` (Web).
 
-The web player is separate from the 8-bit build: `python3 tools/webgame.py <slug>` writes a standalone
-`<game-folder>/web/` folder containing the novel, the selected systems' web emulators and their playable files. The
-editor's **Emulator → Web player** entry does the same plus an itch.io-ready zip download. See
+The **Web** system builds the standalone player: `python3 tools/webgame.py <slug>` (or the Build button with Web
+ticked) writes a `<game-folder>/web/` folder containing the novel, the selected systems' web emulators and their
+playable files. The editor's **Emulator → Web** entry previews the same export. See
 [the web player](docs/web-runtime.md).
 
 ## Licenses

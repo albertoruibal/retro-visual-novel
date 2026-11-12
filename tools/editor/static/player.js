@@ -58,26 +58,4 @@ async function playerExport() {
   if (result) playerSetStatus(`exported to ${result.path}`);
 }
 
-async function playerDownloadZip() {
-  if (!(await playerEnsureSaved())) return;
-  playerSetStatus("exporting zip…");
-  const link = document.createElement("a");
-  link.href = `/api/webzip/${encodeURIComponent(game)}?t=${Date.now()}`;
-  link.download = `${game}-web.zip`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  playerSetStatus("downloading zip…");
-}
-
-async function playerOpen() {
-  if (!game) return;
-  if (!(await playerEnsureSaved())) return;
-  const result = await playerExportNow();
-  if (!result) return;
-  window.open(playerUrl(false), "_blank", "noopener");
-}
-
 if ($("emuplayer")) $("emuplayer").onclick = playerExport;
-if ($("emuzip")) $("emuzip").onclick = playerDownloadZip;
-if ($("emuopen")) $("emuopen").onclick = playerOpen;

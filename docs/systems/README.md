@@ -19,6 +19,7 @@ and emulator details that differ. The platform layers are `src/zx/plat_zx.c`, `s
 | Commodore 64 (alpha) | [c64.md](c64.md) | `.prg` |
 | Nintendo Entertainment System (alpha) | [nes.md](nes.md) | `.nes` |
 | Oric Atmos (alpha) | [oric.md](oric.md) | `<slug>-oric.tap` |
+| Web | [web-runtime.md](../web-runtime.md) | `<game-folder>/web/` |
 
 Targets are discovered from `tools/targets/` and selected under `## Systems` in `game.md`:
 
@@ -43,5 +44,6 @@ picture inside the margins, without the blank border.
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.
 
-The browser player is not a `## Systems` build target; it always plays the saved story with the selected system's
-`art_rows` framing and lists only the selected systems' emulators and files. See [the web player](../web-runtime.md).
+The browser player is a `## Systems` build target (`## web`): selecting it builds `<game-folder>/web/` with the saved
+story framed by the first selected native system's `art_rows` and lists only the selected systems' emulators and
+files. See [the web player](../web-runtime.md).

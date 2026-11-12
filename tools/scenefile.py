@@ -82,6 +82,7 @@ SYSTEM_FLAGS = {
     "system_c64": "c64",
     "system_nes": "nes",
     "system_oric": "oric",
+    "system_web": "web",
 }
 # Accepted values for a system's `dither:` option, mirroring zxart.DITHER_MODES.
 DITHER_MODES = ("off", "bayer2", "bayer4", "bayer8", "noise", "floyd",

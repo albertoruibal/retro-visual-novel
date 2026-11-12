@@ -11,8 +11,8 @@ let jsspeccy = null;        // the JSSpeccy instance (ZX only)
 let emuFitObserver = null;  // refits an iframe emulator when the tab resizes
 
 const EMU_KINDS = ["jsspeccy", "emulatorjs", "emulatorjs-c64",
-  "emulatorjs-nes", "webmsx", "cpcjs", "cpc464", "gambatte", "oricutron"];
-const WEB_PLAYER_ID = "__webplayer__";
+  "emulatorjs-nes", "webmsx", "cpcjs", "cpc464", "gambatte", "oricutron",
+  "webplayer"];
 const EMU_EXT = {
   jsspeccy: ".tap",
   emulatorjs: ".sms",
@@ -43,35 +43,24 @@ const EMU_ASPECT = {
   c64: 4 / 3,
   nes: 4 / 3,
   oric: 640 / 720,
+  web: 4 / 3,
 };
-EMU_ASPECT[WEB_PLAYER_ID] = 4 / 3;
 
-function webPlayerMeta() {
-  return {
-    id: WEB_PLAYER_ID,
-    label: "Web player",
-    emulator: "webplayer",
-    machine: "HTML5",
-    outputs: [],
-    artifact_suffix: "",
-  };
-}
 function emuTargetMeta(id) {
-  if (id === WEB_PLAYER_ID) return webPlayerMeta();
   const list = (TARGETS && TARGETS.targets) || [];
   return list.find((t) => t.id === id) || null;
 }
 function emuTargets() {
-  /* Only the systems ticked in the Systems tab get an emulator entry. */
+  /* Only the systems ticked in the Systems tab get an emulator entry; Web is
+   * one of them and its entry exports and previews the combined player. */
   const ids = ((typeof gameTargets === "function") ? gameTargets() : ["zx128"]).slice();
   const rank = (id) => {
     const i = SYSTEM_ORDER.indexOf(id);
     return i < 0 ? SYSTEM_ORDER.length : i;
   };
-  const native = ids.map(emuTargetMeta).filter(
+  return ids.map(emuTargetMeta).filter(
     (t) => t && EMU_KINDS.includes(t.emulator))
     .sort((a, b) => rank(a.id) - rank(b.id));
-  return [webPlayerMeta(), ...native];
 }
 function emuArtifact(meta) {
   if (!meta || meta.emulator === "webplayer") return null;
@@ -97,7 +86,7 @@ function storedEmuSystem() {
       localStorage.removeItem(legacyEmuStorageKey());
     }
   }
-  return value;
+  return value === "__webplayer__" ? "web" : value;
 }
 function emuRunName(meta) {
   if (meta && (meta.emulator === "cpcjs" || meta.emulator === "cpc464"))
@@ -109,8 +98,10 @@ function emuFitSize(aspect) {
   const box = $("emuhost");
   if (!box) return null;
   const cs = getComputedStyle(box);
+  const pad = speccyTouchPad();
   const availW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const availH = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const availH = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) -
+    (pad ? pad.offsetHeight + 10 : 0);
   if (availW <= 0 || availH <= 0) return null;
   let width = availW, height = width / aspect;
   if (height > availH) { height = availH; width = height * aspect; }
@@ -153,6 +144,116 @@ function applySpeccyCrop(zoom) {
   canvas.style.top = ((boxH - fullH) / 2) + "px";
 }
 
+/* JSSpeccy only listens for physical key events on its app container, so a
+ * phone has no way to move or confirm. These controls forward presses as
+ * synthetic key events using the bare 5/6/7/8 keys the ZX engine accepts. */
+const SPECCY_TOUCH_KEYS = {
+  left: 53, down: 54, up: 55, right: 56,
+  enter: 13, space: 32, music: 80,
+};
+
+function speccyTouchWanted() {
+  if (typeof matchMedia !== "function") return false;
+  if (matchMedia("(pointer: coarse)").matches) return true;
+  return navigator.maxTouchPoints > 0 && matchMedia("(max-width: 860px)").matches;
+}
+
+function speccyKeyboardRoot(host) {
+  const canvas = host && host.querySelector("canvas");
+  return canvas && canvas.parentElement;
+}
+
+function sendSpeccyKey(root, keyCode, down) {
+  if (!root) return;
+  const event = new KeyboardEvent(down ? "keydown" : "keyup", {
+    bubbles: true, cancelable: true,
+  });
+  for (const prop of ["keyCode", "which"]) {
+    try { Object.defineProperty(event, prop, { get: () => keyCode }); } catch {}
+  }
+  root.dispatchEvent(event);
+}
+
+function speccyTouchPad() { return $("emutouch"); }
+
+function removeSpeccyTouchPad() {
+  const pad = speccyTouchPad();
+  if (pad) {
+    const root = pad._speccyRoot;
+    pad.querySelectorAll("button[data-key].pressed").forEach((button) => {
+      sendSpeccyKey(root, SPECCY_TOUCH_KEYS[button.dataset.key], false);
+    });
+    pad.remove();
+  }
+  const host = $("emuhost");
+  if (host) host.classList.remove("has-touch");
+}
+
+function buildSpeccyTouchPad(host) {
+  removeSpeccyTouchPad();
+  const root = speccyKeyboardRoot(host);
+  if (!root || !speccyTouchWanted()) return null;
+  const box = $("emuhost");
+  if (!box) return null;
+
+  const pad = document.createElement("div");
+  pad.id = "emutouch";
+  pad.className = "speccy-touch";
+  pad.setAttribute("role", "group");
+  pad.setAttribute("aria-label", "Spectrum controls");
+  pad._speccyRoot = root;
+
+  const dpad = document.createElement("div");
+  dpad.className = "touch-dpad";
+  const actions = document.createElement("div");
+  actions.className = "touch-actions";
+  const addButton = (parent, key, label, aria) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.key = key;
+    button.textContent = label;
+    button.setAttribute("aria-label", aria || label);
+    parent.append(button);
+  };
+  addButton(dpad, "up", "▲", "Up");
+  addButton(dpad, "left", "◀", "Left");
+  addButton(dpad, "down", "▼", "Down");
+  addButton(dpad, "right", "▶", "Right");
+  addButton(actions, "enter", "ENTER", "Confirm");
+  addButton(actions, "space", "SPACE", "Menu");
+  addButton(actions, "music", "P", "Music");
+  pad.append(dpad, actions);
+
+  pad.querySelectorAll("button[data-key]").forEach((button) => {
+    const code = SPECCY_TOUCH_KEYS[button.dataset.key];
+    let pressed = false;
+    const press = (event) => {
+      event.preventDefault();
+      if (pressed) return;
+      pressed = true;
+      button.classList.add("pressed");
+      try { button.setPointerCapture(event.pointerId); } catch {}
+      sendSpeccyKey(root, code, true);
+    };
+    const release = (event) => {
+      if (!pressed) return;
+      pressed = false;
+      button.classList.remove("pressed");
+      if (event) event.preventDefault();
+      sendSpeccyKey(root, code, false);
+    };
+    button.addEventListener("pointerdown", press);
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("lostpointercapture", release);
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
+  });
+
+  box.classList.add("has-touch");
+  box.append(pad);
+  return pad;
+}
+
 function refitEmulator() {
   const meta = emuSelectedMeta();
   if (!emu || !meta) return;
@@ -179,6 +280,7 @@ function stopEmulator() {
   if (emu) { try { emu.exit(); } catch {} }
   emu = null;
   jsspeccy = null;
+  removeSpeccyTouchPad();
   const host = $("emu");
   if (host) {
     host.innerHTML = "";
@@ -188,6 +290,7 @@ function stopEmulator() {
   }
   const run = $("run");
   if (run) run.textContent = "▶ Play";
+  refreshEmuFullscreen();
   refreshRunButton();
 }
 
@@ -199,6 +302,24 @@ async function artifactReady(meta) {
     const r = await fetch(url, { cache: "no-store" });
     return r.status === 200;
   } catch { return false; }
+}
+
+function refreshEmuFullscreen() {
+  const button = $("emufullscreen");
+  if (!button) return;
+  const active = !!document.fullscreenElement;
+  button.disabled = !emu && !active;
+  button.textContent = active ? "Exit fullscreen" : "Fullscreen";
+}
+
+function toggleEmuFullscreen() {
+  const host = $("emuhost") || $("emu");
+  if (!host) return;
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  } else if (host.requestFullscreen) {
+    host.requestFullscreen().catch(() => {});
+  }
 }
 
 function updateEmuDownload(meta) {
@@ -267,10 +388,10 @@ function updateEmuHint() {
   if (!meta) { hint.textContent = ""; return; }
   if (meta.emulator === "webplayer") {
     hint.innerHTML =
-      "Exports the web player and previews it here. The Web novel always " +
-      "plays; only the systems selected in the Systems tab are included.";
+      "Exports the combined web player and previews it here: the Web novel " +
+      "plus a browser emulator for every other selected system.";
     if (gameTargets().includes("next"))
-      hint.innerHTML += "<br>ZX Next has no browser emulator and appears as a download.";
+      hint.innerHTML += "<br>ZX Next has no browser emulator and is not included in the web player.";
     return;
   }
   const url = emuArtifact(meta);
@@ -278,6 +399,8 @@ function updateEmuHint() {
   hint.innerHTML =
     `Plays the built <code>${esc(name)}</code> in ${esc(meta.label)} — ` +
     "run <b>Build</b> first.";
+  if (meta.emulator === "jsspeccy" && speccyTouchWanted())
+    hint.innerHTML += " On this touch device the controls appear below the picture.";
   if (gameTargets().includes("next"))
     hint.innerHTML += "<br>ZX Next builds a <code>.nex</code>; run it with ZEsarUX " +
       "(<code>python3 tools/build.py run &lt;game&gt; next</code>).";
@@ -337,6 +460,7 @@ async function runEmulator() {
     const status = $("runstatus");
     if (status) status.textContent = "";
     updateEmuDownload(null);
+    refreshEmuFullscreen();
     return;
   }
   const url = emuArtifact(meta);
@@ -376,6 +500,8 @@ async function runEmulator() {
     });
     applySpeccyCrop(zoom);
     emu = { exit() { try { jsspeccy.exit(); } catch {} } };
+    buildSpeccyTouchPad(host);
+    if (speccyTouchPad()) refitEmulator();
   } else if (EMU_PAGES[meta.emulator]) {
     fitEmulatorHost(meta);
     emu = iframeEmu(host,
@@ -400,5 +526,10 @@ async function runEmulator() {
     emu = iframeEmu(host,
       `/emulator/gb/index.html?rom=${encoded}&name=${name}`);
   }
+  refreshEmuFullscreen();
   if (status) status.textContent = "";
 }
+
+if ($("emufullscreen")) $("emufullscreen").onclick = toggleEmuFullscreen;
+document.addEventListener("fullscreenchange", refreshEmuFullscreen);
+refreshEmuFullscreen();

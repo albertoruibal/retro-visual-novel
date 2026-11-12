@@ -41,7 +41,7 @@ constraints live in `docs/systems/zx128.md`.
     tools/gamestore.py       open/create/duplicate/rename game folders (demo-game/)
     tools/gen_scenes.py      game.md -> build/scene_data.h + port_data.h
                              + bankN.bin + *.asm
-    tools/targets/           pluggable build targets (zx128, zx48, next, sms, cpc, cpc464, msx2, gb, c64, nes)
+    tools/targets/           pluggable build targets (zx128, zx48, next, sms, cpc, cpc464, msx2, gb, c64, nes, oric, web)
     tools/smsart.py          SMS art preview/build conversion
     tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
@@ -380,11 +380,12 @@ There is no test suite and no configured linter. Verify by:
   default via `scenefile.conversion_options` (shared by `gen_scenes.load_art_blob`, the editor preview and the Art tab's
   live `?match=`/`?palette=` overrides in `server.art_preview_bytes`). `match`/`palette` use the same arithmetic in both.
 - **`system_zx` (legacy, any Spectrum) / `system_zx128` / `system_zx48` / `system_sms` / `system_cpc` /
-  `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` / `system_oric` are reserved build-time
+  `system_cpc464` / `system_msx2` / `system_gb` / `system_c64` / `system_nes` / `system_oric` / `system_web` are
+  reserved build-time
   pseudo-flags**
-  (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and as
-  all-false by the web export), never assigned a flag id or runtime state. Using one as a declaration, `start:`,
-  `ending:`, effect or selectable-word flag is an error.
+  (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and by
+  the web export, where only `system_web` is true), never assigned a flag id or runtime state. Using one as a
+  declaration, `start:`, `ending:`, effect or selectable-word flag is an error.
 - Flags are ids 0..127; inventory items are ids 128..191 and are also flags, so `if` tests either. Use `set`/`unset` for
   flags, `pick`/`leave` for items. Scene and item options may carry up to 8 `if`/`unless` tokens; every condition must
   hold (AND) and they may be mixed. A condition only tests a name: it must be declared (`flags:`/`items:`/`## <item-id>`
@@ -537,7 +538,8 @@ There is no test suite and no configured linter. Verify by:
   For the desktop app the user supplies a z88dk built for the target OS/CPU (see the desktop notes).
 - **Build systems live in a `# Systems` section.** Each `## <id>` block selects that system and holds its options
   (`zx`/`sms`/`cpc`/`cpc464`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); selected systems build in the
-  system-list display order (128K, 48K, Next, CPC 6128, CPC 464, MSX2, C64, Oric, SMS, NES, GBC), and each system's log
+  system-list display order (128K, 48K, Next, CPC 6128, CPC 464, MSX2, C64, Oric, SMS, NES, GBC, Web), and each
+  system's log
   is separated by a `==== name [id] ====` banner; the legacy
   `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
   tab edits the selection with one second-level sub-tab per platform; the Game tab keeps the shared settings
@@ -558,7 +560,8 @@ There is no test suite and no configured linter. Verify by:
   strict";`. CSS is likewise split (`base.css`…`responsive.css`, linked in that order; the cascade is the same as one
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
 - **Emulator tab:** target-aware adapter registry in `tools/editor/static/emulator.js`: JSSpeccy inline for ZX (the
-  picker lists the Web player plus only the systems ticked in the Systems tab, so `zx128` and `zx48` each appear only
+  picker lists only the systems ticked in the Systems tab — including Web, which exports/previews the combined player
+  — so `zx128` and `zx48` each appear only
   when selected and the 48K option serves `<slug>-48k.tap`); local
   iframe pages for SMS (`emulator/sms`, EmulatorJS smsplus), MSX2 (`emulator/msx`, WebMSX C-BIOS),
   CPC 6128/464 (`emulator/cpc`, CPCJS/Caprice32), Game Boy Color (`emulator/gb`, EmulatorJS Gambatte),
@@ -567,7 +570,11 @@ There is no test suite and no configured linter. Verify by:
   pinned EmulatorJS data in `emulator/emulatorjs/data`; Oricutron has its own `emulator/oric/` bundle. Built artifacts are served by
   `/api/artifact/<slug>/<file>`;
   `tools/editor/static/emulator/THIRD_PARTY.md` records licenses. Keep emulator assets offline and pinned. CPC auto-runs
-  via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name.
+  via Caprice32 `-a "RUN"GAME"`, matching the CPC build's fixed 8.3 internal `GAME` name. On a coarse-pointer device
+  JSSpeccy also gets `#emutouch` (`buildSpeccyTouchPad()`): a D-pad plus ENTER/SPACE/P that dispatches synthetic
+  keydown/keyup events at the canvas parent (the JSSpeccy keyboard root), using bare `5`/`6`/`7`/`8` for the
+  directions. The same pad is drawn below `.screen` in `tools/webplayer_runtime/player.js` as `#speccy-touch`, and
+  both reserve its height when scaling the picture.
 - **Web player:** the frontend is split into the story runtime (`tools/webgame_runtime/`, classic
   `index.html` + `game.js` + `app.js` + `style.css`, data assigned to `window.RVN_GAME`, never fetched) and the player
   shell (`tools/webplayer_runtime/`, data assigned to `window.RVN_PLAYER`). `tools/webgame.py` is the export/build
@@ -576,16 +583,18 @@ There is no test suite and no configured linter. Verify by:
   selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`. `POST /api/web_export` writes that
   folder, `GET /play/<slug>/...` serves it statically, and `GET /api/webzip/<slug>` re-exports then streams an
   itch.io-ready zip with `index.html` at the root; the folder is gitignored. The player always lists the Web novel, then
-  only `targets.selected_targets(doc)` (Next is download-only; missing artifacts are skipped with warnings). Native
-  entries download the exact file they play; the Web entry has no download. The editor's
-  **Emulator → Web player** entry saves pending edits, exports and previews the folder; the Emulator toolbar also
-  exports, opens and downloads the zip.
+  only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts are skipped with
+  warnings). The player has no download button; the editor's Emulator toolbar downloads the current built file. The
+  editor's **Emulator → Web player** entry saves pending edits, exports and previews the folder; the Emulator toolbar
+  also exports, downloads the current system's built file and toggles fullscreen.
   There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
   `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never
-  grow request-time story generation or rendering. It is **not** a `# Systems` target: the art band aspect follows the
-  first selected target's `art_rows` (ZX first, default 10). Keep the novel **mobile-first** (fluid single column, 44px
-  taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and update
-  `docs/web-runtime.md` with any data/route/export change.
+  grow request-time story generation or rendering. **Web is a `# Systems` target** (`tools/targets/web.py`): ticking it
+  in the Systems tab makes the Build button run `tools/webgame.py` after the native builds (`## web` selects it,
+  `system_web` is its pseudo-flag), and the exported player and Emulator entry appear only then. The art band aspect
+  follows the first selected *native* target's `art_rows` (ZX first, default 10). Keep the novel **mobile-first** (fluid
+  single column, 44px taps, safe areas, bottom item sheet), mirror the shared engine's condition/clear/pick/word/carry
+  semantics, and update `docs/web-runtime.md` with any data/route/export change.
 - **ZX Next runtime:** `tools/targets/next.py` builds a native `+zxn` `.nex` with `tools/gen_port.py --next`.
   The shared portable core draws text/title/inventory on the ULA and the picture on a Layer 2 256-colour band clipped
   to rows 1..`## next art_rows` (even 8..16, default 10). `tools/nextart.py` converts art (median-cut 256 colours or a

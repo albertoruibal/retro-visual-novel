@@ -12,9 +12,10 @@
   var titleEl = $("title");
   var systemsEl = $("systems");
   var systemLabel = $("systemlabel");
+  var deckEl = $("deck");
+  var deckName = $("deck-media-name");
   var statusEl = $("status");
   var hintEl = $("hint");
-  var downloadEl = $("download");
   var reloadEl = $("reload");
   var fullscreenEl = $("fullscreen");
   var screenWrap = document.querySelector(".screenwrap");
@@ -34,7 +35,9 @@
   player.hidden = false;
 
   var systems = [{ id: "web", label: D.web.label || "Web version",
-                   kind: "web", machine: "HTML5" }].concat(
+                   kind: "web", machine: "HTML5",
+                   media: D.web.media || "web",
+                   mediaLabel: D.web.mediaLabel || "Web" }].concat(
     Array.isArray(D.systems) ? D.systems : []);
   var byId = {};
   systems.forEach(function (system) { byId[system.id] = system; });
@@ -65,9 +68,13 @@
     bootTitle.textContent = title;
     bootCopy.textContent = copy || "";
     bootEl.hidden = false;
+    if (deckEl) deckEl.classList.add("is-loading");
   }
 
-  function hideBoot() { bootEl.hidden = true; }
+  function hideBoot() {
+    bootEl.hidden = true;
+    if (deckEl) deckEl.classList.remove("is-loading");
+  }
 
   function setAspect(system) {
     screenEl.className = "screen" + (system.kind === "web" ? " web" : "");
@@ -81,27 +88,15 @@
     }
   }
 
-  function setDownload(system) {
-    if (system.kind === "web" || !system.file) {
-      downloadEl.hidden = true;
-      downloadEl.removeAttribute("href");
-      downloadEl.removeAttribute("download");
-      downloadEl.textContent = "";
-      return;
-    }
-    downloadEl.hidden = false;
-    downloadEl.href = system.file;
-    downloadEl.download = system.filename || "";
-    downloadEl.textContent = "Download " + (system.filename || "file");
-  }
-
   function updatePanel(system) {
     systemLabel.textContent = system.label || system.id;
-    setDownload(system);
+    var media = system.media || (system.kind === "web" ? "web" : "cartridge");
+    if (deckEl) deckEl.dataset.media = media;
+    if (deckName) deckName.textContent = system.mediaLabel || media;
     if (system.kind === "web") {
       hintEl.textContent = "The mobile-first web novel. Tap or click an option, word or item.";
-    } else if (system.kind === "download") {
-      hintEl.textContent = "No browser emulator is bundled for this system. Use the download.";
+    } else if (system.emulator === "jsspeccy" && speccyTouchWanted()) {
+      hintEl.textContent = "Use the on-screen pad. The arrows move, ENTER confirms and SPACE opens the menu.";
     } else {
       hintEl.textContent = "Click the screen first so the emulator receives the keyboard.";
     }
@@ -138,6 +133,7 @@
     }
     emulator = null;
     speccy = null;
+    removeSpeccyTouchPad();
     screenEl.innerHTML = "";
     screenEl.className = "screen";
     screenEl.style.aspectRatio = "";
@@ -192,12 +188,131 @@
     canvas.style.top = ((boxH - fullH) / 2) + "px";
   }
 
+  var SPECCY_TOUCH_KEYS = {
+    left: 53, down: 54, up: 55, right: 56,
+    enter: 13, space: 32, music: 80
+  };
+
+  function speccyTouchWanted() {
+    if (!window.matchMedia) return false;
+    if (window.matchMedia("(pointer: coarse)").matches) return true;
+    return navigator.maxTouchPoints > 0 &&
+      window.matchMedia("(max-width: 820px)").matches;
+  }
+
+  function speccyKeyboardRoot() {
+    var canvas = screenEl.querySelector("canvas");
+    return canvas && canvas.parentElement;
+  }
+
+  function sendSpeccyKey(root, keyCode, down) {
+    if (!root) return;
+    var event = new KeyboardEvent(down ? "keydown" : "keyup", {
+      bubbles: true, cancelable: true
+    });
+    ["keyCode", "which"].forEach(function (prop) {
+      try {
+        Object.defineProperty(event, prop, { get: function () { return keyCode; } });
+      } catch (error) { /* older browsers */ }
+    });
+    root.dispatchEvent(event);
+  }
+
+  function speccyTouchPad() {
+    return document.getElementById("speccy-touch");
+  }
+
+  function removeSpeccyTouchPad() {
+    var pad = speccyTouchPad();
+    if (pad) {
+      var root = pad._speccyRoot;
+      Array.prototype.forEach.call(
+        pad.querySelectorAll("button[data-key].pressed"),
+        function (button) {
+          sendSpeccyKey(root, SPECCY_TOUCH_KEYS[button.dataset.key], false);
+        });
+      pad.remove();
+    }
+    if (screenWrap) screenWrap.classList.remove("has-touch");
+  }
+
+  function buildSpeccyTouchPad() {
+    removeSpeccyTouchPad();
+    var root = speccyKeyboardRoot();
+    if (!root || !speccyTouchWanted() || !screenWrap) return null;
+
+    var pad = document.createElement("div");
+    pad.id = "speccy-touch";
+    pad.className = "speccy-touch";
+    pad.setAttribute("role", "group");
+    pad.setAttribute("aria-label", "Spectrum controls");
+    pad._speccyRoot = root;
+
+    var dpad = document.createElement("div");
+    dpad.className = "touch-dpad";
+    var actions = document.createElement("div");
+    actions.className = "touch-actions";
+    function addButton(parent, key, label, aria) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.dataset.key = key;
+      button.textContent = label;
+      button.setAttribute("aria-label", aria || label);
+      parent.appendChild(button);
+    }
+    addButton(dpad, "up", "▲", "Up");
+    addButton(dpad, "left", "◀", "Left");
+    addButton(dpad, "down", "▼", "Down");
+    addButton(dpad, "right", "▶", "Right");
+    addButton(actions, "enter", "ENTER", "Confirm");
+    addButton(actions, "space", "SPACE", "Menu");
+    addButton(actions, "music", "P", "Music");
+    pad.appendChild(dpad);
+    pad.appendChild(actions);
+
+    Array.prototype.forEach.call(
+      pad.querySelectorAll("button[data-key]"),
+      function (button) {
+        var code = SPECCY_TOUCH_KEYS[button.dataset.key];
+        var pressed = false;
+        function press(event) {
+          event.preventDefault();
+          if (pressed) return;
+          pressed = true;
+          button.classList.add("pressed");
+          try { button.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+          sendSpeccyKey(root, code, true);
+        }
+        function release(event) {
+          if (!pressed) return;
+          pressed = false;
+          button.classList.remove("pressed");
+          if (event) event.preventDefault();
+          sendSpeccyKey(root, code, false);
+        }
+        button.addEventListener("pointerdown", press);
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("lostpointercapture", release);
+        button.addEventListener("contextmenu", function (event) {
+          event.preventDefault();
+        });
+      });
+
+    screenWrap.classList.add("has-touch");
+    screenWrap.appendChild(pad);
+    return pad;
+  }
+
   function speccyZoom() {
+    var pad = speccyTouchPad();
+    var reserve = pad ? pad.offsetHeight + 10 : 0;
     var width = screenWrap && screenWrap.clientWidth
       ? screenWrap.clientWidth : screenBox().width;
     var height = window.innerHeight * 0.72;
     if (screenWrap && screenWrap.clientHeight > 0)
       height = Math.min(height, screenWrap.clientHeight);
+    height -= reserve;
     if (width <= 0 || height <= 0) return 1;
     return Math.min(width / 256, height / 192);
   }
@@ -261,6 +376,7 @@
       exit: function () { try { speccy.exit(); } catch (error) { /* gone */ } }
     };
     applySpeccyCrop(zoom);
+    buildSpeccyTouchPad();
     speccy.onReady(function () {
       if (seq === bootSeq) hideBoot();
     });
@@ -289,11 +405,6 @@
     if (system.kind === "web") {
       showBoot("Loading web version…", "HTML5 · no install, no plugins");
       bootFrame(system, seq);
-      return;
-    }
-    if (system.kind === "download") {
-      showBoot("Download available", "This system has no browser emulator.");
-      setStatus("download only", false);
       return;
     }
     showBoot("Loading " + system.label + "…", "Starting the web emulator");

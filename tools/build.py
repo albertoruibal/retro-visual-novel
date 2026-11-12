@@ -742,10 +742,12 @@ def _target_ids(doc, requested=None, build_all=False):
 
 
 CC65_TARGETS = ("c64", "nes", "oric")
+NO_TOOLCHAIN_TARGETS = ("web",)
 
 
 def _needs_z88dk(ids):
-    return any(str(t).strip().lower() not in CC65_TARGETS for t in ids)
+    return any(str(t).strip().lower() not in CC65_TARGETS + NO_TOOLCHAIN_TARGETS
+               for t in ids)
 
 
 def build_selected(slug, requested=None, build_all=False):
@@ -828,6 +830,12 @@ def run_game(slug, target_id=None):
     target_id = target_id or (summary[0]["target"] if summary else "zx128")
     target = targets.get_target(target_id)
     target_id = target.id if target else target_id
+    if target_id == "web":
+        game, _ = _game_doc(slug)
+        print(f"web: exported player at "
+              f"{os.path.join(game['dir'], 'web', 'index.html')} "
+              f"(serve it over HTTP to play the native emulators)")
+        return
     if target_id not in ("zx128", "zx48", "next"):
         print(f"{target_id}: build complete; use an external emulator "
               f"(outputs above)")

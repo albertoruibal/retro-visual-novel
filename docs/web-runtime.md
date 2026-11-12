@@ -2,13 +2,14 @@
 
 The web player plays a game in any modern browser. It contains the mobile-first story runtime and, for each system
 ticked in the Systems tab, the matching web emulator and the built file it plays. Systems that are not selected are
-never included.
+never included. **Web is itself a system**: tick `## web` in the Systems tab (or in `game.md`) and the Build button
+produces `<game-folder>/web/` after the native builds.
 
 There are two ways to run it:
 
-- **Editor Emulator tab** — choose **Web player** as the system. The editor saves pending edits, exports the player
-  and previews the exported folder in an iframe. The same tab can export the folder, open it in a new tab, or download
-  the itch.io-ready zip.
+- **Editor Emulator tab** — with Web selected, choose **Web** as the system. The editor saves pending edits, exports
+  the player and previews the exported folder in an iframe. The same tab can export the folder, download the current
+  system's built file, or toggle fullscreen.
 - **Exported folder** — a self-contained `<game-folder>/web/` tree that can be copied to any static host, uploaded to
   itch.io, or opened directly (the Web novel works from `file://`; the native emulators need an HTTP host).
 
@@ -57,18 +58,19 @@ in the player shell, and `game.js` then `app.js` in the novel.
 
 ## Selected systems
 
-The player always offers the **Web version** novel. Native entries come from `targets.selected_targets(doc)`, in the
-system display order:
+The export is produced by the **Web** system (`## web`), so the player always offers the **Web version** novel. Native
+entries come from `targets.selected_targets(doc)` (Web itself is not a native entry), in the system display order:
 
 - A selected system with a bundled web emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), SMS and Game Boy
   Color (EmulatorJS), MSX2 (WebMSX), CPC 6128/464 (CPCJS/Caprice32), C64 (EmulatorJS VICE), NES (EmulatorJS FCEUmm)
   and Oric Atmos (Oricutron).
-- The ZX Spectrum Next has no bundled browser emulator, so it appears as a download-only entry.
+- The ZX Spectrum Next has no bundled browser emulator, so it is not included in the player.
 - A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
-- Unselected systems are never copied or listed.
+- Unselected native systems are never copied or listed; the editor's **Export player** button can still write the
+  novel-only export.
 
-Native entries show **Download `<filename>`** for the exact file the emulator plays (`.tap`, `.sms`, `.dsk`, `.rom`,
-`.prg`, `.nes`, `.gbc`, etc.). The Web version has no download button.
+The player itself has no download button. The editor's Emulator toolbar downloads the current system's built file
+when a native system is selected.
 
 ## Routes
 
@@ -153,7 +155,8 @@ window.RVN_PLAYER = {
   systems: [
     { id: "zx128", label: "ZX Spectrum 128K", kind: "native",
       emulator: "jsspeccy", machine: "128", page: "",
-      file: "files/demo-game.tap", filename: "demo-game.tap", aspect: 1.333333 }
+      file: "files/demo-game.tap", filename: "demo-game.tap", aspect: 1.333333,
+      media: "tape", mediaLabel: "Tape" }
   ]
 };
 ```
@@ -206,25 +209,31 @@ landscape. `image-rendering` is left at the browser default because the source i
 
 ## Player layout
 
-- The system selector lists the Web version first, then only the selected native systems.
+- The system selector is a retro right-hand sidebar of rocker keys: the Web version first, then only the selected
+  native systems. A media bay above it shows the matching tape, disk, cartridge or web icon for the current system.
 - The Web version uses the full mobile-first novel in an iframe.
 - Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
   aspect ratio.
-- The panel shows the selected system, a hint, **Download `<filename>`** for native systems only, **Reload** and
-  **Fullscreen**.
+- On a coarse-pointer (touch) device the native ZX Spectrum entry also draws a `.speccy-touch` pad below the screen:
+  a D-pad plus `ENTER`, `SPACE` and `P`. The buttons synthesize the key events JSSpeccy expects (bare `5`/`6`/`7`/`8`
+  for the directions), because JSSpeccy has no soft keyboard. It shares `screenwrap.has-touch` layout and reserves
+  its height when scaling the picture.
+- The panel shows the selected system, a hint, **Reload** and **Fullscreen**.
 - `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
   `localStorage`, defaulting to the Web version.
 
 ## Export
 
 ```bash
-python3 tools/webgame.py <slug>           # write <game-folder>/web/
-python3 tools/webgame.py <slug> --json    # inspect the novel data
+python3 tools/build.py build <game> web     # Web system -> <game-folder>/web/
+python3 tools/webgame.py <slug>             # same export directly
+python3 tools/webgame.py <slug> --json      # inspect the novel data
 ```
 
-The folder is replaced atomically. The zip produced by `GET /api/webzip/<slug>` has `index.html` at the archive root and
-is ready to upload to itch.io as an HTML game. The folder is gitignored (`<game-folder>/web/`; in this repo
-`/demo-game/web/`).
+`## web` under `# Systems` makes the ordinary Build button run the export last, after the native artifacts it
+bundles. The folder is replaced atomically. The zip produced by `GET /api/webzip/<slug>` has `index.html` at the
+archive root and is ready to upload to itch.io as an HTML game. The folder is gitignored (`<game-folder>/web/`; in
+this repo `/demo-game/web/`).
 
 ## Limits and notes
 
@@ -236,7 +245,7 @@ is ready to upload to itch.io as an HTML game. The folder is gitignored (`<game-
   simply scroll.
 - Native emulator entries need a web server (or a host such as itch.io/GitHub Pages); opening the player from
   `file://` only guarantees the Web novel.
-- Missing native artifacts and unrenderable songs are reported as export warnings.
+- Missing native artifacts, unrenderable songs and systems without a browser emulator are reported as export warnings.
 
 ## Troubleshooting
 
@@ -251,8 +260,8 @@ is ready to upload to itch.io as an HTML game. The folder is gitignored (`<game-
 ## Verification
 
 1. `python3 -m py_compile tools/webgame.py tools/editor/editor_web.py tools/editor/server.py`
-2. Build the selected systems, then open the editor **Emulator** tab and choose **Web player**.
+2. Build the selected systems (with Web ticked), then open the editor **Emulator** tab and choose **Web**.
 3. Exercise the novel, including sound on/off, a scene music change and **Restart**.
-4. Switch to a native system, confirm it boots and its download link matches the played file.
+4. Switch to a native system and confirm it boots; the editor toolbar's download matches the played file.
 5. `python3 tools/webgame.py <slug>`, serve the folder over HTTP and repeat; verify only selected systems appear and
    the zip has `index.html` at its root.

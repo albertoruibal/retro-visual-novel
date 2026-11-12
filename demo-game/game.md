@@ -9,7 +9,7 @@ negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, 
 flags: asked_elias, asked_father, uxia_trusted, uxia_told, uxia_knows, uxia_left, know_truth, cellar_lit, chest_open, lens_repaired, oiled, won, dark, exam_coat, exam_misericordia, exam_uxia, exam_journal, exam_cups, exam_chest, exam_letter, exam_daughter, exam_lens, exam_reservoir, exam_grave, exam_green, elias_rested, pena_met, pena_offered, pena_deal, pena_defied
 items: key, oil_lantern, oil_can, matches, gear, flare
 songs: theme
-music: theme
+music: off
 hires: 2x
 popup_hint: Continue
 inventory_drop: Discard
@@ -62,6 +62,8 @@ dither: bayer2
 art_rows: 12
 dither: bayer2
 title_ink: white
+
+## web
 
 # Art
 
@@ -226,6 +228,7 @@ opt: Fire the signal flare -> ending_truth inscene the_hour if know_truth msg Th
 ## start
 name: The Lighthouse Keeper
 art: title
+music: theme
 text:
   Fisterra Light. 14 October 1936, twenty to midnight.
   You have walked the last mile from the village, up the cliff path.

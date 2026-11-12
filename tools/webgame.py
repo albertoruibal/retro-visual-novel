@@ -20,9 +20,10 @@ novel works from ``file://``; the native emulator entries need an HTTP host
     python3 tools/webgame.py <slug> --json   # print the novel data
 
 Only the systems ticked in ``# Systems`` are included.  The Web novel is always
-present; a selected system with a bundled web emulator gets a playable entry,
-and the ZX Spectrum Next (no web emulator) gets a download-only entry.  Missing
-build artifacts are skipped with a warning.
+present and a selected system with a bundled web emulator gets a playable entry.
+Systems without a browser emulator (such as the ZX Spectrum Next) and missing
+build artifacts are skipped with a warning.  The player itself has no download
+button; the editor's Emulator toolbar downloads the current system's built file.
 
 Music is rendered from the selected PT3 modules with ``spectrumizer.play``
 (22050 Hz mono WAV) into ``novel/assets/music/``.  The renderer is an editor
@@ -356,6 +357,15 @@ def _player_js(data):
     return "window.RVN_PLAYER=" + text + ";\n"
 
 
+def _media_for(extension):
+    """The media type shown for a system's played file."""
+    if extension == ".tap":
+        return "tape"
+    if extension == ".dsk":
+        return "disk"
+    return "cartridge"
+
+
 def _player_systems(rec, doc):
     """Selected systems as player entries, plus emulator dirs and warnings."""
     systems = []
@@ -363,7 +373,7 @@ def _player_systems(rec, doc):
     warnings = []
     for target_id in targets.ordered_targets(targets.selected_targets(doc)):
         target = targets.get_target(target_id)
-        if target is None or not target.outputs:
+        if target is None or not target.outputs or target.id == "web":
             continue
         extension = target.outputs[0]
         filename = f"{rec['slug']}{target.artifact_suffix}{extension}"
@@ -372,6 +382,7 @@ def _player_systems(rec, doc):
             warnings.append(f"{target.label}: {filename} is not built; skipped")
             continue
         if target.emulator in EMU_ASSET_DIRS:
+            media = _media_for(extension)
             entry = {
                 "id": target.id,
                 "label": target.label,
@@ -382,22 +393,12 @@ def _player_systems(rec, doc):
                 "file": f"{FILES_EXPORT_DIR}/{filename}",
                 "filename": filename,
                 "aspect": round(EMU_ASPECT.get(target.id, 4 / 3), 6),
+                "media": media,
+                "mediaLabel": media.capitalize(),
             }
             if target.emulator in ("cpcjs", "cpc464"):
                 entry["run"] = "GAME"
             emulator_dirs.update(EMU_ASSET_DIRS[target.emulator])
-        elif target.id == "next":
-            entry = {
-                "id": target.id,
-                "label": target.label,
-                "kind": "download",
-                "emulator": "",
-                "machine": target.machine,
-                "page": "",
-                "file": f"{FILES_EXPORT_DIR}/{filename}",
-                "filename": filename,
-                "aspect": 4 / 3,
-            }
         else:
             warnings.append(f"{target.label}: no web emulator; skipped")
             continue
@@ -417,6 +418,8 @@ def _player_data(rec, doc, systems):
             "label": "Web version",
             "src": f"{NOVEL_DIRNAME}/index.html",
             "machine": "HTML5",
+            "media": "web",
+            "mediaLabel": "Web",
         },
         "systems": clean,
     }

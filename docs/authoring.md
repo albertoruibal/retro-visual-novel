@@ -188,12 +188,14 @@ overrides the prompt line above the input ("Enter the password:" by default).
     art_rows: 8             # 8|10|12 (default 8)
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
     menu: popup             # optional: options/items in a SPACE dialog
+    ## web
+                            # builds <game-folder>/web/ (no native binary)
 
 A build compiles the selected systems in the system-list display order (ZX 128K, ZX 48K, Next, CPC 6128, CPC 464,
-MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color); each system's log is separated
+MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color, Web); each system's log is separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
 (`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
-`.nes`, `<slug>-oric.tap`). An absent `# Systems`
+`.nes`, `<slug>-oric.tap`, and the `<game-folder>/web/` player for `## web`). An absent `# Systems`
 means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
 `<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
@@ -361,7 +363,8 @@ A condition (here and everywhere in the format) only *tests* a name; see
 #### Build-time system flags
 
 `system_zx128`, `system_zx48`, `system_next`, `system_sms`, `system_cpc`, `system_cpc464`, `system_msx2`,
-`system_gb`, `system_c64`, `system_nes` and `system_oric` are reserved pseudo-flags that are true only while
+`system_gb`, `system_c64`, `system_nes`, `system_oric` and `system_web` are reserved pseudo-flags that are true only
+while
 generating that target. `system_zx` is a legacy any-Spectrum flag true for both `zx128` and `zx48`, and
 `system_cpc` is true for both `cpc` and `cpc464`. They are folded at build time: on a matching build an `if system_zx`
 token disappears and the line/option is always shown, while on any other build the whole line/option is omitted.

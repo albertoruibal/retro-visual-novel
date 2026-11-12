@@ -26,7 +26,7 @@ async function runBuild() {
   await loadServerSettings();
   const tg = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
   const needCc65 = tg.some((t) => t === "c64" || t === "nes");
-  const needZ88dk = tg.some((t) => t !== "c64" && t !== "nes");
+  const needZ88dk = tg.some((t) => t !== "c64" && t !== "nes" && t !== "web");
   if (needZ88dk && !SERVER.z88dk_available) {
     const miss = (SERVER.z88dk_missing || []).join(", ");
     setBuildStatus(miss ? `z88dk incomplete — missing ${miss}`

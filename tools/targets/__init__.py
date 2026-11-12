@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx2", "c64",
-                 "oric", "sms", "nes", "gb")
+                 "oric", "sms", "nes", "gb", "web")
 SEPARATOR_WIDTH = 72
 
 _SKIP = {"__init__", "base", "common"}

@@ -570,7 +570,7 @@ function systemFlagNames() {
     ? P.system_flags
     : ["system_zx", "system_zx128", "system_zx48", "system_sms",
        "system_cpc", "system_cpc464", "system_msx2", "system_gb",
-       "system_c64", "system_nes", "system_oric"];
+       "system_c64", "system_nes", "system_oric", "system_web"];
   return flags.slice();
 }
 function condNameOptions(selv) {
