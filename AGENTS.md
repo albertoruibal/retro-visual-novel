@@ -292,21 +292,25 @@ There is no test suite and no configured linter. Verify by:
   addresses are `< 0xC000` after the build (the `.bin`-size check cannot see this — these routines are in the fixed
   region, not bank 0). The `_scene_ws`/`_art_ws` workspaces may spill into bank 0, but must not reach the NIRVANA+
   engine at `0xDC03`; the main-image size check covers that because they are part of `adventure.bin`.
-- **ZX Spectrum 48K (`## zx48`) is a non-paged, monochrome target with no NIRVANA+ engine.** The canonical 128K
-  target id is `zx128` (the old `zx` spelling is an alias; a save rewrites `## zx` to `## zx128`). The 48K build stores
+- **ZX Spectrum 48K (`## zx48`) is a non-paged target with no NIRVANA+ engine; its Black and white option defaults
+  on and emits 1bpp art, while `mono: off` emits classic 8x8 attribute-colour art.** The canonical 128K target id is
+  `zx128` (the old `zx` spelling is an alias; a save rewrites `## zx` to `## zx128`). The 48K build stores
   compressed **scene** blobs in the flat resident block at `0x6000-0x7BFF` (`FLAT_DATA_SIZE` = 7168 B, loaded by
-  `src/zx/loader48.asm`); the top 1 KB of lower RAM is the stack (`REGISTER_SP=0x7FFE`). Compressed **art** (1bpp) and
-  the **inventory** blob are emitted as `const art_data`/`inv_data` arrays in `build/scene_data.c` and linked into the
-  main image, which may use `0x8000-0xFFFF` (32,768 B) because there is no engine at `0xDC03`.
+  `src/zx/loader48.asm`); the top 1 KB of lower RAM is the stack (`REGISTER_SP=0x7FFE`). Compressed **art** (1bpp
+  mono, or a ULA bitmap + attributes when `mono` is off) and the **inventory** blob are emitted as
+  `const art_data`/`inv_data` arrays in `build/scene_data.c` and linked into the main image, which may use
+  `0x8000-0xFFFF` (32,768 B) because there is no engine at `0xDC03`.
   `tools/gen_scenes.py` runs with `SCENE_FLAT=1`, writes `build/scene_flat.bin` (scenes only, padded), and converts art
-  with `zxart.mono_band`; `off` dither becomes `bayer2` (see `zxart.mono_dither`). The band height is the independent
+  with `zxart.mono_band`, or with `zxart.classic_band` + `zxart.classic_band_blob` when `mono` is off; `off` dither
+  becomes `bayer2` for mono (see `zxart.mono_dither`). The band height is the independent
   `## zx48 art_rows` option (`ART_LINES`), not the 128K `# Game art_lines`. An explicit `crop:` authored for the
   primary ZX band is re-fitted to the 48K aspect with `zxart.crop_for_band`, so a different band height never
   stretches the picture. `plat_load` decodes scenes from
   `FLAT_DATA_ADDR+off+2` and inventory from `inv_data+off+2` with `port_unpack` (no paging); `plat_draw_art` decodes
-  `art_data+art_off+2` into `_art_ws` and copies rows into the bitmap under `ZX48`, with no tile map/attribute race. The
-  build fails with a `48K build does not fit: ...` message when either budget is exceeded. The 48K has no AY, so songs
-  are ignored with a warning (the Systems card says so), and the target outputs only `<slug>-48k.tap`.
+  `art_data+art_off+2` into `_art_ws` and copies rows (plus the attribute bytes for colour art) into the bitmap
+  under `ZX48`, with no tile map/attribute race. The build fails with a `48K build does not fit: ...` message when
+  either budget is exceeded. The 48K has no AY, so songs are ignored with a warning (the Systems card says so), and
+  the target outputs only `<slug>-48k.tap`.
 - **Selectable words** (`{{word}}` / `{{word|flag}}` in a `text:` line) are parsed only by `tools/scenefile.py`
   (`word_segments`/`parse_words`/`word_flag`); the generator emits a per-scene word table (`WordHdr`: line, col, len,
   flag) after the scene strings and sets `HAVE_WORDS`. The engine highlights each word, folds it into the option cursor

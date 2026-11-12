@@ -1,8 +1,9 @@
 """ZX Spectrum 48K target.
 
-A non-paged, monochrome build with no NIRVANA+ engine. Scene blobs live in the
-lower-RAM flat store at 0x6000 (7168 bytes); dithered 1bpp art and the
-inventory blob are compiled into the main image, which may now use
+A non-paged build with no NIRVANA+ engine. Scene blobs live in the lower-RAM
+flat store at 0x6000 (7168 bytes); dithered 1bpp art (or classic-attribute
+colour art when Black and white is off) and the inventory blob are compiled
+into the main image, which may now use
 0x8000-0xFFFF. A game that does not fit fails the build with a clear message
 instead of producing a corrupt TAP.
 
@@ -30,6 +31,7 @@ def _preview(src, conv, options, game=None):
     import zxart
     from PIL import Image
 
+    conv = conv or {}
     rows = int(options.get("art_rows") or 10) // 2
     im = Image.open(src).convert("RGB")
     # The crop box follows the primary ZX band; re-fit an explicit crop to the
@@ -39,13 +41,23 @@ def _preview(src, conv, options, game=None):
         im = zxart.crop_for_band(im, conv["crop"], rows)
         flat_conv = dict(conv)
         flat_conv["crop"] = None
-    img = zxart.mono_image(
-        im, crop=flat_conv.get("crop"),
-        dither=flat_conv.get("dither", "off"), rows=rows,
-        adjust=flat_conv.get("adjust"),
-        palette=flat_conv.get("palette", "none"),
-        palette_colors=flat_conv.get("palette_colors"),
-        margin=flat_conv.get("margin", 0), fill=(0, 0, 0))
+    mono = bool(conv.get("mono")) if conv and "mono" in conv \
+        else bool(options.get("mono"))
+    if mono:
+        img = zxart.mono_image(
+            im, crop=flat_conv.get("crop"),
+            dither=flat_conv.get("dither", "off"), rows=rows,
+            adjust=flat_conv.get("adjust"),
+            palette=flat_conv.get("palette", "none"),
+            palette_colors=flat_conv.get("palette_colors"),
+            margin=flat_conv.get("margin", 0), fill=(0, 0, 0))
+    else:
+        img = zxart.grid_to_rgb_image(zxart.classic_band(
+            im, crop=flat_conv.get("crop"), rows=rows,
+            adjust=flat_conv.get("adjust"),
+            palette=flat_conv.get("palette", "none"),
+            palette_colors=flat_conv.get("palette_colors"),
+            margin=flat_conv.get("margin", 0), fill=(0, 0, 0)))
     img = zxart.preview_margin_crop(img, conv.get("margin", 0),
                                     zxart.BAND_W, zxart.band_h(rows))
     out = io.BytesIO()
@@ -96,10 +108,11 @@ def _validate(ctx):
 TARGET = Target(
     id="zx48",
     label="ZX Spectrum 48K",
-    description="Monochrome, dithered 48K build with no NIRVANA+ engine and "
-                "no AY music: songs declared in game.md are ignored. Scenes "
-                "fit 7 KB of lower RAM; art and inventory are compiled into "
-                "the main image, or the build fails.",
+    description="Non-paged 48K build with classic mono or attribute-colour "
+                "art, no NIRVANA+ engine and no AY music: songs declared in "
+                "game.md are ignored. Scenes fit 7 KB of lower RAM; art and "
+                "inventory are compiled into the main image, or the build "
+                "fails.",
     outputs=(".tap",),
     options=(
         TargetOption(
@@ -111,10 +124,11 @@ TARGET = Target(
             minimum=8, maximum=16),
         art_margin_option(),
         TargetOption(
-            "mono", "Black and white", "bool", False,
-            help="Force white text on black for the whole screen. The 48K "
-                 "picture is always monochrome; turn this off to use the "
-                 "Game tab's text and highlight colours."),
+            "mono", "Black and white", "bool", True,
+            help="Render the picture as a dithered black-and-white band and "
+                 "force white text on black. Turn it off for classic "
+                 "attribute-colour art and the Game tab's text and highlight "
+                 "colours."),
         TargetOption(
             "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
             scenefile.DITHER_MODES,
@@ -140,7 +154,7 @@ TARGET = Target(
     available=_available,
     emulator="jsspeccy",
     machine="48",
-    colors=2,
-    engine="Monochrome",
+    colors=15,
+    engine="Classic attributes",
     artifact_suffix="-48k",
 )

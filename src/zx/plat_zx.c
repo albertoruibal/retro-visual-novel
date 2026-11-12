@@ -126,12 +126,20 @@ void plat_draw_art(unsigned char id)
     {
         unsigned char r, l, c;
         const unsigned char *src;
+#if ZX48_ART_ATTRS
+        const unsigned char *attr_src;
+#endif
 
-        /* Decode the compressed 1bpp band into art_ws, then copy whole rows
-           into the Spectrum bitmap. art_off points at the [u16 length]
-           prefix in art_data (all in the main image). */
+        /* Decode the compressed band into art_ws, then copy whole rows into
+           the Spectrum bitmap. A colour band appends 32 attribute bytes per
+           character row after the bitmap; a mono band uses the fixed
+           white-on-black attribute. art_off points at the [u16 length] prefix
+           in art_data (all in the main image). */
         port_unpack((const void *)(art_data + (unsigned int)art_off[id] + 2u),
                     art_ws);
+#if ZX48_ART_ATTRS
+        attr_src = art_ws + (unsigned int)ART_LINES * 256u;
+#endif
         for (r = 1; r <= ART_LINES; r++) {
             unsigned char *base = (unsigned char *)(0x4000
                 + ((r >> 3) << 11) + ((r & 7) << 5));
@@ -141,8 +149,13 @@ void plat_draw_art(unsigned char id)
                 for (c = 0; c < 32; c++)
                     base[l * 256 + c] = src[c];
             }
+#if ZX48_ART_ATTRS
+            for (c = 0; c < 32; c++)
+                attr[c] = attr_src[((unsigned int)r - 1u) * 32u + c];
+#else
             for (c = 0; c < 32; c++)
                 attr[c] = ZX_ART_ATTR;
+#endif
         }
     }
 #else

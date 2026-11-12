@@ -943,6 +943,44 @@ def bifrost_band(im, crop=None, rows=None, adjust=None,
                             margin=margin, fill=fill), 1)
 
 
+def classic_band_blob(grid):
+    """Pack a classic-attribute SPEC grid into ULA bitmap + attribute bytes.
+
+    Returns ``bitmap + attrs``: the bitmap is 32 bytes per pixel row in
+    scanline order (the layout the 48K runtime copies into the ULA bitmap) and
+    attrs is 32 bytes per 8x8 character row. Within each cell the most common
+    colour becomes ink (set bits) and the other paper, so the stored attribute
+    always matches the packed pixels.
+    """
+    h = len(grid)
+    if h % 8 or not grid or len(grid[0]) != BAND_W:
+        raise ValueError("classic band must be BAND_W x a multiple of 8")
+    chars = h // 8
+    bitmap = bytearray(chars * 8 * 32)
+    attrs = bytearray(chars * 32)
+    for cr in range(chars):
+        for cc in range(32):
+            counts = {}
+            for y in range(cr * 8, cr * 8 + 8):
+                row = grid[y]
+                for x in range(cc * 8, cc * 8 + 8):
+                    v = row[x]
+                    counts[v] = counts.get(v, 0) + 1
+            items = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+            ink = items[0][0]
+            paper = items[-1][0]
+            bank = (ink >> 3) & 1
+            attrs[cr * 32 + cc] = (bank << 6) | ((paper & 7) << 3) | (ink & 7)
+            for line in range(8):
+                bits = 0
+                row = grid[cr * 8 + line]
+                for bit in range(8):
+                    if row[cc * 8 + bit] == ink:
+                        bits |= 0x80 >> bit
+                bitmap[(cr * 8 + line) * 32 + cc] = bits
+    return bytes(bitmap) + bytes(attrs)
+
+
 def grid_to_rgb_image(grid):
     """Turn a band-height x BAND_W grid of SPEC indices into a PIL image."""
     from PIL import Image

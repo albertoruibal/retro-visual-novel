@@ -72,6 +72,7 @@ margin: 3
 art_rows: 12
 dither: bayer2
 margin: 8
+mono: off
 title_ink: white
 
 ## web

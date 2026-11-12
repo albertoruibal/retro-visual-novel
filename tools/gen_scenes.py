@@ -2,7 +2,8 @@
 """Convert a game's game.md into a ZX scene/art data store.
 
 The 128K/Next build gets a banked scene+art store; the 48K build gets a
-lower-RAM scene store plus monochrome art/inventory arrays in the main image.
+lower-RAM scene store plus mono or classic-colour art and inventory arrays in
+the main image.
 
 The input is ``games/<slug>/game.md`` (or any path); the outputs are written
 into the same game folder. Since the 128K build pages data in/out of 0xC000,
@@ -684,7 +685,8 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
     height in 16px tile rows (from the ZX `art_rows` option).
 
     The 128K build returns a NIRVANA+ (map+tiles) blob. The flat 48K build has
-    no NIRVANA+ engine, so it returns a packed 1bpp monochrome band instead.
+    no NIRVANA+ engine: with ``mono`` it returns a packed 1bpp band, otherwise
+    a classic ULA bitmap + attribute blob (8x8 cells).
     """
     conv = conv or {}
     path = scenefile.resolve_art_image(art_root, a, legacy_dir)
@@ -700,13 +702,21 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
                 im = zxart.crop_for_band(im, conv["crop"], rows)
                 flat_conv = dict(conv)
                 flat_conv["crop"] = None
-            return zxart.mono_band(
-                im, crop=flat_conv.get("crop"),
-                dither=flat_conv.get("dither", "off"),
-                rows=rows, adjust=flat_conv.get("adjust"),
+            if conv.get("mono"):
+                return zxart.mono_band(
+                    im, crop=flat_conv.get("crop"),
+                    dither=flat_conv.get("dither", "off"),
+                    rows=rows, adjust=flat_conv.get("adjust"),
+                    palette=flat_conv.get("palette", "none"),
+                    palette_colors=flat_conv.get("palette_colors"),
+                    margin=flat_conv.get("margin", 0), fill=fill), path
+            grid = zxart.classic_band(
+                im, crop=flat_conv.get("crop"), rows=rows,
+                adjust=flat_conv.get("adjust"),
                 palette=flat_conv.get("palette", "none"),
                 palette_colors=flat_conv.get("palette_colors"),
-                margin=flat_conv.get("margin", 0), fill=fill), path
+                margin=flat_conv.get("margin", 0), fill=fill)
+            return zxart.classic_band_blob(grid), path
         if conv.get("mono"):
             mono = zxart.mono_image(
                 im, crop=conv.get("crop"),
@@ -1514,12 +1524,17 @@ def main():
     scene_packed = [pack_blob(c) for c in scene_comp]
     song_packed = [pack_blob(c) for c in song_comp]
     inv_packed = pack_blob(inv_comp) if inv_blob is not None else b""
+    flat_mono = flat and zx_mono(doc)
     for a, raw, packed, dmode in zip(arts, raw_art, art_packed, art_dither):
         if flat:
-            import zxart
-            sys.stderr.write("art %s: %dB mono (%s) -> %dB compressed\n"
-                             % (a["id"], raw, zxart.mono_dither(dmode),
-                                len(packed) - 2))
+            if flat_mono:
+                import zxart
+                sys.stderr.write("art %s: %dB mono (%s) -> %dB compressed\n"
+                                 % (a["id"], raw, zxart.mono_dither(dmode),
+                                    len(packed) - 2))
+            else:
+                sys.stderr.write("art %s: %dB colour -> %dB compressed\n"
+                                 % (a["id"], raw, len(packed) - 2))
         else:
             sys.stderr.write("art %s: %dB -> %dB compressed (%d tiles)\n"
                              % (a["id"], raw, len(packed) - 2,
@@ -1679,6 +1694,7 @@ def main():
         h += [f"#define FLAT_DATA_ADDR {FLAT_DATA_ADDR}",
               f"#define FLAT_DATA_SIZE {FLAT_DATA_MAX}",
               f"#define FLAT_DATA_USED {flat_used}",
+              f"#define ZX48_ART_ATTRS {0 if zx_mono(doc) else 1}",
               ""]
     h += ["typedef struct { unsigned short label_off, cond_off, msg_off; "
          "unsigned char next,ncond,set,unset,pick,leave,clear; } OptHdr;",

@@ -69,8 +69,9 @@ picture. The editor's top-bar **Export player** button re-exports and reloads th
 - Without the pop-up dialog the text pane is fixed: keep a scene's wrapped lines (and options) within the rows below
   the art band. With the dialog, long text scrolls.
 
-The **ZX Spectrum 48K** build uses the same controls. Its picture is a 1-bit dithered monochrome band (no NIRVANA+),
-and there is no music; everything else, including the pop-up dialog and the row-23 inventory, behaves as on 128K.
+The **ZX Spectrum 48K** build uses the same controls. Its picture is a 1-bit dithered mono band by default, or
+classic 8x8 attribute colour when Black and white is off (no NIRVANA+), and there is no music; everything else,
+including the pop-up dialog and the row-23 inventory, behaves as on 128K.
 
 ## ZX Spectrum Next
 
