@@ -261,19 +261,22 @@ def _colour_blob(im, conv, art_rows, text_bg):
 
 def _mono_blob(im, conv, art_rows, text_bg):
     import zxart
-    rows16 = int(art_rows) // 2
-    bits = zxart.mono_band(
-        im, crop=conv.get("crop"), dither=conv.get("dither", "off"),
-        rows=rows16, adjust=conv.get("adjust"),
-        palette=conv.get("palette", "none"),
-        palette_colors=conv.get("palette_colors"),
-        margin=conv.get("margin", 0), fill=_bg_rgb(text_bg))
+    # Fit through ``_prepared`` so an explicit crop is re-centred to the MSX1
+    # band aspect (``mono_band`` would rescale the raw ZX crop rectangle and
+    # distort the picture).
+    im = _prepared(im, conv, art_rows, _bg_rgb(text_bg))
+    im = zxart._apply_palette(im, conv.get("palette", "none"),
+                              conv.get("palette_colors"))
+    im = zxart.to_mono_image(im, conv.get("dither", "off"))
+    px = im.load()
     colour = colour_byte(MONO_INK, MONO_PAPER)
     cell_rows = []
     for cy in range(int(art_rows)):
         for cx in range(ART_COLS):
-            pattern = bytes(bits[(cy * 8 + y) * ART_COLS + cx]
-                            for y in range(8))
+            pattern = bytes(
+                sum(0x80 >> x for x in range(8)
+                    if px[cx * 8 + x, cy * 8 + y][0] >= 128)
+                for y in range(8))
             cell_rows.append((pattern, [colour] * 8, None))
     return _pack_cells(cell_rows)
 
