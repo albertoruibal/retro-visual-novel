@@ -1,6 +1,6 @@
 # Oric Atmos
 
-- **Black and white:** the HIRES screen is already monochrome; `mono: on` is available for consistency.
+- **Black and white:** the HIRES screen is always monochrome, so the target has no Black and white option.
 - **Display:** the 240 x 200 HIRES bitmap at `$A000`. The title is on character row 0, the art band occupies rows
   1..`art_rows`, and the text pane runs from row `art_rows + 1` through row 23 (row 24 is the inventory band). With
   `## oric menu: popup` the text owns rows `art_rows + 1`..24 instead. `art_rows` is 8, 10 or 12 (default 8).

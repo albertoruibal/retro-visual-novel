@@ -246,7 +246,7 @@ def art_blob(path, conv=None, options=None, text_ink=None, highlight_ink=None,
     conv = conv or {}
     options = options or {}
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
-    if mono or options.get("mono"):
+    if mono or options.get("mono") or conv.get("mono"):
         return _mono_art(im, conv, art_rows, text_bg)
     im = _fit(im, conv.get("crop"), art_rows)
     adj = conv.get("adjust") or {}

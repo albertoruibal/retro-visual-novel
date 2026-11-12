@@ -42,9 +42,10 @@ cells on the left and right, keeps its aspect ratio, and the side border is fill
 Margin `0` is the old full-bleed band; a positive value can only reduce the art tiles. Editor previews show the scaled
 picture inside the margins, without the blank border.
 
-Every art-capable system also accepts `mono: on` (the **Black and white** option in the Systems tab): it converts the
-picture to a dithered black-and-white band and forces white text on the black background. The 1-bit targets (48K,
-Oric) are already monochrome and use the option for the text colours; the Web target grayscales the novel art.
+Every colour art system also accepts `mono: on` (the **Black and white** option in the Systems tab): it converts the
+picture to a dithered black-and-white band and forces white text on the black background. The 48K is already
+monochrome and uses the option for the text colours; the Oric Atmos is always monochrome and has no such option. The
+Web target grayscales the novel art.
 
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.

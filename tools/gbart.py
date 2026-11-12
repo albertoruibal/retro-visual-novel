@@ -393,11 +393,12 @@ def preview_image(path, conv=None, options=None, game=None):
 
     options = options or {}
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
+    mono = bool((conv or {}).get("mono") or options.get("mono"))
     try:
         im = Image.open(path).convert("RGB")
     except Exception:                          # noqa: BLE001 - missing/corrupt
         return None
-    _ink, _hi, text_bg = text_colours(game)
+    _ink, _hi, text_bg = text_colours(game, mono)
     img = band(im, conv, art_rows, rgb555_rgb8(text_bg))
     import zxart
     return zxart.preview_margin_crop(img, (conv or {}).get("margin"), WIDTH,

@@ -714,7 +714,7 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
                 adjust=conv.get("adjust"),
                 palette=conv.get("palette", "none"),
                 palette_colors=conv.get("palette_colors"),
-                margin=conv.get("margin", 0), fill=fill)
+                margin=conv.get("margin", 0), fill=(0, 0, 0))
             grid = zxart.nirvana_band(mono, rows=rows, dither="off",
                                       match="rgb", palette="none")
         else:

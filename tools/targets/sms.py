@@ -60,8 +60,8 @@ def _guard_map(path):
 
 def _preview(path, conv, options, game=None):
     import smsart
-    text_ink, _highlight_ink, text_bg = smsart.text_colours(
-        game, bool(options.get("mono")))
+    mono = bool((conv or {}).get("mono") or options.get("mono"))
+    text_ink, _highlight_ink, text_bg = smsart.text_colours(game, mono)
     return smsart.preview_bytes(path, conv, options, text_ink, text_bg)
 
 

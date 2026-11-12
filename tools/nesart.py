@@ -535,7 +535,8 @@ def preview_image(path, conv=None, options=None, game=None):
 
     options = options or {}
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
-    text_ink, _hi, text_bg = text_colours(game)
+    mono = bool((conv or {}).get("mono") or options.get("mono"))
+    text_ink, _hi, text_bg = text_colours(game, mono)
     try:
         im = Image.open(path).convert("RGB")
     except Exception:                          # noqa: BLE001 - missing/corrupt

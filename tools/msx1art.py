@@ -299,7 +299,7 @@ def art_blob(path, conv=None, options=None, text_bg=None):
     conv = conv or {}
     options = options or {}
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
-    mono = bool(options.get("mono"))
+    mono = bool(options.get("mono") or conv.get("mono"))
     if text_bg is None:
         text_bg = MONO_PAPER
     return _blob_from_image(im, conv, art_rows, text_bg, mono)
@@ -370,7 +370,7 @@ def preview_bytes(path, conv=None, options=None, text_bg=None, mono=False):
     except Exception:                          # noqa: BLE001 - missing/corrupt
         return None
     art_rows = int(options.get("art_rows") or DEFAULT_ART_ROWS)
-    mono = bool(mono or options.get("mono"))
+    mono = bool(mono or options.get("mono") or conv.get("mono"))
     img = band(im, crop=conv.get("crop"), art_rows=art_rows,
                dither=conv.get("dither", "off"), adjust=conv.get("adjust"),
                text_bg=text_bg, margin=conv.get("margin", 0), mono=mono)

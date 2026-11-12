@@ -92,9 +92,9 @@ npm run dist
 
 It uses python tools and z88dk (https://z88dk.org/site/), sccz80 with the classic lib.
 
-Every system has a **Black and white** option in its `## <system>` block (and the Systems tab). It converts the art to
-a dithered black-and-white band and forces white text on the black background; the 1-bit systems (48K, Oric) are
-already monochrome and use it to force the text colour.
+Every colour system has a **Black and white** option in its `## <system>` block (and the Systems tab). It converts
+the art to a dithered black-and-white band and forces white text on the black background. The 48K is already
+monochrome and uses it to force the text colour; the Oric Atmos is always monochrome and has no such option.
 
 The build driver is a pluggable target registry (`tools/targets/`). Each target module exports a `TARGET` with its
 output names, per-game options and build, validation and preview hooks. The selected systems and their options live

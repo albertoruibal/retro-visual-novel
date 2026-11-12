@@ -35,6 +35,7 @@ def _conversion(conv):
         "margin": max(0, int(conv.get("margin") or 0)),
         "palette": conv.get("palette", "none"),
         "palette_colors": int(conv.get("palette_colors") or 256),
+        "mono": bool(conv.get("mono")),
         "saturation": adjust.get("saturation", 1.0),
         "contrast": adjust.get("contrast", 1.0),
         "brightness": adjust.get("brightness", 1.0),
@@ -49,6 +50,8 @@ def _band(im, conv, rows, fill=(0, 0, 0)):
     im = zxart.preprocess(
         im, conv.get("saturation", 1.0), conv.get("contrast", 1.0),
         conv.get("brightness", 1.0), conv.get("gamma", 1.0))
+    if conv.get("mono"):
+        fill = (0, 0, 0)
     im = zxart.inset_band(im, conv.get("margin", 0), fill)
     if conv.get("mono"):
         im = zxart.to_mono_image(im, conv.get("dither"))

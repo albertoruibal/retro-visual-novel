@@ -829,7 +829,8 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
         img = zxart.mono_image(
             im, crop=conv["crop"], dither=conv["dither"], rows=rows,
             adjust=conv["adjust"], palette=conv["palette"],
-            palette_colors=conv["palette_colors"], margin=margin, fill=fill)
+            palette_colors=conv["palette_colors"], margin=margin,
+            fill=(0, 0, 0))
         return _png_bytes(zxart.preview_margin_crop(
             img, margin, zxart.BAND_W, zxart.band_h(rows)))
     if mode == "classic":

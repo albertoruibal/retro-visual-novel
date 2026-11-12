@@ -47,8 +47,8 @@ def _available():
 
 def _preview(path, conv, options, game=None):
     import cpcart
-    text_ink, highlight_ink, text_bg = cpcart.text_colours(
-        game, bool(options.get("mono")))
+    mono = bool((conv or {}).get("mono") or options.get("mono"))
+    text_ink, highlight_ink, text_bg = cpcart.text_colours(game, mono)
     return cpcart.preview_bytes(path, conv, options, text_ink, highlight_ink,
                                 text_bg)
 
