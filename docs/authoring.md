@@ -152,38 +152,38 @@ overrides the prompt line above the input ("Enter the password:" by default).
     menu: popup             # optional: options/items in a SPACE dialog
     ## next
     art_rows: 10            # even 8..16 (default 10); Layer 2 256-colour band
-    dither: floyd           # off|floyd only
+    dither: floyd           # full list
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour
     ## sms
     art_rows: 12            # default 12; always uses the action dialog
-    dither: floyd           # off|floyd only
+    dither: floyd           # full list
     ## cpc
     mode: 1                 # video mode 0|1|2 (default 1)
     columns: 32             # text columns 32|40|62 (default 32)
     art_rows: 12            # default 12; 14/16 need mode 2
-    dither: off             # off|floyd in modes 0/2; mode 1 always dithers
+    dither: off             # full list in modes 0/2; mode 1 always dithers
     menu: popup             # optional: options/items in a SPACE dialog
     ## cpc464
     mode: 1                 # same mode/columns/art_rows options as cpc
     columns: 32
     art_rows: 8             # default 8; art is streamed from the disk
-    dither: off             # off|floyd in modes 0/2; mode 1 always dithers
+    dither: off             # full list in modes 0/2; mode 1 always dithers
     menu: popup             # optional: options/items in a SPACE dialog
     ## msx2
     columns: 64             # text columns 64|80 (default 64)
     art_rows: 12            # default 12
-    dither: floyd           # off|floyd only
+    dither: floyd           # full list
     menu: popup             # optional: options/items in a SPACE/button-2 dialog
     ## gb
     art_rows: 8             # 8 (default 8); Game Boy Color action dialog
-    dither: floyd           # off|floyd only
+    dither: floyd           # full list
     ## c64
     art_rows: 8             # 8|10|12 (default 8); C64 action dialog
-    dither: floyd           # off|floyd only
+    dither: floyd           # full list
     ## nes
     art_rows: 10            # 8|10|12 (default 10); NES action dialog
-    dither: floyd           # off|floyd only
+    dither: floyd           # full list
     ## oric
     art_rows: 8             # 8|10|12 (default 8)
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
@@ -191,7 +191,7 @@ overrides the prompt line above the input ("Enter the password:" by default).
     ## web
     art_rows: 10            # novel band rows, even (default 10)
     mono: on                # optional: bake dithered B&W art + white text
-    dither: bayer2          # used by mono; off becomes bayer2
+    dither: bayer2          # mono art only; off becomes bayer2
 
 A build compiles the selected systems in the system-list display order (ZX 128K, ZX 48K, Next, CPC 6128, CPC 464,
 MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color, Web); each system's log is separated
@@ -226,17 +226,18 @@ the Game tab's `text_ink:`; any colour token from the [text colours](#game-setti
 variant or `dim_black`…`dim_white` — selects an exact Spectrum ink. The boot password screen's game title uses the
 same colour.
 
-`dither:` (default `off`) picks how each pixel chooses between its cell's colours, per build system. The ZX 128K/48K,
-CPC, Oric and Web targets accept the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered
-matrices from coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
-error-diffusion kernels (jarvis smoothest, atkinson highest contrast). The other targets accept `off` or `floyd`
-(Floyd-Steinberg). Monochrome targets cannot honour `off` (a hard threshold would leave only black and white), so
-`zx48`, `oric` and a Web novel with **Black and white** substitute a 2x2 Bayer dither, and CPC Mode 1 substitutes a
-4x4 Bayer dither for its black/grey/white ramp. Web uses `dither:` only for its baked mono art; with Black and white
-off the novel keeps the full-colour source image. Set
-it in each system's block so one game can use an ordered pattern on ZX and Floyd-Steinberg where the palette is
-richer. Older files with a single `# Game dither:` line migrate it to each selected system on load; a per-art
-`dither:` is dropped, because art no longer owns that setting.
+`dither:` (default `off`) picks how each pixel chooses between its palette or cell colours, per build system. Every
+colour target accepts the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered matrices from
+coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
+error-diffusion kernels (jarvis smoothest, atkinson highest contrast). The per-cell/tile/block targets (ZX 48K,
+MSX1, GBC, C64 and NES) dither between the colours allowed for that cell; the fixed-palette targets dither across
+their whole palette. Monochrome targets cannot honour `off` (a hard threshold would leave only black and white), so
+`zx48`, `msx1`, `oric` and a Web novel with **Black and white** substitute a 2x2 Bayer dither, and CPC Mode 1
+substitutes a 4x4 Bayer dither for its black/grey/white ramp. Web uses `dither:` only for its baked mono art; with
+Black and white off the novel keeps the full-colour source image. Set it in each system's block so one game can use
+an ordered pattern on one machine and Floyd-Steinberg where the palette is richer. Older files with a single
+`# Game dither:` line migrate it to each selected system on load; a per-art `dither:` is dropped, because art no
+longer owns that setting.
 
 `margin:` (default `0`) adds a blank border on the left and right sides of the art band: `1` is one 8x8 cell (8
 pixels) per side. The whole picture is scaled down uniformly to the narrower inner width and centred, so its aspect

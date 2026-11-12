@@ -13,8 +13,8 @@ Next's AY player. The output is a NextZXOS `.nex` executable.
   palette is 9-bit RGB333; the converter uses Pillow median-cut (or a fixed
   16-colour palette when `palette: spectrum` is selected). `crop:` and the
   shared colour controls behave as on the ZX target. The `## next` system block
-  chooses `dither: off` (hard snap) or `dither: floyd` (Floyd-Steinberg). `match:` does not apply to
-  the 256-colour quantiser.
+  accepts the full `dither:` list (`off`, ordered/noise, or an error-diffusion kernel); palette selection
+  stays undithered and only pixel assignment changes. `match:` does not apply.
 - **Storage:** scene, inventory and song blobs are ZX0-compressed in 16K Next
   banks. Each art reserves three 16K banks (the band starts at Layer 2 row 8);
   palettes are packed 32 per bank. The build fails if the data needs bank 112

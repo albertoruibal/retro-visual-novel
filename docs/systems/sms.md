@@ -12,7 +12,9 @@
   planar 4bpp 8x8 tiles and is capped at 352 unique tiles; extra cells reuse the nearest tile.
 - **Conversion:** `tools/smsart.py` shares one converter between the editor preview and the build. An explicit `crop:`
   keeps its full width and re-centres the vertical window to the band aspect, so the picture is not stretched. Each art
-  is stored raw in its own Sega-mapper 16K ROM bank as `[u16 ntiles][u8 palette[16]][u16 map][tiles]`.
+  is stored raw in its own Sega-mapper 16K ROM bank as `[u16 ntiles][u8 palette[16]][u16 map][tiles]`. The
+  `## sms dither:` option accepts the full list; palette selection stays undithered and only pixel assignment uses
+  the chosen scheme.
 - **Text colours:** palette entry 0 is the game's `text_bg:` (default black) and entry 1 its `text_ink:`; the sprite
   palette's entry 0 is the same background and entry 1 its `highlight_ink:` (the `0x0800` attribute selects it for
   selected options/words). All snap to the nearest SMS CRAM colour. The art uses the remaining 14 palette entries,
@@ -27,8 +29,8 @@
   into a data bank after the art and decoded into `SONG_WS_SIZE` bytes of RAM; PAUSE toggles music. The converter
   uses the pinned spectrumizer PT3 decoder, so a module with unsupported PT3 commands fails the build with a clear
   message instead of playing incorrectly.
-- **Options:** `art_rows`, `margin` (N 8x8-cell side borders, filled with `text_bg`). Text width is fixed at 30 columns;
-  dialog labels wrap at 28.
+- **Options:** `art_rows`, `margin` (N 8x8-cell side borders, filled with `text_bg`), `dither` (full list). Text
+  width is fixed at 30 columns; dialog labels wrap at 28.
 - **Controls:** D-pad up/down scrolls long text, or moves between highlighted words when it fits; left/right moves
   between highlighted words. Button 2 confirms and button 1 opens/closes the options/items dialog.
 - **Build:** `zcc +sms -clib=new` plus `build/port_banks.asm` (and `port_song.asm` + `-pragma-define:CRT_ENABLE_RST=128`

@@ -132,11 +132,12 @@ def inset_band(im, margin=0, fill=(0, 0, 0)):
     out.paste(content, (px, (h - inner_h) // 2))
     return out
 
-# Selectable dithering schemes for NIRVANA+ art. After a cell's two colours are
-# fixed, a pointwise scheme inked each pixel when its ink fraction db/(da+db)
-# exceeds a threshold at its absolute (x,y); an error-diffusion scheme instead
-# diffuses each pixel's error to its not-yet-visited neighbours. `off` is the
-# hard nearest-colour snap and the default. See ``nirvana_band``.
+# Selectable dithering schemes shared by every colour converter. After a
+# palette or cell's colours are fixed, a pointwise scheme inks each pixel when
+# its ink fraction db/(da+db) exceeds a threshold at its absolute (x,y); an
+# error-diffusion scheme instead diffuses each pixel's error to its
+# not-yet-visited neighbours. `off` is the hard nearest-colour snap and the
+# default. See ``dither_grid`` and ``nirvana_band``.
 #   bayer2   - 2x2 ordered (Bayer): coarsest, chunkiest texture
 #   bayer4   - 4x4 ordered (Bayer): visible fine texture
 #   bayer8   - 8x8 ordered (Bayer): finer gradients, slightly stronger texture
@@ -259,6 +260,19 @@ def _noise_value(x, y):
     return (h & 0xffffff) / float(0x1000000)
 
 
+def threshold_at(mode, x, y):
+    """Dither threshold in [0,1) at absolute pixel ``(x, y)``.
+
+    Ordered modes tile their matrix across the image; ``noise`` uses a fixed
+    pseudo-random field.
+    """
+    if mode == "noise":
+        return _noise_value(x, y)
+    m = {"bayer2": BAYER2, "bayer8": BAYER8}.get(mode, BAYER4)
+    n = len(m)
+    return m[y % n][x % n]
+
+
 _THRESH_CACHE = {}
 
 
@@ -275,14 +289,8 @@ def _threshold_grid(mode, rows=None):
     key = (mode, h)
     if key in _THRESH_CACHE:
         return _THRESH_CACHE[key]
-    if mode == "noise":
-        grid = [[_noise_value(x, y) for x in range(BAND_W)]
-                for y in range(h)]
-    else:
-        m = {"bayer2": BAYER2, "bayer8": BAYER8}.get(mode, BAYER4)
-        n = len(m)
-        grid = [[m[y % n][x % n] for x in range(BAND_W)]
-                for y in range(h)]
+    grid = [[threshold_at(mode, x, y) for x in range(BAND_W)]
+            for y in range(h)]
     _THRESH_CACHE[key] = grid
     return grid
 
@@ -591,22 +599,14 @@ def to_mono_image(im, dither=DEFAULT_DITHER):
     return out
 
 
-def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
-          palette_colors=None, margin=0, fill=(0, 0, 0)):
-    """Quantise a PIL image to a BAND_W x band-height grid of SPEC indices.
-
-    The source is cropped to its ``crop`` rectangle (``None`` = the centred
-    band-aspect window), scaled to the band (``rows`` 16px tile rows; default
-    5 = 256x80) and optionally colour-adjusted / palette-reduced. See
-    ``_fit_band`` and ``_prepare_band``.
-    """
-    im = _prepare_band(im, crop, rows, adjust, palette, palette_colors,
-                       margin, fill)
+def _quant_image(im):
+    """Nearest-Spectrum-colour grid for an already prepared band image."""
     grid = []
     px = im.load()
-    for y in range(band_h(rows)):
+    w, h = im.size
+    for y in range(h):
         row = []
-        for x in range(BAND_W):
+        for x in range(w):
             r, g, b = px[x, y]
             best, bd = 0, 1 << 30
             for k, (pr, pg, pb) in enumerate(SPEC):
@@ -616,6 +616,167 @@ def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
             row.append(best)
         grid.append(row)
     return grid
+
+
+def quant(im, crop=None, rows=None, adjust=None, palette=DEFAULT_PALETTE,
+          palette_colors=None, margin=0, fill=(0, 0, 0)):
+    """Quantise a PIL image to a BAND_W x band-height grid of SPEC indices.
+
+    The source is cropped to its ``crop`` rectangle (``None`` = the centred
+    band-aspect window), scaled to the band (``rows`` 16px tile rows; default
+    5 = 256x80) and optionally colour-adjusted / palette-reduced. See
+    ``_fit_band`` and ``_prepare_band``.
+    """
+    return _quant_image(_prepare_band(im, crop, rows, adjust, palette,
+                                      palette_colors, margin, fill))
+
+
+def _nearest_rgb(color, palette, match=DEFAULT_MATCH):
+    """Index of the nearest RGB colour in ``palette``."""
+    best, bestd = 0, None
+    for k, ref in enumerate(palette):
+        d = _dist_py(color, ref, match)
+        if bestd is None or d < bestd:
+            best, bestd = k, d
+    return best
+
+
+def _two_nearest_rgb(color, palette, match=DEFAULT_MATCH):
+    """Two nearest distinct colours: ``(ia, ib, da, db)``."""
+    ia = ib = 0
+    da = db = None
+    for k, ref in enumerate(palette):
+        if da is not None and ref == palette[ia]:
+            continue
+        d = _dist_py(color, ref, match)
+        if da is None or d < da:
+            db, ib = da, ia
+            da, ia = d, k
+        elif db is None or d < db:
+            db, ib = d, k
+    if db is None:
+        return ia, ia, da or 0.0, da or 0.0
+    return ia, ib, da, db
+
+
+def _dither_python(im, palette, mode, match):
+    w, h = im.size
+    px = im.load()
+    out = [0] * (w * h)
+    fixed = not callable(palette)
+    if mode in _DIFFUSE:
+        err = [[list(px[x, y]) for x in range(w)] for y in range(h)]
+        wdiv, taps = _DIFFUSE[mode]
+        for y in range(h):
+            for x in range(w):
+                pal = palette if fixed else palette(x, y)
+                value = err[y][x]
+                k = _nearest_rgb(value, pal, match)
+                out[y * w + x] = k
+                kr, kg, kb = pal[k]
+                er, eg, eb = value[0] - kr, value[1] - kg, value[2] - kb
+                for ox, oy, wgt in taps:
+                    x2, y2 = x + ox, y + oy
+                    if 0 <= x2 < w and 0 <= y2 < h:
+                        q = err[y2][x2]
+                        q[0] += er * wgt / wdiv
+                        q[1] += eg * wgt / wdiv
+                        q[2] += eb * wgt / wdiv
+        return out
+    for y in range(h):
+        for x in range(w):
+            pal = palette if fixed else palette(x, y)
+            color = px[x, y]
+            if mode == "off":
+                out[y * w + x] = _nearest_rgb(color, pal, match)
+                continue
+            ia, ib, da, db = _two_nearest_rgb(color, pal, match)
+            total = da + db
+            frac = db / total if total else 0.5
+            out[y * w + x] = ib if frac > threshold_at(mode, x, y) else ia
+    return out
+
+
+def _dither_fixed_numpy(im, palette, mode, match, np):
+    px = np.asarray(im, dtype=np.int32)
+    h, w, _ = px.shape
+    # Pointwise schemes choose between the two nearest distinct colours, so
+    # duplicated palette entries are collapsed first (the first index wins).
+    seen = {}
+    unique = []
+    unique_index = []
+    for i, color in enumerate(palette):
+        key = tuple(int(v) for v in color)
+        if key not in seen:
+            seen[key] = len(unique)
+            unique.append(key)
+            unique_index.append(i)
+    upal = np.asarray(unique, dtype=np.int32)
+    if mode in _DIFFUSE:
+        err = px.astype(np.float64)
+        out = np.empty((h, w), dtype=np.intp)
+        wdiv, taps = _DIFFUSE[mode]
+        pal = np.asarray(palette, dtype=np.float64)
+        for y in range(h):
+            for x in range(w):
+                value = err[y, x]
+                k = int(np.argmin(((pal - value) ** 2).sum(axis=1)))
+                out[y, x] = k
+                delta = value - pal[k]
+                for ox, oy, wgt in taps:
+                    x2, y2 = x + ox, y + oy
+                    if 0 <= x2 < w and 0 <= y2 < h:
+                        err[y2, x2] += delta * (wgt / wdiv)
+        return out.ravel().tolist()
+    best_d = np.full((h, w), 1 << 30, dtype=np.int32)
+    best_i = np.zeros((h, w), dtype=np.intp)
+    second_d = np.full((h, w), 1 << 30, dtype=np.int32)
+    second_i = np.zeros((h, w), dtype=np.intp)
+    for k, ref in enumerate(upal):
+        d = ((px - ref) ** 2).sum(axis=2)
+        better = d < best_d
+        second_d[better] = best_d[better]
+        second_i[better] = best_i[better]
+        best_d[better] = d[better]
+        best_i[better] = k
+        other = (~better) & (d < second_d)
+        second_d[other] = d[other]
+        second_i[other] = k
+    if mode == "off":
+        chosen = best_i
+    else:
+        thr = np.empty((h, w), dtype=np.float64)
+        for y in range(h):
+            for x in range(w):
+                thr[y, x] = threshold_at(mode, x, y)
+        total = best_d.astype(np.float64) + second_d.astype(np.float64)
+        frac = np.where(total > 0,
+                        second_d.astype(np.float64) / np.maximum(total, 1.0),
+                        0.5)
+        chosen = np.where(frac > thr, second_i, best_i)
+    mapping = np.asarray(unique_index, dtype=np.intp)
+    return mapping[chosen].ravel().tolist()
+
+
+def dither_grid(im, palette, dither=DEFAULT_DITHER, match=DEFAULT_MATCH):
+    """Map an RGB image to palette indices with ``dither``.
+
+    ``palette`` is a sequence of RGB colours or a callable ``(x, y)`` returning
+    the palette allowed at that pixel (for attribute cells, tiles or blocks).
+    ``off`` snaps to the nearest colour; ordered/noise schemes choose between
+    the two nearest distinct colours by the ink fraction ``db/(da+db)``; the
+    error-diffusion kernels raster the whole image with the shared ``_DIFFUSE``
+    tables. Returns a flat row-major list of indices.
+    """
+    mode = dither_mode(dither)
+    if callable(palette):
+        return _dither_python(im, palette, mode, match)
+    palette = [tuple(int(v) for v in color) for color in palette]
+    try:
+        import numpy as np
+    except ImportError:
+        return _dither_python(im, palette, mode, match)
+    return _dither_fixed_numpy(im, palette, mode, match, np)
 
 
 def nirvana_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, *,
@@ -864,18 +1025,22 @@ def _nearest_bank_spec(v, bank):
     return best
 
 
-def _attr_band(grid, cell_h):
+def _attr_band(grid, cell_h, dither=DEFAULT_DITHER, rows=None, source=None):
     """Re-quantise a SPEC grid under rectangular attribute cells of height
     ``cell_h`` (width is always 8).
 
     Each cell picks one ink and one paper colour plus a shared bright bit, by
-    exhaustive search over both bright banks; every pixel is then snapped to
-    whichever of the two is nearer. ``cell_h=8`` is the classic 8x8 character
-    cell; ``cell_h=1`` is Bifrost*'s per-scanline 8x1 cell.
+    exhaustive search over both bright banks. ``dither`` then assigns every
+    pixel to one of that cell's colours (``off`` snaps to the nearer one);
+    ``source`` is the prepared RGB band used by the ordered/diffusion schemes.
+    ``cell_h=8`` is the classic 8x8 character cell; ``cell_h=1`` is Bifrost*'s
+    per-scanline 8x1 cell.
     """
-    out = [[0] * len(grid[0]) for _ in range(len(grid))]
-    for cy in range(0, len(grid), cell_h):
-        for cx in range(0, len(grid[0]), 8):
+    h, w = len(grid), len(grid[0])
+    mode = dither_mode(dither)
+    pairs = {}
+    for cy in range(0, h, cell_h):
+        for cx in range(0, w, 8):
             best = None
             for bank in (0, 1):
                 counts = {}
@@ -898,7 +1063,11 @@ def _attr_band(grid, cell_h):
                 if best is None or err < best[0]:
                     best = (err, ink, paper, bank)
             _, ink, paper, bank = best
-            ink_rgb, paper_rgb = rgb(ink + 8 * bank), rgb(paper + 8 * bank)
+            pairs[(cy, cx)] = (ink + 8 * bank, paper + 8 * bank)
+    out = [[0] * w for _ in range(h)]
+    if mode == "off" or source is None:
+        for (cy, cx), (ink, paper) in pairs.items():
+            ink_rgb, paper_rgb = rgb(ink), rgb(paper)
             for y in range(cy, cy + cell_h):
                 for x in range(cx, cx + 8):
                     r, g, b = rgb(grid[y][x])
@@ -906,24 +1075,38 @@ def _attr_band(grid, cell_h):
                           + (b - ink_rgb[2]) ** 2)
                     dp = ((r - paper_rgb[0]) ** 2 + (g - paper_rgb[1]) ** 2
                           + (b - paper_rgb[2]) ** 2)
-                    out[y][x] = ink + 8 * bank if di <= dp else paper + 8 * bank
+                    out[y][x] = ink if di <= dp else paper
+        return out
+
+    def palette_at(x, y):
+        ink, paper = pairs[((y // cell_h) * cell_h, (x // 8) * 8)]
+        return (rgb(ink), rgb(paper))
+
+    flat = dither_grid(source, palette_at, mode)
+    for (cy, cx), (ink, paper) in pairs.items():
+        for y in range(cy, cy + cell_h):
+            base = y * w
+            for x in range(cx, cx + 8):
+                out[y][x] = ink if flat[base + x] == 0 else paper
     return out
 
 
-def classic_band(im, crop=None, rows=None, adjust=None,
+def classic_band(im, crop=None, dither=DEFAULT_DITHER, rows=None, adjust=None,
                  palette=DEFAULT_PALETTE, palette_colors=None, margin=0,
                  fill=(0, 0, 0)):
     """Quantise to a 256x(16*rows) SPEC grid under standard 8x8 attributes.
 
     Each 8x8 character cell gets one ink and one paper colour and a shared
     bright bit -- the classic Spectrum attribute-clash look, the plain
-    alternative to NIRVANA+'s per-2-line bicolor. The optional colour
+    alternative to NIRVANA+'s per-2-line bicolor. ``dither`` assigns pixels
+    between the cell's two colours (see ``dither_grid``). The optional colour
     adjustments / palette pre-reduction (see ``_prepare_band``) apply as in
     NIRVANA+. Returns a band-height x BAND_W grid of SPEC indices.
     """
-    return _attr_band(quant(im, crop=crop, rows=rows, adjust=adjust,
-                            palette=palette, palette_colors=palette_colors,
-                            margin=margin, fill=fill), 8)
+    prepared = _prepare_band(im, crop, rows, adjust, palette, palette_colors,
+                             margin, fill)
+    return _attr_band(_quant_image(prepared), 8, dither=dither, rows=rows,
+                      source=prepared)
 
 
 def bifrost_band(im, crop=None, rows=None, adjust=None,

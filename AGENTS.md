@@ -301,8 +301,9 @@ There is no test suite and no configured linter. Verify by:
   `const art_data`/`inv_data` arrays in `build/scene_data.c` and linked into the main image, which may use
   `0x8000-0xFFFF` (32,768 B) because there is no engine at `0xDC03`.
   `tools/gen_scenes.py` runs with `SCENE_FLAT=1`, writes `build/scene_flat.bin` (scenes only, padded), and converts art
-  with `zxart.mono_band`, or with `zxart.classic_band` + `zxart.classic_band_blob` when `mono` is off; `off` dither
-  becomes `bayer2` for mono (see `zxart.mono_dither`). The band height is the independent
+  with `zxart.mono_band`, or with `zxart.classic_band` + `zxart.classic_band_blob` when `mono` is off; classic colour
+  art applies the full per-system dither list between each 8x8 cell's ink/paper, and `off` dither becomes `bayer2` for
+  mono (see `zxart.mono_dither`). The band height is the independent
   `## zx48 art_rows` option (`ART_LINES`), not the 128K `# Game art_lines`. An explicit `crop:` authored for the
   primary ZX band is re-fitted to the 48K aspect with `zxart.crop_for_band`, so a different band height never
   stretches the picture. `plat_load` decodes scenes from
@@ -360,7 +361,10 @@ There is no test suite and no configured linter. Verify by:
   the ordinary save writes it; its confirmed × deletes a candidate, repointing `image:` to the newest remaining file or
   clearing it when none remain (`server.delete_art_image`). `gen_images.py` writes `gen-<epoch>.png` and updates game.md
   too. `assets/gen` still holds the songs' `song_<id>.wav` previews, so the two roots are distinct.
-- **NIRVANA+ art conversion is dithered** (`zxart.nirvana_band`, used by both the build and the editor preview): after
+- **Art conversion is dithered on every colour target** (`zxart.dither_grid`, shared by the build and editor previews):
+  `dither_grid(im, palette_or_callable, mode)` handles a fixed palette or a per-pixel/cell palette, with the same
+  `off`/ordered/noise/error-diffusion semantics. Palette, tile and block choices stay undithered so `off` keeps the
+  old output; only pixel assignment changes. NIRVANA+ has its own byte-identical numpy/pure-Python implementation: after
   each 8x2 cell's ink/paper are chosen, pixels are assigned to them by a dither scheme, not a hard nearest test. The
   `dither:` setting is **per build system** (`## <id>` under `# Systems`, resolved by `scenefile.system_dither` and
   passed through `scenefile.conversion_options(..., target_id)`); it is no longer a `# Game` or per-art option. A
@@ -618,7 +622,9 @@ There is no test suite and no configured linter. Verify by:
   at `0x6000`, restores bank 0, then decodes into `scene_ws`/`inv_ws` in `BANK_0_H` at `0xE000` (the lower half of bank
   0 is used by the CRT and AY player). `src/next/next_isr.asm` installs an IM1 handler that calls `ay_vt2_play`
   through a switchable hook. The target uses `REGISTER_SP=0xc000`, a `__CODE_END_tail < 0xC000` guard, and requires
-  `_stage_ws` + the song workspace to fit the 8K window at `0x6000`. ZEsarUX is **not bundled**: `tools/build.py run
+  `_stage_ws` + the song workspace to fit the 8K window at `0x6000`. The palette is chosen from the undithered image
+  and `## next dither:` applies the full scheme list through `zxart.dither_grid`. ZEsarUX is **not bundled**:
+  `tools/build.py run
   <game> next` and `tools/spectrum.py run <game>.nex` use an installed ZEsarUX (`$ZESARUX`/`$RVN_ZESARUX`, the
   checkout symlink, or `PATH`) with the TBBlue machine. The editor Emulator tab does not list Next; the `.nex` is still
   served by `/api/artifact/...`. `system_next` is a build-time pseudo-flag, and `## next` supports `art_rows`, `menu`,
@@ -672,7 +678,8 @@ There is no test suite and no configured linter. Verify by:
   in banks 2+, with scene/inventory data in bank 1 and a bit-reversed Pixel Operator font bank after the art. The
   platform layer (`src/msx1/plat_msx1.c`, `msx1_vram.asm`) uses Graphics II (32x24 tiles), copies the font into all
   three pattern banks, and writes art name/colour entries and 8x8 patterns into banks 0/1. `mono: on` builds a
-  dithered white-on-black picture and forces white text; `dither:` selects the mono scheme; `menu: popup` selects the
+  dithered white-on-black picture and forces white text; `dither:` selects the colour row-cell or mono scheme (full
+  list); `menu: popup` selects the
   overlay dialog. The target has no music yet. ZEsarUX is not bundled; use WebMSX (`MACHINE=MSX1`) or openMSX.
 - **MSX2 runtime:** `tools/gen_port.py --msx2` converts each band with `tools/msx2art.py` and stores the
   scenes/inventory blob in ASCII16 ROM bank 1; each art gets one 16K bank from 2 up and `port_art.asm` maps them with
@@ -703,6 +710,8 @@ There is no test suite and no configured linter. Verify by:
   workspace, restores bank 1, and the VDP IM1 ISR drives the VT2 player at 50 Hz (five of six frames on a 60 Hz NTSC
   VDP, detected from the `NT` bit of the BIOS `REG9SAV` shadow at `0xFFE8`, every frame on 50 Hz PAL). Screen 7 and
   the V9938 palette are set through the BIOS/CHGMOD path; `plat_msx2.c` writes VRAM with R#14 page handling.
+  `## msx2 dither:` accepts the full list; the 13 art colours are chosen from the undithered image and only pixel
+  assignment is dithered.
 - **Game Boy Color runtime:** `tools/gen_port.py --gb` stores scene/inventory blobs raw (no SM83 ZX0 decoder) in MBC1
   banks: `port_data.c` metadata stays in bank 0, scenes/inventory start at bank 1 and art follows. `plat_gb.c` draws a
   20x18 screen (title row 0, art rows 1..`gb_art_rows`, text from `1+art_rows` through row 17). The CGB background has
@@ -718,8 +727,9 @@ There is no test suite and no configured linter. Verify by:
   shades. Art conversion is `tools/gbart.py`: 160 x `8*art_rows` 2bpp tiles, at most 158 art tiles, map entries offset
   by 96, and an art blob of `[u8 ntiles][u8 npalettes][u16 palettes[npalettes][4]][tiles][map][attrs]`. Each tile is
   quantised to four colours and the tile palettes are clustered into at most six shared palettes, ordered light-to-
-  dark for the DMG fallback; `art_rows` is 8. Selection uses the configured highlight palette on CGB
-  and keeps the `>` marker so it also works on a monochrome Game Boy.
+  dark for the DMG fallback; `art_rows` is 8. `## gb dither:` accepts the full list and dithers between each tile's
+  four colours; tile palettes are still clustered from the undithered image. Selection uses the configured highlight
+  palette on CGB and keeps the `>` marker so it also works on a monochrome Game Boy.
 - **Commodore 64 runtime:** `tools/targets/c64.py` builds a `cl65 -t c64` `.prg` (cc65, not z88dk).
   `tools/gen_port.py --c64` emits `build/port_data.c/h`, the bit-reversed `build/port_font8.h` and the compressed
   scene/inventory/art arrays; `src/6502/zx0.c` decodes them and `src/c64/plat_c64.c` renders through the VIC-II. The
@@ -731,8 +741,10 @@ There is no test suite and no configured linter. Verify by:
   with BSS at `$AC00-$C7FF` and the stack at `$C800-$CFFF`. The loaded `.prg` must end below `$A000`; the target checks
   its size. Art is `tools/c64art.py`: a 160 x `8*art_rows` logical band (previewed at 320 physical pixels),
   4-colour cells with at most 160 deduplicated tiles, and a `[u8 ntiles][u8 c22][u8 c23][tiles][map][colors]` blob.
-  `art_rows` is 8/10/12 (default 8). `c64_any_key_down` in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc`
-  read keys. There is no boot password and no music yet (`N_SONGS=0` for this target).
+  `art_rows` is 8/10/12 (default 8). `## c64 dither:` accepts the full list and dithers between each 4x8 cell's four
+  colours; the global colours and per-cell extra colour are still picked from the undithered image. `c64_any_key_down`
+  in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc` read keys. There is no boot password and no music yet
+  (`N_SONGS=0` for this target).
 - **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1),
   installs the custom NMI vector and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed
   scene/inventory arrays plus the uncompressed art maps/attributes/palettes in `port_data.c/h` and
@@ -752,8 +764,9 @@ There is no test suite and no configured linter. Verify by:
   serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
   directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
   flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19 ppubuf API (the version in the editor
-  Docker image). `art_rows` is 8/10/12 (default 10); the 32KB PRG is the main size limit. There is no boot password and
-  no music yet.
+  Docker image). `## nes dither:` accepts the full list and dithers between each 2x2-tile block's four colours; the
+  block palettes are still chosen from the undithered image. `art_rows` is 8/10/12 (default 10); the 32KB PRG is the main size
+  limit. There is no boot password and no music yet.
 - **Oric Atmos runtime:** `tools/targets/oric.py` builds a cc65 `atmos` `.tap` (the Oric is the third 6502 target).
   The HIRES bitmap is 240x200 at `$A000`; text is software-rendered with a generated 6x8 font, the title is row 0,
   the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 8/10/12 (default 8), `PLAT_ROWS=25`,
@@ -778,7 +791,8 @@ There is no test suite and no configured linter. Verify by:
   clears only the rows below the art. Background palette entry 0 is the game's `text_bg:` and entry 1 its `text_ink:`;
   sprite-palette entry 0 is the same background and entry 1 its `highlight_ink:` (all snapped to CRAM);
   `smsart.text_colours` bakes them into every art palette and the editor preview, so changing them rebakes the art.
-  The text layer uses z88dk's newlib `arch/sms.h` helpers, not SMSlib.
+  `## sms dither:` accepts the full list; the 14-colour art palette is chosen from the undithered image and only pixel
+  assignment is dithered. The text layer uses z88dk's newlib `arch/sms.h` helpers, not SMSlib.
 - **Portable under-art dialog:** `PORT_OVERLAY_MENU` makes `show_scene` give the text every row from `PORT_TEXT_TOP`
   to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color, Commodore
   64 and NES;

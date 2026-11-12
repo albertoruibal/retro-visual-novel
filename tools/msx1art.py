@@ -238,21 +238,47 @@ def _pack_cells(cell_rows):
 
 
 def _colour_blob(im, conv, art_rows, text_bg):
+    import zxart
+
     im = _prepared(im, conv, art_rows, _bg_rgb(text_bg))
     indexed = _quantize(im)
     width = 256
+    art_rows = int(art_rows)
+    pairs = {}
+    for cy in range(art_rows):
+        for cx in range(ART_COLS):
+            for y in range(8):
+                row = [indexed[(cy * 8 + y) * width + cx * 8 + x]
+                       for x in range(8)]
+                pairs[(cy, cx, y)] = _row_pair(row)
+    mode = zxart.dither_mode(conv.get("dither", "off"))
+    flat = None
+    if mode != "off":
+        def palette_at(x, y):
+            _bit, ink, paper = pairs[(y // 8, x // 8, y % 8)]
+            return (TMS_RGB[ink], TMS_RGB[paper])
+
+        flat = zxart.dither_grid(im, palette_at, mode)
+    px = im.load()
     cell_rows = []
-    for cy in range(int(art_rows)):
+    for cy in range(art_rows):
         for cx in range(ART_COLS):
             bits = []
             colours = []
             rgb_rows = []
             for y in range(8):
-                row = []
-                for x in range(8):
-                    row.append(indexed[(cy * 8 + y) * width + cx * 8 + x])
-                rgb_rows.append([TMS_RGB[q + 1] for q in row])
-                bit, ink, paper = _row_pair(row)
+                bit, ink, paper = pairs[(cy, cx, y)]
+                if flat is not None:
+                    bit = 0
+                    for x in range(8):
+                        if flat[(cy * 8 + y) * width + cx * 8 + x] == 0:
+                            bit |= 0x80 >> x
+                    rgb_rows.append([px[cx * 8 + x, cy * 8 + y]
+                                     for x in range(8)])
+                else:
+                    row = [indexed[(cy * 8 + y) * width + cx * 8 + x]
+                           for x in range(8)]
+                    rgb_rows.append([TMS_RGB[q + 1] for q in row])
                 bits.append(bit)
                 colours.append(colour_byte(ink, paper))
             cell_rows.append((bytes(bits), colours, rgb_rows))

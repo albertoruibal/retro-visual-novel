@@ -291,18 +291,8 @@ def _select_palettes(hists, bg, limit=ART_PALETTES):
     return selected[:limit]
 
 
-def _nearest(color, palette):
-    best, bestd = 0, None
-    for i, ref in enumerate(palette):
-        d = _dist2(color, ref)
-        if bestd is None or d < bestd:
-            best, bestd = i, d
-    return best
-
-
-def _tile_pattern(pixels, palette):
-    """Map 64 RGB pixels to a 16-byte NES 2bpp planar tile."""
-    codes = [_nearest(c, palette) for c in pixels]
+def _pattern_codes(codes):
+    """Map 64 four-colour codes to a 16-byte NES 2bpp planar tile."""
     out = bytearray(16)
     for y in range(8):
         lo = hi = 0
@@ -432,7 +422,6 @@ def _plan(im, conv, art_rows, text_bg):
     indexed = im.quantize(palette=_palette_image(),
                           dither=Image.Dither.NONE)
     indices = [i % len(NES_PALETTE) for i in indexed.getdata()]
-    rgb = list(im.convert("RGB").getdata())
 
     hists = []
     block_rows = art_rows // 2
@@ -450,12 +439,17 @@ def _plan(im, conv, art_rows, text_bg):
                         key=lambda i: _palette_cost(hist, centers[i], bg))
                     for hist in hists]
 
+    block_palettes = [(bg_rgb,) + tuple(
+        NES_PALETTE[c] for c in centers[block_choice[bi]])
+        for bi in range(len(block_choice))]
+
+    def palette_at(x, y):
+        return block_palettes[(y // 16) * 16 + x // 16]
+
+    codes = zxart.dither_grid(im, palette_at, conv.get("dither", "off"))
     pattern_grid = [[None] * COLS for _ in range(art_rows)]
     for by in range(block_rows):
         for bx in range(16):
-            bi = by * 16 + bx
-            palette = (bg_rgb,) + tuple(
-                NES_PALETTE[c] for c in centers[block_choice[bi]])
             for ty in range(2):
                 for tx in range(2):
                     txpix = bx * 2 + tx
@@ -463,8 +457,8 @@ def _plan(im, conv, art_rows, text_bg):
                     cell = []
                     for y in range(8):
                         row = (typix * 8 + y) * WIDTH + txpix * 8
-                        cell.extend(rgb[row:row + 8])
-                    pattern_grid[typix][txpix] = _tile_pattern(cell, palette)
+                        cell.extend(codes[row:row + 8])
+                    pattern_grid[typix][txpix] = _pattern_codes(cell)
     flat = [pattern for row in pattern_grid for pattern in row]
     tiles, index = _select_tiles(flat)
     tilemap = [index[pattern] for pattern in flat]

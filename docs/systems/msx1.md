@@ -8,8 +8,8 @@
   font is stored LSB-left, Graphics II reads MSB-left) and copies the 768-byte font into all three 2 KB pattern
   banks. Scene text scrolls with UP/DOWN; with `menu: popup` the options/items live in the `SPACE`/fire dialog.
 - **Black and white:** `mono: on` renders the picture as a dithered white-on-black 1-bit band and forces white text
-  on the black background, instead of the 15-colour palette. The `dither:` setting selects the mono scheme (`off`
-  becomes a 2x2 Bayer dither, like the 48K Spectrum).
+  on the black background, instead of the 15-colour palette. Colour art uses the full `dither:` list between each
+  8x1 row's ink and paper; in mono, `off` becomes a 2x2 Bayer dither, like the 48K Spectrum.
 - **Conversion:** `tools/msx1art.py` fits the source to the 256 x `8*art_rows` band. For colour it quantises to the
   TMS palette, picks the best two colours for each 8x1 row, deduplicates the 8x8 patterns (at most 160 art tiles)
   and reuses the nearest pattern when the cap is reached. A compiled art blob is
@@ -22,7 +22,7 @@
 - **Sound:** the MSX1 target currently builds with no songs (the PSG player is not wired up yet). Use the MSX2
   target for music.
 - **Options:** `art_rows` (8, 10 or 12, default 10), `margin` (N 8x8-cell side borders filled with the background),
-  `mono` (Black and white), `dither` (mono mode) and `menu: popup` for the action dialog.
+  `mono` (Black and white), `dither` (colour and mono) and `menu: popup` for the action dialog.
 - **Build:** `zcc +msx -subtype=rom` with `-pragma-define:MAPPER_ASCII16`, output `<slug>-msx1.rom`. The game needs an
   ASCII16-capable cartridge/slot.
 - **Emulator:** WebMSX with C-BIOS in MSX1 mode (`emulator/msx`, `MACHINE=MSX1`).

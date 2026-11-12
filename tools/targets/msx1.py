@@ -138,8 +138,11 @@ TARGET = Target(
                           "TMS9918A's 15-colour palette."),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
                      scenefile.DITHER_MODES,
-                     help="Only used by Black and white; off becomes a 2x2 "
-                          "Bayer dither, as on the 48K Spectrum."),
+                     help="Colour art dithers between each 8x1 row's ink and "
+                          "paper; Black and white substitutes a 2x2 Bayer "
+                          "dither for off. bayer2/bayer4/bayer8 and noise "
+                          "are ordered schemes; floyd, atkinson, jarvis, "
+                          "stucki and sierra diffuse the error."),
         TargetOption("menu", "Pop-up options", "bool", False,
                      help="Use the SPACE-key or joystick button 2 dialog "
                           "instead of pinned options and the inventory row.",

@@ -9,8 +9,9 @@ upload 256 RGB333 entries.
 
 The converter deliberately reuses ``zxart``'s crop and source-adjustment code
 so the Art tab's crop box and colour controls behave the same on every target.
-Pillow's median-cut quantiser picks the palette; ``dither: off`` uses a hard
-nearest snap and any other non-off dither setting uses Floyd-Steinberg.
+Pillow's median-cut quantiser picks the palette; the system's ``dither:``
+setting then assigns pixels to it with the full shared scheme list (off,
+ordered/noise, or an error-diffusion kernel).
 """
 from __future__ import annotations
 
@@ -68,20 +69,37 @@ def _spectrum_palette():
 def _quantise(im, conv):
     """Return a P-mode image (<=256 colours) plus its RGB palette."""
     mode = conv.get("palette", "none")
-    n = 256
     if mode == "spectrum":
-        n = 16
-    elif mode == "adaptive":
-        n = max(2, min(256, conv.get("palette_colors", 256)))
-    dither = (Image.Dither.NONE if conv.get("dither", "off") == "off"
-              else Image.Dither.FLOYDSTEINBERG)
-    if mode == "spectrum":
-        pal = Image.new("P", (1, 1))
-        pal.putpalette(_spectrum_palette())
-        q = im.quantize(palette=pal, dither=dither)
+        palette = list(zxart.SPEC)
+        n = len(palette)
     else:
+        n = 256
+        if mode == "adaptive":
+            n = max(2, min(256, conv.get("palette_colors", 256)))
+        palette = None
+    if zxart.dither_mode(conv.get("dither", "off")) == "off":
+        if palette is not None:
+            pal_img = Image.new("P", (1, 1))
+            pal_img.putpalette(_spectrum_palette())
+            return im.quantize(palette=pal_img, dither=Image.Dither.NONE)
+        return im.quantize(colors=n, method=Image.Quantize.MEDIANCUT,
+                           dither=Image.Dither.NONE)
+    if palette is None:
         q = im.quantize(colors=n, method=Image.Quantize.MEDIANCUT,
-                        dither=dither)
+                        dither=Image.Dither.NONE)
+        raw = q.getpalette() or []
+        used = sorted(q.getcolors(256) or [(1, 0)], key=lambda item: item[1])
+        palette = [tuple(raw[i * 3:i * 3 + 3]) for _count, i in used]
+        if not palette:
+            palette = [(0, 0, 0)]
+    indices = zxart.dither_grid(im, palette, conv.get("dither", "off"))
+    flat = []
+    for rgb in palette:
+        flat.extend(rgb)
+    flat += [0] * (768 - len(flat))
+    q = Image.new("P", im.size)
+    q.putpalette(flat)
+    q.putdata(indices)
     return q
 
 

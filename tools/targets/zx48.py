@@ -53,7 +53,8 @@ def _preview(src, conv, options, game=None):
             margin=flat_conv.get("margin", 0), fill=(0, 0, 0))
     else:
         img = zxart.grid_to_rgb_image(zxart.classic_band(
-            im, crop=flat_conv.get("crop"), rows=rows,
+            im, crop=flat_conv.get("crop"),
+            dither=flat_conv.get("dither", "off"), rows=rows,
             adjust=flat_conv.get("adjust"),
             palette=flat_conv.get("palette", "none"),
             palette_colors=flat_conv.get("palette_colors"),
@@ -132,9 +133,11 @@ TARGET = Target(
         TargetOption(
             "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
             scenefile.DITHER_MODES,
-            help="The 1-bit band cannot honour off, so an off choice becomes "
-                 "a 2x2 Bayer dither. Every ordered and error-diffusion scheme "
-                 "is available; coarser ordered schemes compress best."),
+            help="Colour art dithers between each 8x8 cell's ink and paper; "
+                 "off snaps to the nearer one. The 1-bit mono band cannot "
+                 "honour off, so it becomes a 2x2 Bayer dither. Every ordered "
+                 "and error-diffusion scheme is available; coarser ordered "
+                 "schemes compress best."),
         TargetOption(
             "menu", "Pop-up options", "bool", False,
             help="Show scene options and held items in a SPACE-key dialog "

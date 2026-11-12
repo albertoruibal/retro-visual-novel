@@ -635,9 +635,9 @@ def _validate(doc, slug):
                            "msg": f"unknown title colour '{val}'; using the "
                                   "text colour"})
 
-    # Dither is selected per build system. A value outside that system's
-    # supported list silently falls back (or is treated as Floyd-Steinberg by
-    # the binary targets), so report it against the system's block.
+    # Dither is selected per build system. Every target now accepts the full
+    # list, so a value outside the system's choices (or an unknown name) is
+    # reported and falls back to off in the converter.
     for sid in selected_systems:
         tgt = targets.get_target(sid)
         option = next((o for o in (tgt.options if tgt else ())
@@ -651,7 +651,7 @@ def _validate(doc, slug):
         allowed = {str(c).strip().lower() for c in option.choices}
         if val in allowed:
             continue
-        effective = "off" if val not in scenefile.DITHER_MODES else "floyd"
+        effective = "off"
         issues.append({"level": "warn", "section": "game", "id": "dither",
                        "target": sid,
                        "msg": f"dither '{val}' is not available on "

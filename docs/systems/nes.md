@@ -21,7 +21,9 @@
   quantization error and emits the full 64-byte nametable attribute table.
 - **Art:** `tools/nesart.py` fits the source to 256 x `8 * art_rows`, preprocesses and quantises it to the NES
   palette, assigns one of the three art palettes per 2x2-tile block and deduplicates the 2bpp tiles into at most 160
-  patterns. The blob (uncompressed, in PRG ROM) is `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`; tile
+  patterns. The `## nes dither:` option accepts the full list and dithers between each block's four colours; the
+  block palettes are still chosen from the undithered image. The blob (uncompressed, in PRG ROM) is
+  `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`; tile
   patterns live in table 0 of the art's 8KB CHR ROM bank after the 96 font tiles. `margin:` adds N 8x8-cell borders
   on the left and right, filled with `text_bg`; the picture is scaled to the inner width with its aspect preserved.
   The editor preview and the ROM use the same converter.

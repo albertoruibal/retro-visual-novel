@@ -198,9 +198,11 @@ TARGET = Target(
                           "and force white text, instead of the V9938's "
                           "16-colour palette."),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
-                     scenefile.DITHER_BINARY_MODES,
-                     help="off uses a hard nearest-colour snap; floyd uses "
-                          "Floyd-Steinberg error diffusion."),
+                     scenefile.DITHER_MODES,
+                     help="off snaps to the nearest colour; bayer2/bayer4/"
+                          "bayer8 and noise ordered-dither the palette; floyd, "
+                          "atkinson, jarvis, stucki and sierra diffuse the "
+                          "error."),
         TargetOption("columns", "Text columns", "choice", 64, (64, 80),
                      "64 uses 8x8 glyphs across the full 512-pixel width; "
                      "80 uses 6-pixel cells."),

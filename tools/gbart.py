@@ -115,11 +115,6 @@ def _prepare(im, conv, art_rows, fill=(0, 0, 0)):
     return im
 
 
-def _dither_on(conv):
-    mode = str((conv or {}).get("dither") or "off").strip().lower()
-    return mode not in ("off", "none", "false", "0")
-
-
 def _luma(color):
     r, g, b = color
     return 299 * r + 587 * g + 114 * b
@@ -213,31 +208,6 @@ def _nearest(color, palette):
     return best, palette[best]
 
 
-def _map_tile(tile, palette, dither):
-    """Map one 8x8 tile to 0..3 indices, optionally with Floyd-Steinberg."""
-    pixels = list(tile.convert("RGB").getdata())
-    out = [0] * 64
-    if not dither:
-        for i, color in enumerate(pixels):
-            out[i], _ = _nearest(color, palette)
-        return out
-    work = [[float(c) for c in color] for color in pixels]
-    taps = ((1, 0, 7), (-1, 1, 3), (0, 1, 5), (1, 1, 1))
-    for y in range(8):
-        for x in range(8):
-            i = y * 8 + x
-            index, chosen = _nearest(work[i], palette)
-            out[i] = index
-            err = [work[i][k] - chosen[k] for k in range(3)]
-            for dx, dy, weight in taps:
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < 8 and 0 <= ny < 8:
-                    ni = ny * 8 + nx
-                    for k in range(3):
-                        work[ni][k] += err[k] * weight / 16.0
-    return out
-
-
 def _tile_cost(tile, palette):
     return sum(min(_dist2(color, ref) for ref in palette)
                for color in tile.convert("RGB").getdata())
@@ -264,15 +234,12 @@ def band_plan(im, conv=None, art_rows=DEFAULT_ART_ROWS,
     remap = {old: new for new, old in enumerate(used)}
     palettes = [centers[i] for i in used]
     tile_pal = [remap[i] for i in tile_pal]
-    dither = _dither_on(conv)
-    grid = [0] * (WIDTH * 8 * art_rows)
-    for index, tile in enumerate(tiles):
-        ty, tx = divmod(index, COLS)
-        values = _map_tile(tile, palettes[tile_pal[index]], dither)
-        for y in range(8):
-            row = (ty * 8 + y) * WIDTH + tx * 8
-            for x in range(8):
-                grid[row + x] = values[y * 8 + x]
+    import zxart
+
+    def palette_at(x, y):
+        return palettes[tile_pal[(y // 8) * COLS + (x // 8)]]
+
+    grid = zxart.dither_grid(im, palette_at, (conv or {}).get("dither", "off"))
     return {"grid": grid, "tile_pal": tile_pal, "palettes": palettes}
 
 

@@ -74,9 +74,10 @@ TARGET = Target(
         mono_option(),
         TargetOption(
             "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
-            scenefile.DITHER_BINARY_MODES,
-            help="off uses a hard nearest-colour snap; floyd uses "
-                 "Floyd-Steinberg error diffusion."),
+            scenefile.DITHER_MODES,
+            help="off uses a hard nearest-colour snap; bayer2/bayer4/bayer8 "
+                 "and noise ordered-dither the palette; floyd, atkinson, "
+                 "jarvis, stucki and sierra diffuse the error."),
         TargetOption(
             "menu", "Pop-up options", "bool", False,
             help="Show scene options and held items in a SPACE-key dialog "

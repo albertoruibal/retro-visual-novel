@@ -48,21 +48,6 @@ def _fit(im, crop, art_rows, width=512):
     return box
 
 
-def _prepared(im, crop, art_rows, dither, adjust):
-    import zxart
-    from PIL import Image
-    art_rows = int(art_rows)
-    im = _fit(im, crop, art_rows)
-    a = adjust or {}
-    im = zxart.preprocess(im, a.get("saturation", 1.0),
-                          a.get("contrast", 1.0),
-                          a.get("brightness", 1.0), a.get("gamma", 1.0))
-    if str(dither or "off").lower() != "off":
-        im = im.quantize(colors=16, method=Image.Quantize.MEDIANCUT,
-                         dither=Image.Dither.FLOYDSTEINBERG).convert("RGB")
-    return im
-
-
 def _rgb8(value):
     return (int(value) & 7) * 255 // 7
 
@@ -160,16 +145,17 @@ def _indexed(im, conv, text=None, highlight=None, bg=None):
 
     conv = conv or {}
     colors = _art_palette(im, text, highlight, bg)
-    rgb = []
-    for r, g, b in colors:
-        rgb.extend((_rgb8(r), _rgb8(g), _rgb8(b)))
-    pal_img = Image.new("P", (1, 1))
-    pal_img.putpalette(rgb)
-    dither = (Image.Dither.NONE
-              if str(conv.get("dither") or "off").lower() == "off"
-              else Image.Dither.FLOYDSTEINBERG)
-    q = im.quantize(palette=pal_img, dither=dither)
-    return list(q.getdata()), colors
+    if zxart.dither_mode(conv.get("dither", "off")) == "off":
+        rgb = []
+        for r, g, b in colors:
+            rgb.extend((_rgb8(r), _rgb8(g), _rgb8(b)))
+        pal_img = Image.new("P", (1, 1))
+        pal_img.putpalette(rgb)
+        q = im.quantize(palette=pal_img, dither=Image.Dither.NONE)
+        return list(q.getdata()), colors
+    palette = [(_rgb8(r), _rgb8(g), _rgb8(b)) for r, g, b in colors]
+    indexed = zxart.dither_grid(im, palette, conv.get("dither", "off"))
+    return indexed, colors
 
 
 def _pack(indexed, art_rows):

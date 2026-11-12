@@ -81,12 +81,6 @@ def _fit(im, crop, art_rows, width=256):
     return box
 
 
-def _dither(mode):
-    from PIL import Image
-    return (Image.Dither.NONE if str(mode or "off").lower() == "off"
-            else Image.Dither.FLOYDSTEINBERG)
-
-
 def band_indexed(im, conv=None, art_rows=12, text_ink=None, text_bg=None):
     """Return ``(indices, palette)`` for a 256 x (8*art_rows) SMS band.
 
@@ -123,17 +117,22 @@ def band_indexed(im, conv=None, art_rows=12, text_ink=None, text_bg=None):
                            + [0] * (768 - 6))
         indexed = im.quantize(palette=pal_img, dither=Image.Dither.NONE)
         return list(indexed.getdata()), [text_bg, text_ink] + [0] * 14
-    dither = _dither(conv.get("dither"))
-    q = im.quantize(colors=14, method=Image.Quantize.MEDIANCUT, dither=dither)
+    q = im.quantize(colors=14, method=Image.Quantize.MEDIANCUT,
+                    dither=Image.Dither.NONE)
     raw = q.getpalette()[:42]
     palette = [text_bg, text_ink] + [sms_color(raw[i:i + 3])
                                      for i in range(0, 42, 3)]
     palette += [0x00] * (16 - len(palette))
-    rgb = [c for value in palette for c in color_rgb(value)]
-    pal_img = Image.new("P", (1, 1))
-    pal_img.putpalette(rgb)
-    indexed = im.quantize(palette=pal_img, dither=dither)
-    return list(indexed.getdata()), palette
+    if zxart.dither_mode(conv.get("dither", "off")) == "off":
+        pal_img = Image.new("P", (1, 1))
+        pal_img.putpalette([c for value in palette
+                            for c in color_rgb(value)])
+        return list(im.quantize(palette=pal_img,
+                                dither=Image.Dither.NONE).getdata()), palette
+    indexed = zxart.dither_grid(
+        im, [color_rgb(value) for value in palette],
+        conv.get("dither", "off"))
+    return indexed, palette
 
 
 def _tile(grid, width, tx, ty):

@@ -149,9 +149,11 @@ TARGET = Target(
         art_margin_option(),
         mono_option(),
         TargetOption("dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
-                     scenefile.DITHER_BINARY_MODES,
-                     help="off uses a hard four-colour snap; floyd uses "
-                          "Floyd-Steinberg error diffusion."),
+                     scenefile.DITHER_MODES,
+                     help="off snaps to the nearest of each block's four "
+                          "colours; bayer2/bayer4/bayer8 and noise "
+                          "ordered-dither them; floyd, atkinson, jarvis, "
+                          "stucki and sierra diffuse the error."),
     ),
     build=_build,
     validate=_validate,

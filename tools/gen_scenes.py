@@ -141,7 +141,7 @@ game.md format (author-facing):
     art_rows: <even 8..16> # optional: independent 48K band height (10)
     ## sms
     art_rows: 8|10|12      # optional: SMS picture rows (12)
-    dither: off|floyd      # optional: dither for this system (off)
+    dither: <scheme>       # optional: dither for this system (off)
 
     # Art
     ## <art-id>
@@ -711,7 +711,8 @@ def load_art_blob(a, art_root, conv=None, rows=None, legacy_dir=None,
                     palette_colors=flat_conv.get("palette_colors"),
                     margin=flat_conv.get("margin", 0), fill=fill), path
             grid = zxart.classic_band(
-                im, crop=flat_conv.get("crop"), rows=rows,
+                im, crop=flat_conv.get("crop"),
+                dither=flat_conv.get("dither", "off"), rows=rows,
                 adjust=flat_conv.get("adjust"),
                 palette=flat_conv.get("palette", "none"),
                 palette_colors=flat_conv.get("palette_colors"),

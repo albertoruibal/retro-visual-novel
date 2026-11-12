@@ -24,8 +24,9 @@
   physical width as Screen 5's 256), so the source is fitted to the band's `256 x 8*art_rows` physical aspect and
   stretched into the pixel grid. An explicit `crop:` keeps its full width: the vertical window is re-centred to that
   aspect (clamped to the source), so it is neither stretched nor cropped sideways. The editor preview is doubled
-  vertically so it shows the physical proportions. Palette bytes are `red:3 << 4 | blue:3` followed
-  by `green:3`.
+  vertically so it shows the physical proportions. The `## msx2 dither:` option accepts the full list; palette
+  selection stays undithered and only pixel assignment uses the chosen scheme. Palette bytes are
+  `red:3 << 4 | blue:3` followed by `green:3`.
 - **Storage:** scene/inventory data lives in ASCII16 ROM bank 1. Each art gets its own 16K bank starting at bank 2: the
   blob is `[u8 palette[16*2]][u16 comp_len][ZX0 2048-byte strip] * art_rows`, so the runtime decompresses one 8-line
   strip at a time and writes it straight into VRAM. Songs are ZX0-compressed into ROM banks after the art banks
@@ -40,7 +41,7 @@
   60 Hz NTSC VDP (R#9 `NT` clear, read from the BIOS `REG9SAV` shadow) the ISR advances it five frames in six, while a
   50 Hz PAL VDP advances it every frame.
 - **Options:** `art_rows` (8, 10 or 12, default 12), `columns` (64 or 80, default 64), `margin` (N 8x8-cell side
-  borders, filled with `text_bg`) and `menu: popup` for the action dialog.
+  borders, filled with `text_bg`), `dither` (full list) and `menu: popup` for the action dialog.
 - **Build:** `zcc +msx -subtype=rom2`, then `build/port_art.asm`; output `<slug>.rom`. The scene/inventory and per-strip art
   blobs are ZX0-compressed.
 - **Emulator:** WebMSX with C-BIOS in MSX2 mode (`emulator/msx`).

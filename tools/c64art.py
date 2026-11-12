@@ -82,13 +82,6 @@ def text_colours(game, mono=False):
     return text_ink(text), text_ink(highlight), text_bg_index(bg)
 
 
-def _dither(mode):
-    from PIL import Image
-    m = str(mode or "off").strip().lower()
-    return (Image.Dither.NONE if m in ("", "off", "none", "false", "0")
-            else Image.Dither.FLOYDSTEINBERG)
-
-
 def _fit(im, crop, art_rows):
     """Crop/scale a source to the 160 x (8*art_rows) logical band."""
     from PIL import Image
@@ -111,33 +104,9 @@ def _palette_image():
     return img
 
 
-def _nearest_index(rgb, palette):
-    best = 0
-    best_d = None
-    for i, ref in enumerate(palette):
-        d = ((rgb[0] - ref[0]) ** 2 + (rgb[1] - ref[1]) ** 2
-             + (rgb[2] - ref[2]) ** 2)
-        if best_d is None or d < best_d:
-            best, best_d = i, d
-    return best
-
-
 def _dist2(a, b):
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
             + (a[2] - b[2]) ** 2)
-
-
-def _cell_codes(rgb_cell, palette):
-    """Quantise one 4x8 cell to one of the four palette entries."""
-    codes = []
-    for rgb in rgb_cell:
-        best, best_d = 0, None
-        for i, ref in enumerate(palette):
-            d = _dist2(rgb, ref)
-            if best_d is None or d < best_d:
-                best, best_d = i, d
-        codes.append(best)
-    return codes
 
 
 def _cell_pattern(codes):
@@ -177,9 +146,8 @@ def _plan(im, conv, art_rows, text_bg):
     im = zxart.inset_band(im, conv.get("margin", 0), C64_PALETTE[bg])
     if conv.get("mono"):
         im = zxart.to_mono_image(im, conv.get("dither"))
-    dither = _dither(conv.get("dither"))
-    indexed = list(im.quantize(palette=_palette_image(), dither=dither)
-                   .getdata())
+    indexed = list(im.quantize(palette=_palette_image(),
+                               dither=Image.Dither.NONE).getdata())
     rgb = list(im.convert("RGB").getdata())
 
     counts = [0] * 16
@@ -190,12 +158,8 @@ def _plan(im, conv, art_rows, text_bg):
     c22 = next((i for i in order if i != bg), 1)
     c23 = next((i for i in order if i != bg and i != c22), 0)
 
-    tiles = []
-    pixels = []
-    lookup = {}
-    tilemap = []
-    colors = []
-    height = 8 * art_rows
+    cell_v = []
+    cell_palettes = []
     for ty in range(art_rows):
         for tx in range(COLS):
             rgb_cell = []
@@ -211,9 +175,27 @@ def _plan(im, conv, art_rows, text_bg):
                            for p in rgb_cell)
                 if best_cost is None or cost < best_cost:
                     best_cost, best_v = cost, v
-            palette = (C64_PALETTE[bg], C64_PALETTE[c22],
-                       C64_PALETTE[c23], C64_PALETTE[best_v])
-            pattern = _cell_pattern(_cell_codes(rgb_cell, palette))
+            cell_v.append(best_v)
+            cell_palettes.append((C64_PALETTE[bg], C64_PALETTE[c22],
+                                  C64_PALETTE[c23], C64_PALETTE[best_v]))
+
+    def palette_at(x, y):
+        return cell_palettes[(y // 8) * COLS + (x // 4)]
+
+    codes = zxart.dither_grid(im, palette_at,
+                              conv.get("dither", "off"))
+    tiles = []
+    pixels = []
+    lookup = {}
+    tilemap = []
+    colors = []
+    for ty in range(art_rows):
+        for tx in range(COLS):
+            cell_codes = []
+            for y in range(8):
+                row = (ty * 8 + y) * WIDTH + tx * 4
+                cell_codes.extend(codes[row:row + 4])
+            pattern = _cell_pattern(cell_codes)
             index = lookup.get(pattern)
             if index is None:
                 if len(tiles) < MAX_ART_TILES:
@@ -224,7 +206,7 @@ def _plan(im, conv, art_rows, text_bg):
                 else:
                     index = _nearest_pattern(pattern, pixels)
             tilemap.append(index)
-            colors.append(0x08 | best_v)
+            colors.append(0x08 | cell_v[ty * COLS + tx])
     return len(tiles), c22, c23, tiles, tilemap, colors
 
 

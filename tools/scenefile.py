@@ -97,7 +97,6 @@ DITHER_MODES = ("off", "bayer2", "bayer4", "bayer8", "noise", "floyd",
 _DITHER_MODES = DITHER_MODES
 # Targets without a per-pixel ordered/error-diffusion choice only distinguish
 # a hard snap from Floyd-Steinberg (see their target options).
-DITHER_BINARY_MODES = ("off", "floyd")
 DEFAULT_DITHER = "off"
 # Colour-distance metric for the NIRVANA+ cell search, mirroring zxart.
 MATCH_MODES = ("rgb", "perceptual")

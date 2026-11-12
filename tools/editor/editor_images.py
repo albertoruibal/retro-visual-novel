@@ -835,9 +835,9 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
             img, margin, zxart.BAND_W, zxart.band_h(rows)))
     if mode == "classic":
         img = zxart.grid_to_rgb_image(zxart.classic_band(
-            im, crop=conv["crop"], rows=rows, adjust=conv["adjust"],
-            palette=conv["palette"], palette_colors=conv["palette_colors"],
-            margin=margin, fill=fill))
+            im, crop=conv["crop"], dither=conv["dither"], rows=rows,
+            adjust=conv["adjust"], palette=conv["palette"],
+            palette_colors=conv["palette_colors"], margin=margin, fill=fill))
         return _png_bytes(zxart.preview_margin_crop(
             img, margin, zxart.BAND_W, zxart.band_h(rows)))
     if mode == "bifrost":
