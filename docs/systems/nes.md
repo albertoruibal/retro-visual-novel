@@ -14,15 +14,16 @@
   scanline's HBlank, using a generated delay table that accounts for the exact ppubuf flush length. A locked menu
   update defers the flush to the next frame, writing both selection rows atomically.
 - **Colours:** the PPU has four background palettes of four colours; entry 0 is the shared universal background,
-  fixed to the game's `text_bg:`. Palette 0 is body text (`entry 1 = text_ink`, `entry 2 = highlight_ink`), palette 1
-  is unused by text and palettes 2/3 carry three art colours each. `tools/nesart.py` clusters each art's 2x2-tile
-  block palettes into the two art palettes and emits the full 64-byte nametable attribute table.
+  fixed to the game's `text_bg:`. Palette 0 is body text (`entry 1 = text_ink`, `entry 2 = highlight_ink`) and
+  palettes 1/2/3 carry three art colours each, for up to ten colours including the shared background.
+  `tools/nesart.py` selects each art's three palettes from distinct NES colours by minimising the per-block
+  quantization error and emits the full 64-byte nametable attribute table.
 - **Art:** `tools/nesart.py` fits the source to 256 x `8 * art_rows`, preprocesses and quantises it to the NES
-  palette, assigns a palette per 2x2-tile block and deduplicates the 2bpp tiles into at most 160 patterns. The blob
-  (uncompressed, in PRG ROM) is `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`; tile patterns live in table 0
-  of the art's 8KB CHR ROM bank after the 96 font tiles. `margin:` adds N 8x8-cell borders on the left and right,
-  filled with `text_bg`; the picture is scaled to the inner width with its aspect preserved. The editor preview and
-  the ROM use the same converter.
+  palette, assigns one of the three art palettes per 2x2-tile block and deduplicates the 2bpp tiles into at most 160
+  patterns. The blob (uncompressed, in PRG ROM) is `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`; tile
+  patterns live in table 0 of the art's 8KB CHR ROM bank after the 96 font tiles. `margin:` adds N 8x8-cell borders
+  on the left and right, filled with `text_bg`; the picture is scaled to the inner width with its aspect preserved.
+  The editor preview and the ROM use the same converter.
 - **Storage/memory:** an MMC1 (mapper 1) cartridge with 32KB PRG and 8KB battery WRAM at `$6000`. The story data
   (scenes/inventory compressed with ZX0, plus the art maps/attributes/palettes) is resident in the 32KB PRG; the C
   workspaces and the C stack live in the 8KB PRG RAM. `src/6502/zx0.c` decodes the scene/inventory blobs.

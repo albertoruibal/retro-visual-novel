@@ -14,7 +14,7 @@ art/text boundary each frame.
 
 The PPU has four background palettes of four colours; entry 0 is the shared
 universal background.  Palette 0 is body text with entry 2 set to the highlight
-colour; palettes 2..3 are art palettes (``text_bg`` plus three colours each).
+colour; palettes 1..3 are art palettes (``text_bg`` plus three colours each).
 Normal glyphs use pixel value 1 and highlighted glyphs pixel value 2, so a
 word can be highlighted without changing the 2x2-tile attribute.
 
@@ -29,6 +29,7 @@ Blob layout (one art, uncompressed in PRG ROM)::
 from __future__ import annotations
 
 import io
+import itertools
 import struct
 
 WIDTH = 256
@@ -38,7 +39,7 @@ FONT_TILES = 96
 ART_BASE = FONT_TILES
 MAX_ART_TILES = 256 - ART_BASE          # 160 (one 4KB background pattern table)
 TABLE_SIZE = 0x1000
-ART_PALETTES = 2
+ART_PALETTES = 3
 DEFAULT_ART_ROWS = 10
 ART_TOP = 2
 
@@ -143,13 +144,6 @@ def chr_bank(normal_font, hilite_font, tiles):
     return bytes(table0 + table1)
 
 
-def _dither(mode):
-    from PIL import Image
-    m = str(mode or "off").strip().lower()
-    return (Image.Dither.NONE if m in ("", "off", "none", "false", "0")
-            else Image.Dither.FLOYDSTEINBERG)
-
-
 def _fit(im, crop, art_rows):
     from PIL import Image
     import zxart
@@ -166,7 +160,9 @@ def _fit(im, crop, art_rows):
 def _palette_image():
     from PIL import Image
     img = Image.new("P", (1, 1))
-    img.putpalette([c for rgb in NES_PALETTE for c in rgb])
+    # Repeat the 64-colour table so every 0..255 index maps to a real NES
+    # colour; the converter folds the index back with ``% 64``.
+    img.putpalette([c for _ in range(4) for rgb in NES_PALETTE for c in rgb])
     return img
 
 
@@ -175,84 +171,122 @@ def _dist2(a, b):
             + (a[2] - b[2]) ** 2)
 
 
-def _luma(c):
-    return 299 * c[0] + 587 * c[1] + 114 * c[2]
+_NES_DIST = None
 
 
-def _block_palette(rgb_cell, bg):
-    """Return three non-background colours for one 2x2-tile block."""
-    from PIL import Image
-    tile = Image.new("RGB", (16, 16))
-    tile.putdata(rgb_cell)
-    q = tile.quantize(colors=4, method=Image.Quantize.MEDIANCUT,
-                      dither=Image.Dither.NONE)
-    raw = q.getpalette()[:12]
-    counts = q.getcolors(256) or [(1, 0)]
-    counts.sort(key=lambda item: (-item[0], item[1]))
-    colors = []
-    for _n, idx in counts:
-        if idx >= 4:
-            continue
-        c = (raw[idx * 3], raw[idx * 3 + 1], raw[idx * 3 + 2])
-        if c not in colors:
-            colors.append(c)
-        if len(colors) == 4:
+def _nes_distance_table():
+    global _NES_DIST
+    if _NES_DIST is None:
+        _NES_DIST = tuple(tuple(_dist2(a, b) for b in NES_PALETTE)
+                          for a in NES_PALETTE)
+    return _NES_DIST
+
+
+def _palette_cost(hist, palette, bg):
+    """Weighted error mapping one block histogram to ``bg + palette``."""
+    table = _nes_distance_table()
+    bg_row = table[bg]
+    rows = tuple(table[c] for c in palette)
+    total = 0
+    for colour, count in hist.items():
+        distance = bg_row[colour]
+        for row in rows:
+            if row[colour] < distance:
+                distance = row[colour]
+        total += count * distance
+    return total
+
+
+def _candidate_palettes(hists, bg):
+    counts = {}
+    for hist in hists:
+        for colour, n in hist.items():
+            counts[colour] = counts.get(colour, 0) + n
+    ranked = [c for c, _n in sorted(counts.items(),
+                                    key=lambda item: (-item[1], item[0]))
+              if c != bg]
+    fill = ranked + [c for c in range(len(NES_PALETTE))
+                     if c != bg and c not in ranked]
+    candidates = {}
+    for hist in hists:
+        chosen = []
+        for colour, _n in sorted(hist.items(),
+                                 key=lambda item: (-item[1], item[0])):
+            if colour != bg and colour not in chosen:
+                chosen.append(colour)
+            if len(chosen) == 3:
+                break
+        for colour in fill:
+            if len(chosen) == 3:
+                break
+            if colour not in chosen:
+                chosen.append(colour)
+        candidates[tuple(sorted(chosen))] = True
+    for combo in itertools.combinations(ranked[:8], 3):
+        candidates[tuple(combo)] = True
+    return list(candidates)
+
+
+def _select_palettes(hists, bg, limit=ART_PALETTES):
+    """Pick ``limit`` distinct-colour palettes minimising block error."""
+    if not hists:
+        alt = (bg + 1) % len(NES_PALETTE)
+        return [tuple([alt] * 3) for _ in range(limit)]
+    candidates = _candidate_palettes(hists, bg)
+    if not candidates:
+        alt = (bg + 1) % len(NES_PALETTE)
+        return [tuple([alt] * 3) for _ in range(limit)]
+
+    selected = []
+    while len(selected) < limit:
+        best = None
+        best_cost = None
+        for cand in candidates:
+            if cand in selected:
+                continue
+            total = 0
+            for hist in hists:
+                cost = _palette_cost(hist, cand, bg)
+                for pal in selected:
+                    other = _palette_cost(hist, pal, bg)
+                    if other < cost:
+                        cost = other
+                total += cost
+            if best_cost is None or total < best_cost:
+                best, best_cost = cand, total
+        if best is None:
             break
-    if not colors:
-        colors = [bg]
-    # Guarantee the universal background is in the block palette.
-    if bg not in colors:
-        nearest = min(range(len(colors)), key=lambda i: _dist2(colors[i], bg))
-        colors[nearest] = bg
-    while len(colors) < 4:
-        colors.append(bg)
-    rest = sorted([c for c in colors if c != bg], key=_luma)
-    while len(rest) < 3:
-        rest.append(bg)
-    return tuple(rest[:3])
+        selected.append(best)
 
-
-def _pal_dist(a, b):
-    return sum(_dist2(x, y) for x, y in zip(a, b))
-
-
-def _mean_palette(palettes):
-    if not palettes:
-        return ((0, 0, 0),) * 3
-    out = []
-    for i in range(3):
-        r = sum(p[i][0] for p in palettes) / len(palettes)
-        g = sum(p[i][1] for p in palettes) / len(palettes)
-        b = sum(p[i][2] for p in palettes) / len(palettes)
-        out.append((int(round(r)), int(round(g)), int(round(b))))
-    return tuple(out)
-
-
-def _cluster_palettes(palettes, limit=ART_PALETTES):
-    if not palettes:
-        return []
-    limit = max(1, min(int(limit), len(palettes)))
-    seed = max(range(len(palettes)),
-               key=lambda i: sum(_pal_dist(palettes[i], palettes[j])
-                                 for j in range(len(palettes))))
-    centers = [palettes[seed]]
-    while len(centers) < limit:
-        best, bestd = None, -1
-        for pal in palettes:
-            d = min(_pal_dist(pal, c) for c in centers)
-            if d > bestd:
-                best, bestd = pal, d
-        if best is None or bestd == 0:
+    for _ in range(4):
+        if not selected:
             break
-        centers.append(best)
-    for _ in range(2):
-        groups = [[] for _ in centers]
-        for pal in palettes:
-            groups[min(range(len(centers)),
-                       key=lambda i: _pal_dist(pal, centers[i]))].append(pal)
-        centers = [_mean_palette(g) if g else centers[i]
-                   for i, g in enumerate(groups)]
-    return centers
+        assign = [min(range(len(selected)),
+                      key=lambda i: _palette_cost(hist, selected[i], bg))
+                  for hist in hists]
+        new = list(selected)
+        for i in range(len(selected)):
+            members = [hist for hist, a in zip(hists, assign) if a == i]
+            if not members:
+                continue
+            new[i] = min(candidates,
+                         key=lambda pal: sum(_palette_cost(hist, pal, bg)
+                                             for hist in members))
+        seen = set()
+        for i, pal in enumerate(new):
+            if pal in seen:
+                for alt in candidates:
+                    if alt not in seen:
+                        new[i] = alt
+                        break
+            seen.add(new[i])
+        if new == selected:
+            break
+        selected = new
+
+    while len(selected) < limit:
+        selected.append(selected[-1])
+    return selected[:limit]
 
 
 def _nearest(color, palette):
@@ -391,38 +425,33 @@ def _plan(im, conv, art_rows, text_bg):
                           adj.get("brightness", 1.0),
                           adj.get("gamma", 1.0))
     im = zxart.inset_band(im, conv.get("margin", 0), bg_rgb)
-    dither = _dither(conv.get("dither"))
-    indexed = im.quantize(palette=_palette_image(), dither=dither)
+    indexed = im.quantize(palette=_palette_image(),
+                          dither=Image.Dither.NONE)
+    indices = [i % len(NES_PALETTE) for i in indexed.getdata()]
     rgb = list(im.convert("RGB").getdata())
 
-    blocks = []
-    block_pals = []
+    hists = []
     block_rows = art_rows // 2
     for by in range(block_rows):
         for bx in range(16):
-            cell = []
+            hist = {}
             for y in range(16):
                 row = (by * 16 + y) * WIDTH + bx * 16
-                cell.extend(rgb[row:row + 16])
-            pal = _block_palette(cell, bg_rgb)
-            blocks.append(cell)
-            block_pals.append(pal)
-    centers = _cluster_palettes(block_pals, ART_PALETTES)
-    if not centers:
-        centers = [((0, 0, 0),) * 3]
-    while len(centers) < ART_PALETTES:
-        centers.append(centers[-1])
-    centers = [tuple(NES_PALETTE[_nearest(c, NES_PALETTE)] for c in pal)
-               for pal in centers]
+                for x in range(16):
+                    idx = indices[row + x]
+                    hist[idx] = hist.get(idx, 0) + 1
+            hists.append(hist)
+    centers = _select_palettes(hists, bg, ART_PALETTES)
     block_choice = [min(range(len(centers)),
-                        key=lambda i: _pal_dist(pal, centers[i]))
-                    for pal in block_pals]
+                        key=lambda i: _palette_cost(hist, centers[i], bg))
+                    for hist in hists]
 
     pattern_grid = [[None] * COLS for _ in range(art_rows)]
     for by in range(block_rows):
         for bx in range(16):
             bi = by * 16 + bx
-            palette = (bg_rgb,) + centers[block_choice[bi]]
+            palette = (bg_rgb,) + tuple(
+                NES_PALETTE[c] for c in centers[block_choice[bi]])
             for ty in range(2):
                 for tx in range(2):
                     txpix = bx * 2 + tx
@@ -449,7 +478,7 @@ def _plan(im, conv, art_rows, text_bg):
                     local_row = (r0 - ART_TOP) // 2
                     local_col = c0 // 2
                     if 0 <= local_row < block_rows and 0 <= local_col < 16:
-                        pal = block_choice[local_row * 16 + local_col] + 2
+                        pal = block_choice[local_row * 16 + local_col] + 1
                 quads.append(pal & 0x03)
             attrs[by * 8 + bx] = (quads[0] | (quads[1] << 2)
                                   | (quads[2] << 4) | (quads[3] << 6))
@@ -477,7 +506,7 @@ def art_blob(im, conv=None, art_rows=DEFAULT_ART_ROWS, text_ink=None,
     for pal in plan["palettes"]:
         out.append(plan["bg"])
         for c in pal:
-            out.append(_nearest(c, NES_PALETTE))
+            out.append(int(c) & 0x3F)
     for value in plan["map"]:
         out += struct.pack("<H", value)
     out += plan["attrs"]
@@ -510,9 +539,8 @@ def preview_image(path, conv=None, options=None, game=None):
     plan = _plan(im, conv, art_rows, text_bg)
     palettes = []
     for pal in plan["palettes"]:
-        palettes.append(tuple(NES_PALETTE[c] for c in
-                              (plan["bg"],) + tuple(
-                                  _nearest(c, NES_PALETTE) for c in pal)))
+        palettes.append((NES_PALETTE[plan["bg"]],)
+                        + tuple(NES_PALETTE[c] for c in pal))
     img = Image.new("RGB", (WIDTH, 8 * art_rows))
     pixels = []
     for row in range(art_rows):
@@ -526,7 +554,8 @@ def preview_image(path, conv=None, options=None, game=None):
                 quad = ((row + ART_TOP) % 4 >= 2) * 2 + ((col % 4) >= 2)
                 attr = plan["attrs"][by * 8 + bx]
                 pal = (attr >> (quad * 2)) & 0x03
-                colors = palettes[pal - 2] if pal >= 2 else (NES_PALETTE[plan["bg"]],)
+                colors = (palettes[pal - 1] if pal >= 1
+                          else (NES_PALETTE[plan["bg"]],))
                 lo = pattern[y]
                 hi = pattern[8 + y]
                 for x in range(8):

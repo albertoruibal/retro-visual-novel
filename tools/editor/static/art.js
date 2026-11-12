@@ -117,7 +117,7 @@ function previewTargetColors(id) {
   const n = m ? +m.colors : NaN;
   if (n > 0) return n;
   return ({ zx128: 16, zx48: 2, next: 256, sms: 16, msx2: 16, gb: 32,
-              c64: 16, nes: 16, oric: 2 }[id] || 0);
+              c64: 16, nes: 10, oric: 2 }[id] || 0);
 }
 /* The display engine the target's preview emulates, shown under its name. */
 function previewTargetEngine(id) {

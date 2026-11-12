@@ -167,8 +167,7 @@ void plat_init(void)
     nes_mmc1_init();
 
     /* Palette 0 = body text; its entry 2 is the highlight glyph colour.
-       Palette 1 is unused by text now, but keep it highlighted for safety.
-       Palettes 2/3 are the art colours. */
+       Palettes 1/2/3 are the art colours and are rewritten per scene. */
     ppu_addr(0x3F00);
     ppu_write(PORT_TEXT_BG);
     ppu_write(PORT_TEXT_INK);
@@ -294,9 +293,12 @@ void plat_draw_art(unsigned char id)
 
     begin_direct();
     nes_chr_bank(port_art_bank[id]);
-    ppu_addr(0x3F08);
-    for (k = 0; k < 8; k++)
-        ppu_write(p[3 + k]);
+    for (k = 0; k < npal && k < 3; k++) {
+        ppu_addr((unsigned int)(0x3F05 + k * 4));
+        ppu_write(p[3 + k * 4 + 1]);
+        ppu_write(p[3 + k * 4 + 2]);
+        ppu_write(p[3 + k * 4 + 3]);
+    }
     ppu_addr(NT_BASE + (unsigned int)PORT_ART_TOP * PORT_COLS);
     for (i = 0; i < (unsigned int)PORT_COLS * PORT_ART_ROWS; i++) {
         unsigned int idx = (unsigned int)map[i * 2]
