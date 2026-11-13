@@ -1603,11 +1603,12 @@ def conversion_options(entry, game=None, target_id=None):
     """Resolve an art's complete conversion settings for one build system.
 
     Returns ``{"crop", "dither", "margin", "match", "palette",
-    "palette_colors", "adjust"}`` where ``adjust`` is ``{saturation, contrast,
-    brightness, gamma}``. ``dither`` and ``margin`` come from ``target_id``'s
-    ``## <id>`` block (see ``system_dither``/``system_margin``); the other
-    values come from ``entry`` (an art) when set, else from ``game`` (the
-    ``# Game`` section), else the built-in default.
+    "palette_colors", "adjust", "mono"}`` where ``adjust`` is ``{saturation,
+    contrast, brightness, gamma}``. ``dither``, ``margin`` and ``mono`` come
+    from ``target_id``'s resolved ``## <id>`` options (see ``system_dither``/
+    ``system_margin`` and the target registry default); the other values come
+    from ``entry`` (an art) when set, else from ``game`` (the ``# Game``
+    section), else the built-in default.
     Invalid or out-of-range values fall back to the default (the editor's
     validator reports them) so a hand-edited file still builds. The build and
     the editor previews share this one resolver.
@@ -1622,6 +1623,15 @@ def conversion_options(entry, game=None, target_id=None):
     sid = canonical_target_id(target_id)
     raw_mono = ((g.get("extras") or {}).get(f"{sid}_mono")
                 if sid else None)
+    if raw_mono is None and sid:
+        try:
+            import targets
+            target = targets.get_target(sid)
+            if target is not None:
+                raw_mono = targets.target_options(
+                    {"game": g}, target).get("mono")
+        except Exception:               # noqa: BLE001 - optional registry
+            pass
     mono = str(raw_mono).strip().lower() in ("1", "true", "on", "yes")
 
     match = pick("match")
