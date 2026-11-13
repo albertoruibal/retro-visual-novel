@@ -24,8 +24,7 @@ height: 256
 # Systems
 
 ## zx128
-art_rows: 12
-dither: bayer2
+margin: 1
 title_ink: white
 
 ## next
@@ -46,8 +45,6 @@ margin: 2
 mode: 0
 
 ## msx1
-art_rows: 8
-dither: bayer2
 margin: 2
 menu: popup
 
@@ -71,10 +68,8 @@ dither: bayer2
 margin: 3
 
 ## zx48
-art_rows: 12
 dither: bayer2
-margin: 8
-mono: 0
+margin: 5
 title_ink: white
 
 ## web
@@ -87,7 +82,7 @@ prompt: a storm-lashed granite lighthouse at Fisterra on the Galician Costa da M
   breaking below, a lone figure walking up the cliff path, one lit window, dramatic clouds, no text
 refs: lighthouse
 image: gen-1794257514079.png
-crop: 0 0 100 75
+crop: 0 6 100 63
 
 ## cliff_path
 prompt: a wet granite path climbing to the Fisterra lighthouse in a storm, a woman in a dark oilskin coat holding an oil
@@ -125,7 +120,7 @@ prompt: a walled clifftop garden in rain at Fisterra, a grave under a granite wa
   below, an ordinary Galician villager in a plain grey wool coat and flat cap waiting on the cliff path, no text
 refs: pena
 image: gen-1794339481002.png
-crop: 0 0 100 75
+crop: 0 6 100 63
 
 ## ending
 prompt: the Fisterra lighthouse beam sweeping across a stormy Atlantic sea at night, a small 1930s coastal steamer like
@@ -153,7 +148,7 @@ prompt: on the wet cliff path below the Fisterra lighthouse at night, a tense co
   the keeper facing him, storm clouds and the dark lighthouse tower behind, no text
 refs: pena
 image: gen-1794340316471.png
-crop: 0 0 100 75
+crop: 0 6 100 63
 
 ## elias_talk
 prompt: the lamp room at the top of the Fisterra lighthouse at night, the ghost of an old keeper standing at the great
@@ -162,7 +157,7 @@ prompt: the lamp room at the top of the Fisterra lighthouse at night, the ghost 
   only his boots fading into thin mist, the new keeper facing him, rain on the gallery glass, no text
 refs: elias
 image: gen-1794568170322.png
-crop: 0 0 100 75
+crop: 0 6 100 63
 
 # References
 

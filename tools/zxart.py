@@ -693,7 +693,7 @@ def _dither_python(im, palette, mode, match):
             ia, ib, da, db = _two_nearest_rgb(color, pal, match)
             total = da + db
             frac = db / total if total else 0.5
-            out[y * w + x] = ib if frac > threshold_at(mode, x, y) else ia
+            out[y * w + x] = ia if frac > threshold_at(mode, x, y) else ib
     return out
 
 
@@ -753,7 +753,7 @@ def _dither_fixed_numpy(im, palette, mode, match, np):
         frac = np.where(total > 0,
                         second_d.astype(np.float64) / np.maximum(total, 1.0),
                         0.5)
-        chosen = np.where(frac > thr, second_i, best_i)
+        chosen = np.where(frac > thr, best_i, second_i)
     mapping = np.asarray(unique_index, dtype=np.intp)
     return mapping[chosen].ravel().tolist()
 
