@@ -18,6 +18,7 @@
   var hintEl = $("hint");
   var reloadEl = $("reload");
   var fullscreenEl = $("fullscreen");
+  var webTapEl = $("webtap");
   var screenWrap = document.querySelector(".screenwrap");
 
   function fatal(message) {
@@ -92,6 +93,7 @@
 
   function updatePanel(system) {
     systemLabel.textContent = system.label || system.id;
+    if (webTapEl) webTapEl.hidden = system.kind !== "web";
     var media = system.media || (system.kind === "web" ? "web" : "cartridge");
     if (deckEl) deckEl.dataset.media = media;
     if (deckName) deckName.textContent = system.mediaLabel || media;
