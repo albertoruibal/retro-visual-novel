@@ -126,10 +126,9 @@ TARGET = Target(
         art_margin_option(),
         TargetOption(
             "mono", "Black and white", "bool", True,
-            help="Render the picture as a dithered black-and-white band and "
-                 "force white text on black. Turn it off for classic "
-                 "attribute-colour art and the Game tab's text and highlight "
-                 "colours."),
+            help="Render the picture as a dithered black-and-white band. The "
+                 "title, text and menu options keep the Game tab's colours. "
+                 "Turn it off for classic attribute-colour art."),
         TargetOption(
             "dither", "Dithering", "choice", scenefile.DEFAULT_DITHER,
             scenefile.DITHER_MODES,

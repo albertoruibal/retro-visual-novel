@@ -1713,7 +1713,10 @@ def main():
          "} SceneHdr;",
          ""]
     colours = scenefile.text_colours(doc["game"])
-    if zx_mono(doc):
+    # The 48K's Black and white option only affects the picture: text, options
+    # and the title keep the author's colours, as they do on the 128K. The 128K
+    # mono mode still forces a white-on-black display.
+    if zx_mono(doc) and not flat:
         colours = {"text": (7, 1), "highlight": (7, 1), "bg": (0, 0)}
     bg_ink, bg_bright = colours["bg"]
     if not (bg_ink & 7):
@@ -1815,7 +1818,7 @@ def main():
         _arr(h, "adventure_font_glyphs", "unsigned char", glyphs, "%d")
         h.append("")
     write_scene_data(h, out_h)
-    if zx_mono(doc):
+    if zx_mono(doc) and not flat:
         title_ink, title_bright = 7, 1
     else:
         title_ink, title_bright = zx_title_colours(doc)

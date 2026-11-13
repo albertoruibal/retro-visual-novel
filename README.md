@@ -95,8 +95,9 @@ It uses python tools and z88dk (https://z88dk.org/site/), sccz80 with the classi
 
 Every colour system has a **Black and white** option in its `## <system>` block (and the Systems tab). It converts
 the art to a dithered black-and-white band and forces white text on the black background. On the 48K, turning it off
-uses classic 8x8 attribute-colour art and the Game-tab text colours; the Oric Atmos is always monochrome and has no
-such option. The Web novel also bakes its art this way and has its own `art_rows` and `dither` settings.
+uses classic 8x8 attribute-colour art; its mono mode keeps the Game-tab text colours and `title_ink:` for the title,
+text and menu options, like the 128K. The Oric Atmos is always monochrome and has no such option. The Web novel also
+bakes its art this way and has its own `art_rows` and `dither` settings.
 
 The build driver is a pluggable target registry (`tools/targets/`). Each target module exports a `TARGET` with its
 output names, per-game options and build, validation and preview hooks. The selected systems and their options live
