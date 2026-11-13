@@ -17,13 +17,16 @@ novel works from ``file://``; the native emulator entries need an HTTP host
 (GitHub Pages, itch.io or ``python3 -m http.server``).
 
     python3 tools/webgame.py <slug>          # write <game-folder>/web/
+    python3 tools/webgame.py <slug> --player # player only, no novel
+    python3 tools/webgame.py <slug> --game   # player plus the novel
     python3 tools/webgame.py <slug> --json   # print the novel data
 
-Only the systems ticked in ``# Systems`` are included.  Every build runs the
-Web target last, so the player always contains the selected native systems'
-emulators and files.  The Web novel (``novel/``) is listed when the Web system
-is selected; its art is baked to a dithered black-and-white band when ``mono``
-is on, using the Web ``art_rows``/``dither`` options.
+Only the systems ticked in ``# Systems`` are included.  The player shell and
+the selected native systems' emulators are always part of the export; the Web
+novel (``novel/``) is added when the Web system is selected (or forced by
+``export_game``).  Its art is baked to a dithered black-and-white band when
+``mono`` is on, using the Web ``art_rows``/``dither`` options.  ``export_player``
+writes the player without the novel, so the two build steps are independent.
 Systems without a browser emulator (such as the ZX Spectrum Next) and missing
 build artifacts are skipped with a warning.  The player itself has no download
 button; the editor's Emulator toolbar downloads the current system's built file.
@@ -505,7 +508,7 @@ def _player_systems(rec, doc):
     return systems, emulator_dirs, warnings
 
 
-def _player_data(rec, doc, systems, include_web=True):
+def _player_data(rec, doc, systems, include_novel=True):
     clean = [{k: v for k, v in item.items() if k != "_source"}
              for item in systems]
     data = {
@@ -513,7 +516,7 @@ def _player_data(rec, doc, systems, include_web=True):
         "slug": rec["slug"],
         "title": doc["game"].get("title") or rec["slug"],
     }
-    if include_web:
+    if include_novel:
         data["web"] = {
             "label": "Web version",
             "src": f"{NOVEL_DIRNAME}/index.html",
@@ -649,13 +652,20 @@ def _export_rev(tmp, sources):
     return digest.hexdigest()
 
 
-def export_web(slug):
-    """Write a self-contained ``<game>/web/`` player and return its info."""
+def export_web(slug, include_novel=None):
+    """Write a self-contained ``<game>/web/`` player and return its info.
+
+    ``include_novel`` forces the mobile-first story in or out; ``None`` (the
+    default) follows the Web system selection in ``game.md``.  ``export_player``
+    and ``export_game`` are the explicit player-only and Web-game forms used by
+    their build targets.
+    """
     rec = _game(slug)
     doc = _doc(rec)
-    include_web = _web_selected(doc)
-    sources = _art_sources(rec, doc) if include_web else {}
-    data = webgame_data(slug) if include_web else None
+    if include_novel is None:
+        include_novel = _web_selected(doc)
+    sources = _art_sources(rec, doc) if include_novel else {}
+    data = webgame_data(slug) if include_novel else None
     mono = bool(data.get("mono")) if data else False
     art_rows = selected_art_rows(doc)
     art_by_id = {art["id"]: art for art in doc.get("arts") or []}
@@ -670,7 +680,7 @@ def export_web(slug):
         for name in PLAYER_FILES:
             shutil.copyfile(player_path(name), os.path.join(tmp, name))
         rendered = set()
-        if include_web:
+        if include_novel:
             os.makedirs(os.path.join(novel, ART_SUBDIR), exist_ok=True)
             for name in RUNTIME_FILES:
                 shutil.copyfile(runtime_path(name), os.path.join(novel, name))
@@ -700,7 +710,7 @@ def export_web(slug):
             shutil.copyfile(system["_source"],
                             os.path.join(files_dir, system["filename"]))
         with open(os.path.join(tmp, PLAYER_DATA), "w", encoding="utf-8") as f:
-            f.write(_player_js(_player_data(rec, doc, systems, include_web)))
+            f.write(_player_js(_player_data(rec, doc, systems, include_novel)))
         rev = _export_rev(tmp, sources)
         shutil.rmtree(old, ignore_errors=True)
         if os.path.exists(dest):
@@ -716,12 +726,23 @@ def export_web(slug):
         "relative": os.path.relpath(dest, rec["dir"]),
         "zip": f"/api/webzip/{urllib_quote(rec['slug'])}",
         "arts": len([s for s in sources.values() if s and os.path.isfile(s)]),
-        "web": include_web,
+        "web": include_novel,
+        "novel": include_novel,
         "systems": [item["id"] for item in systems],
         "music": len(rendered),
         "warnings": warnings,
         "rev": rev,
     }
+
+
+def export_player(slug):
+    """Write the browser player and native emulators without the novel."""
+    return export_web(slug, include_novel=False)
+
+
+def export_game(slug):
+    """Write the browser player plus the mobile-first Web novel."""
+    return export_web(slug, include_novel=True)
 
 
 def export_zip(slug):
@@ -751,11 +772,22 @@ def main(argv=None):
     parser.add_argument("game", help="game slug or folder")
     parser.add_argument("--json", action="store_true",
                         help="print the novel data instead of exporting")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--player", action="store_true",
+                      help="write the player without the mobile-first novel")
+    mode.add_argument("--game", dest="web_game", action="store_true",
+                      help="write the player plus the mobile-first novel")
     args = parser.parse_args(argv)
     if args.json:
         print(json.dumps(webgame_data(args.game), indent=2, ensure_ascii=False))
         return 0
-    result = export_web(args.game)
+    if args.web_game:
+        include_novel = True
+    elif args.player:
+        include_novel = False
+    else:
+        include_novel = None
+    result = export_web(args.game, include_novel=include_novel)
     print(f"exported {result['game']} -> {result['path']}")
     for warning in result.get("warnings") or []:
         print("warning: " + warning, file=sys.stderr)

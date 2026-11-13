@@ -25,18 +25,19 @@ def _build_env_for(slug):
 
 
 def _selected_build_ids(doc, requested=None):
-    """Selected targets plus the always-built web emulator player.
+    """Requested targets plus the automatic web player step.
 
-    An explicit ``requested`` list builds exactly those targets (the editor's
-    "Build selected" action); only the full build appends the web export.
+    The player is appended unless the list already contains the Web game
+    (``web``, which exports the player too) or the player itself. This applies
+    to both "Build all" and "Build selected": building one native system
+    refreshes the emulator player, but never writes the novel.
     """
     req = [str(t).strip().lower() for t in (requested or [])
            if str(t).strip()]
-    if req:
-        return targets.ordered_targets(req)
-    ids = targets.ordered_targets(targets.selected_targets(doc))
-    if ids and "web" not in ids:
-        ids = targets.ordered_targets(ids + ["web"])
+    ids = targets.ordered_targets(req) if req \
+        else targets.ordered_targets(targets.selected_targets(doc))
+    if ids and not ({"web", "webplayer"} & set(ids)):
+        ids = targets.ordered_targets(ids + ["webplayer"])
     return ids
 
 
@@ -46,8 +47,8 @@ def _run_build(build_id, slug, requested=None):
     Each target runs as its own tools/build.py child so one platform failing
     does not stop the others; the combined log keeps the ``[target]`` prefixes
     emitted by the dispatcher, and ``targets`` holds per-platform status. The
-    web player is always built last: ticking Web adds the novel, otherwise the
-    export refreshes only the native emulator entries.
+    web player is always built last; ticking Web swaps that step for the Web
+    game, which also writes the novel.
     """
     _builds[build_id]["status"] = "running"
     log = []
@@ -119,7 +120,8 @@ def start_build(slug, requested=None):
     doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
     ids = _selected_build_ids(doc, requested)
     cc65_targets = ("c64", "nes", "oric")
-    if any(t not in cc65_targets and t != "web" for t in ids):
+    if any(t not in cc65_targets and t not in ("web", "webplayer")
+           for t in ids):
         missing = z88dk_missing_tools()
         if missing:
             raise ValueError(

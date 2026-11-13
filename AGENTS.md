@@ -614,11 +614,16 @@ There is no test suite and no configured linter. Verify by:
   the folder when it opens; the top-bar **Export player** button re-exports and reloads the preview.
   There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
   `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never
-  grow request-time story generation or rendering. **Web is a `# Systems` target** (`tools/targets/web.py`) that the
-  build always runs last, so the emulator player is always refreshed; `build.py` auto-appends it unless
-  `RVN_WEB_AUTO=0` (the editor orchestrator sets that on its per-target children and appends the Web child itself).
+  grow request-time story generation or rendering. **The automatic end-of-build step is the hidden `webplayer` target**
+  (`tools/targets/webplayer.py`), which calls `webgame.export_player()` and writes only the player shell, emulators and
+  native artifacts. **Web is a `# Systems` target** (`tools/targets/web.py`) built only when `## web` is ticked or
+  `web` is requested; it calls `webgame.export_game()` and writes the player plus the novel. Both targets write the
+  same `<game>/web/` folder atomically, so the final one wins. `build.py` and the editor orchestrator append
+  `webplayer` unless the target list already contains `web` or `webplayer`; `RVN_WEB_AUTO=0` disables that automatic
+  step for the orchestrator's per-target children. `targets.Target.hidden` keeps `webplayer` out of the Systems UI and
+  `list-targets`, but it remains directly buildable (`build.py build <game> webplayer`).
   Ticking `## web` only adds the novel (`## web` selects it, `system_web` is its pseudo-flag); the Emulator tab
-  previews the export regardless. The Web system has its own `art_rows` (novel band, default 10), `mono` and
+  previews the combined export regardless. The Web system has its own `art_rows` (novel band, default 10), `mono` and
   `dither`; mono is baked at export into a dithered 256 x `8*art_rows` PNG with the art crop re-fitted to that band,
   and the Art tab previews it. Keep the novel **mobile-first** (fluid single column, 44px taps, safe areas, bottom
   item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and update `docs/web-runtime.md`

@@ -732,8 +732,9 @@ def _target_ids(doc, requested=None, build_all=False):
     if build_all:
         ids = []
         for t in targets.all_targets().values():
-            if t.id not in ids:
-                ids.append(t.id)
+            if t.hidden or t.id in ids:
+                continue
+            ids.append(t.id)
         return targets.ordered_targets(sorted(ids))
     if requested:
         return targets.ordered_targets(
@@ -742,7 +743,7 @@ def _target_ids(doc, requested=None, build_all=False):
 
 
 CC65_TARGETS = ("c64", "nes", "oric")
-NO_TOOLCHAIN_TARGETS = ("web",)
+NO_TOOLCHAIN_TARGETS = ("web", "webplayer")
 
 
 def _needs_z88dk(ids):
@@ -757,8 +758,9 @@ def build_selected(slug, requested=None, build_all=False):
     ids = _target_ids(doc, requested, build_all)
     if not ids:
         raise SystemExit("no build targets selected (add targets: to game.md)")
-    if "web" not in ids and os.environ.get("RVN_WEB_AUTO", "1") != "0":
-        ids = targets.ordered_targets(list(ids) + ["web"])
+    if not ({"web", "webplayer"} & set(ids)) \
+            and os.environ.get("RVN_WEB_AUTO", "1") != "0":
+        ids = targets.ordered_targets(list(ids) + ["webplayer"])
     if _needs_z88dk(ids):
         missing = _z88dk_missing(env)
         if missing:
@@ -832,9 +834,10 @@ def run_game(slug, target_id=None):
     target_id = target_id or (summary[0]["target"] if summary else "zx128")
     target = targets.get_target(target_id)
     target_id = target.id if target else target_id
-    if target_id == "web":
+    if target_id in ("web", "webplayer"):
         game, _ = _game_doc(slug)
-        print(f"web: exported player at "
+        kind = "web game" if target_id == "web" else "web player"
+        print(f"{target_id}: exported {kind} at "
               f"{os.path.join(game['dir'], 'web', 'index.html')} "
               f"(serve it over HTTP to play the native emulators)")
         return

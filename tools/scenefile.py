@@ -481,6 +481,8 @@ def _target_meta():
         return set(), {}
     ids, game_opts = set(), {}
     for target in targets.all_targets().values():
+        if target.hidden:
+            continue
         ids.add(target.id)
         for option in target.options:
             if option.game_key:

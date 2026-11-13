@@ -1,10 +1,10 @@
-"""Web player target.
+"""Web game target.
 
 The web build is not a native binary: it writes a self-contained
 ``<game>/web/`` folder with the mobile-first novel, the browser emulators of
-the other selected systems and their built artifacts.  Selecting Web under
-``# Systems`` therefore makes the Build button (and ``tools/build.py``)
-produce the web player alongside the native builds.
+the other selected systems and their built artifacts.  The ``webplayer`` target
+writes the same player without the novel; this target is the Web game and is
+selected with ``## web`` under ``# Systems``.
 """
 from __future__ import annotations
 
@@ -45,11 +45,11 @@ def _folder_bytes(path):
 def _build(ctx):
     import webgame
 
-    info = webgame.export_web(ctx.slug)
+    info = webgame.export_game(ctx.slug)
     result = BuildResult(target="web")
     for warning in info.get("warnings") or []:
         result.warnings.append(warning)
-    result.add_output(info["path"], "web-player",
+    result.add_output(info["path"], "web-game",
                       _folder_bytes(info["path"]))
     return result
 
@@ -57,10 +57,10 @@ def _build(ctx):
 TARGET = Target(
     id="web",
     label="Web",
-    description="Standalone browser player: the mobile-first novel plus a "
-                "playable web emulator for every other selected system. Every "
-                "build refreshes the emulator player; ticking Web adds the "
-                "novel.",
+    description="Web game: the mobile-first novel plus the player shell and a "
+                "playable web emulator for every other selected system. The "
+                "hidden Web player target refreshes the emulators without the "
+                "novel; ticking Web adds the story.",
     outputs=("web/",),
     options=(
         TargetOption(

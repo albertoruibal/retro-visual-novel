@@ -1,10 +1,10 @@
 # Web player
 
 The web player plays a game in any modern browser. It bundles the browser emulator and built file for each system
-ticked in the Systems tab and, when Web is ticked, the mobile-first story runtime. **Every build writes
-`<game-folder>/web/`** so the native emulator player is always available. Web is itself a system: ticking `## web`
-adds the mobile-first novel (the **Web version** entry) to that player. Systems that are not selected are never
-included.
+ticked in the Systems tab. **Every full build writes `<game-folder>/web/`** through the hidden **Web player** step so
+the native emulator player is always available. Web is itself a system: ticking `## web` swaps that step for the **Web
+game**, which adds the mobile-first novel (the **Web version** entry) to the same player. The two steps are separate,
+so a build can produce the player without the web game. Systems that are not selected are never included.
 
 There are two ways to run it:
 
@@ -44,7 +44,9 @@ subpath), or inside an itch.io embed.
 
 | Path | Purpose |
 |---|---|
-| `tools/webgame.py` | Player export, data files, music rendering, folder export and zip |
+| `tools/webgame.py` | Player/game export, data files, music rendering, folder export and zip |
+| `tools/targets/webplayer.py` | Hidden automatic Web player build (no novel) |
+| `tools/targets/web.py` | Web game build (player plus the novel) |
 | `tools/webplayer_runtime/index.html` | Player shell |
 | `tools/webplayer_runtime/player.js` | System selector, JSSpeccy and iframe emulator boot |
 | `tools/webplayer_runtime/style.css` | Player layout |
@@ -59,18 +61,19 @@ in the player shell, and `game.js` then `app.js` in the novel.
 
 ## Selected systems
 
-The **Web** system (`## web`) owns the **Web version** novel: the player lists it only when Web is ticked, and only
-then is `novel/` written. Native entries come from `targets.selected_targets(doc)` (Web itself is not a native entry),
-in the system display order:
+The **Web** system (`## web`) owns the **Web version** novel: it is written by the `web` target, which runs when Web
+is ticked or when `web` is requested explicitly. The hidden `webplayer` target refreshes the same folder without the
+novel. Native entries come from `targets.selected_targets(doc)` (Web itself is not a native entry), in the system
+display order:
 
 - A selected system with a bundled web emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), SMS and Game Boy
   Color (EmulatorJS), MSX2 (WebMSX), CPC 6128/464 (CPCJS/Caprice32), C64 (EmulatorJS VICE), NES (EmulatorJS FCEUmm)
   and Oric Atmos (Oricutron).
 - The ZX Spectrum Next has no bundled browser emulator, so it is not included in the player.
 - A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
-- Unselected native systems are never copied or listed. With Web unticked the export writes no `novel/` folder and the
-  player offers only the selected native systems; if nothing is selected it reports that there is no game data. The
-  build still refreshes the player, because the Web target always runs last.
+- Unselected native systems are never copied or listed. With Web unticked the automatic `webplayer` step writes no
+  `novel/` folder and the player offers only the selected native systems; if nothing is selected it reports that
+  there is no game data.
 
 The player itself has no download button. The editor's top-bar **Export player** button re-exports the combined player
 and reloads the preview.
@@ -253,15 +256,20 @@ the dither stays crisp.
 ## Export
 
 ```bash
-python3 tools/build.py build <game>         # builds the native systems + web player
-python3 tools/build.py build <game> web     # export the player/novel directly
-python3 tools/webgame.py <slug>             # same export directly
-python3 tools/webgame.py <slug> --json      # inspect the novel data
+python3 tools/build.py build <game>             # native systems + automatic Web player
+python3 tools/build.py build <game> zx128       # zx128 + Web player (no novel)
+python3 tools/build.py build <game> web         # Web game (player + novel)
+python3 tools/build.py build <game> webplayer   # Web player only
+python3 tools/webgame.py <slug>                 # selection-based export
+python3 tools/webgame.py <slug> --player        # player only
+python3 tools/webgame.py <slug> --game          # player plus the novel
+python3 tools/webgame.py <slug> --json          # inspect the novel data
 ```
 
-Every build runs the Web target last, after the native artifacts it bundles, so `<game-folder>/web/` is always
-refreshed. Ticking `## web` under `# Systems` adds the `novel/` subtree and the **Web version** entry; unticked, the
-player has only the selected native emulators. The folder is replaced atomically. The zip produced by
+Every build runs the automatic Web player last, after the native artifacts it bundles, so `<game-folder>/web/` is
+always refreshed. A build of one native system therefore refreshes the player without touching the novel. Ticking
+`## web` under `# Systems` makes the `web` target replace that player step with the Web game, adding the `novel/`
+subtree and the **Web version** entry. The folder is replaced atomically. The zip produced by
 `GET /api/webzip/<slug>` has `index.html` at the archive root and is ready to upload to itch.io as an HTML game. The
 folder is gitignored (`<game-folder>/web/`; in this repo `/demo-game/web/`).
 

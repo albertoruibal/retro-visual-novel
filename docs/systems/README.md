@@ -52,6 +52,6 @@ options.
 The build driver, editor previews and Emulator tab all read the same registry, so adding a system does not require a
 central switch.
 
-Every build refreshes `<game-folder>/web/` with the selected systems' emulators and files. The `## web` system adds
-the saved story novel, framed by its own `art_rows`, and the Art tab includes its preview. See
-[the web player](../web-runtime.md).
+Every build refreshes `<game-folder>/web/` with the selected systems' emulators and files through the automatic hidden
+**Web player** step. The `## web` system builds the **Web game** instead, adding the saved story novel framed by its
+own `art_rows`; the Art tab includes its preview. See [the web player](../web-runtime.md).

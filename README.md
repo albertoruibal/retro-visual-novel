@@ -17,7 +17,7 @@ and other 8-bit targets, with a shared engine and authoring UI.
 - [Commodore 64](docs/systems/c64.md) (alpha)
 - [Nintendo Entertainment System](docs/systems/nes.md) (alpha)
 - [Oric Atmos](docs/systems/oric.md) (alpha)
-- [Web player](docs/web-runtime.md) (mobile-first novel plus the selected systems' emulators)
+- [Web player](docs/web-runtime.md) (selected systems' emulators; the Web game adds the mobile-first novel)
 
 See [playing the games](docs/playing.md) for the controls on each target.
 
@@ -50,7 +50,8 @@ It has tabs to edit the game sections:
 * Graph: Draws a graph of the scene relationship.
 * Source: Allows to directly edit the Markdown of the game with syntax validation and navigation via CTRL + click.
 * Build: Builds the game for the selected systems. Every build also refreshes the browser player
-  (`<game-folder>/web/`) with the selected systems' emulators. The Build log separates each system with a
+  (`<game-folder>/web/`) with the selected systems' emulators through a separate **Web player** step; ticking
+  **Web** builds the **Web game** instead, adding the mobile-first novel. The Build log separates each system with a
   `==== name [id] ====` banner.
 * Emulator: Auto-exports and starts the combined web player: the mobile-first novel (when **Web** is ticked) plus a
   browser emulator for every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS
@@ -117,11 +118,13 @@ Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128)
 `.nes` (NES),
 `<slug>-oric.tap` (Oric Atmos) and `<game-folder>/web/` (Web).
 
-Every build writes the standalone player to `<game-folder>/web/`: `python3 tools/webgame.py <slug>` does the same
-export directly. The folder always contains the selected systems' web emulators and playable files; ticking **Web**
-adds the mobile-first novel, framed by its own `art_rows` and optionally baked as dithered black-and-white art. The
-Emulator tab auto-exports and previews the same player; the top-bar **Export player** button re-exports and reloads
-it. See [the web player](docs/web-runtime.md).
+Every build writes the standalone player to `<game-folder>/web/`. The automatic **Web player** step contains the
+selected systems' web emulators and playable files; ticking **Web** builds the **Web game**, which adds the
+mobile-first novel, framed by its own `art_rows` and optionally baked as dithered black-and-white art. Build the
+player alone with `python3 tools/build.py build <game> webplayer`, or the game with `... build <game> web`;
+`python3 tools/webgame.py <slug> --player|--game` does the same export directly. The Emulator tab auto-exports and
+previews the combined player; the top-bar **Export player** button re-exports and reloads it.
+See [the web player](docs/web-runtime.md).
 
 ## Licenses
 

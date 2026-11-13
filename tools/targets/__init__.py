@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 DISPLAY_ORDER = ("zx128", "zx48", "next", "cpc", "cpc464", "msx1",
-                 "msx2", "c64", "oric", "sms", "nes", "gb", "web")
+                 "msx2", "c64", "oric", "sms", "nes", "gb", "webplayer", "web")
 SEPARATOR_WIDTH = 72
 
 _SKIP = {"__init__", "base", "common"}
@@ -171,7 +171,7 @@ def _unique_targets() -> list[Target]:
     seen = set()
     out = []
     for target in all_targets().values():
-        if target.id in seen:
+        if target.hidden or target.id in seen:
             continue
         seen.add(target.id)
         out.append(target)

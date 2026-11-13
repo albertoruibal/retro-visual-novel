@@ -198,7 +198,8 @@ MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color, Web); each system's log is s
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
 (`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
 `.nes`, `<slug>-oric.tap`). Every build also writes the `<game-folder>/web/` player with the selected native
-emulators; a `## web` block adds the mobile-first novel to it. An absent `# Systems`
+emulators through the automatic hidden **Web player** step; a `## web` block swaps that step for the **Web game**,
+which adds the mobile-first novel to the player. An absent `# Systems`
 means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
 `<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with

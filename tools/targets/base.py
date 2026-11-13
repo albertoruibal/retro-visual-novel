@@ -98,6 +98,7 @@ class Target:
     band_width: int = 256
     aliases: tuple[str, ...] = ()
     artifact_suffix: str = ""
+    hidden: bool = False
 
     @property
     def option_prefix(self) -> str:
