@@ -414,7 +414,8 @@ def main():
     use_c64 = "--c64" in raw or target_id == "c64"
     use_nes = "--nes" in raw or target_id == "nes"
     use_oric = "--oric" in raw or target_id == "oric"
-    music_target = use_cpc or use_msx2 or use_next or use_sms or use_gb
+    music_target = (use_cpc or use_msx2 or use_next or use_sms or use_gb
+                    or use_nes)
     songs, songmap = gen_scenes.song_setup(doc)
     song_blobs = []
     song_packed = []
@@ -425,7 +426,15 @@ def main():
     if music_target:
         music_dir = os.path.join(gdir, "assets", "music")
         song_blobs = gen_scenes.load_song_blobs(songs, music_dir)
-        if use_gb:
+        if use_nes:
+            import nesmusic
+            try:
+                song_blobs = [nesmusic.pt3_to_nes(b, name=sid)
+                              for sid, b in zip(songs, song_blobs)]
+            except nesmusic.NesMusicError as err:
+                sys.exit(f"NES music: {err}")
+            song_packed = list(song_blobs)
+        elif use_gb:
             import gbmusic
             try:
                 song_blobs = [gbmusic.pt3_to_gb(b, name=sid)
@@ -1135,14 +1144,34 @@ def main():
                          "mode only addresses 16 banks" % bank)
             chr_banks.append(nesart.chr_bank(fnormal, fhilite, tiles))
             art_bank.append(bank)
+            packed = gen_scenes.zx0_compress(blob, gdir)
             art_off.append(len(art_data))
-            art_data += blob
-            art_blobs.append(blob)
+            art_data += packed
+            art_blobs.append(bytes(blob))
             art_ntiles.append(ntiles)
         nes_chr_data = b"".join(chr_banks)
         nes_art_data = bytes(art_data)
+        nes_art_ws_size = max(map(len, art_blobs), default=1)
         with open(os.path.join(bdir, "port_nes_chr.bin"), "wb") as f:
             f.write(nes_chr_data)
+        # Song streams are raw and densely packed from PRG bank 1.  A stream
+        # may cross a 16K boundary; the runtime reads sequentially and follows
+        # the bank as the window wraps.
+        song_data = bytearray()
+        for stream in song_packed:
+            if not stream:
+                sys.exit("NES song converted to an empty stream")
+            song_bank.append(1 + len(song_data) // 0x4000)
+            song_off.append(len(song_data) % 0x4000)
+            song_data += stream
+        song_banks = (len(song_data) + 0x3FFF) // 0x4000
+        if song_banks > 14:
+            sys.exit(f"NES songs need {song_banks} 16K PRG banks; the MMC1 "
+                     "layout allows 14 after the story and fixed banks. "
+                     "Shorten or remove songs.")
+        song_data += bytes(song_banks * 0x4000 - len(song_data))
+        with open(os.path.join(bdir, "port_nes_song.bin"), "wb") as f:
+            f.write(song_data)
 
     elif use_oric:
         import oricart
@@ -1277,6 +1306,8 @@ def main():
         ("N_SONGS", len(songs) if music_target else 0),
         ("PORT_MUSIC_PSG", 1 if use_sms else 0),
         ("PORT_MUSIC_GB", 1 if use_gb else 0),
+        ("PORT_MUSIC_NES", 1 if use_nes else 0),
+        ("PORT_SFX", 1 if use_nes else 0),
         ("SONG_NONE", gen_scenes.SONG_NONE),
         ("SONG_WS_SIZE", song_ws_size if music_target else 0),
     ]
@@ -1312,6 +1343,7 @@ def main():
             ("NES_HILITE_TILES", 96),
             ("NES_ART_BASE", 96),
             ("NES_ART_TILES", 160),
+            ("NES_ART_WS_SIZE", nes_art_ws_size),
             ("NES_CHR_BANKS", 1 + len(arts)),
         ]
     if use_cpc:

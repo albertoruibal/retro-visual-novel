@@ -30,6 +30,7 @@ constraints live in `docs/systems/zx128.md`.
     src/msx1/ src/msx2/      MSX platform layers (MSX1 TMS9918A, MSX2 V9938)
     src/gb/                  platform layer (GB APU player in src/gb/gb_music.c)
     src/c64/ src/nes/        6502 platform layers (VIC-II MCM / NES PPU, MMC1 asm)
+                             NES audio tick + link config: src/nes/nes.cfg, nes_audio_tick.s, nes_music.c, nes_sfx.c
     src/oric/                Oric Atmos HIRES platform layer + atmos.cfg
     vendor/zx0/              pinned ZX0 decoder (69-byte standard, BSD-3)
     vendor/pixeloperator8/   pinned CC0 8x8 font for GBC/SMS/MSX2 text
@@ -47,6 +48,7 @@ constraints live in `docs/systems/zx128.md`.
     tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
     tools/gbmusic.py         PT3 -> Game Boy APU register stream for the GBC runtime
+    tools/nesmusic.py        PT3 -> NES APU register stream for the NES runtime
     tools/cpcart.py          CPC Mode 0/1/2 art preview/build conversion
     tools/c64art.py          C64 VIC-II multicolor art preview/build conversion
     tools/nesart.py          NES 4-colour tile art preview/CHR bank conversion
@@ -464,7 +466,7 @@ There is no test suite and no configured linter. Verify by:
   `scene_song[]` (index or 255). The shared player `src/portable/core/music.c` is linked by every target and
   dispatches to the VT2, PSGlib or APU player; `gen_scenes.song_setup()`/`scene_song_array()` are shared with
   `gen_port.py`, so the targets validate and resolve music identically. Songs are ZX0-compressed paged blobs on the AY, SMS and Next
-  targets and share the art/scene bank budget; the Game Boy Color stream is raw in banked ROM. The workspace is
+  targets and share the art/scene bank budget; the Game Boy Color and NES streams are raw in banked ROM. The workspace is
   platform-owned via `plat_song_ws()`: ZX uses lower RAM at `0x6000 + STAGE_WS_SIZE`
   (directly after `_stage_ws`, sized per game to the largest module after decompression, capped at 4158 B; the two
   buffers must fit the 8K window to 0x8000); CPC uses a fixed
@@ -478,8 +480,11 @@ There is no test suite and no configured linter. Verify by:
   vblanks) and every vblank on PAL; its `SONG_WS_SIZE` buffer holds the decompressed PSG stream. Game Boy Color
   converts each PT3 to an APU register stream (`tools/gbmusic.py`) and reads it directly from banked ROM with
   `src/gb/gb_music.c`; each stream starts at a bank boundary after the art, so no song workspace is used, and the
-  vblank handler divides 59.7 Hz down to the stream's 50 Hz. Both converters share `tools/pt3frames.py` and use the
-  pinned spectrumizer PT3 decoder, rejecting modules with unsupported commands. Playback on the AY targets uses
+  vblank handler divides 59.7 Hz down to the stream's 50 Hz. NES converts each PT3 with `tools/nesmusic.py` and
+  packs the raw stream into extra PRG banks; `src/nes/nes_audio_tick.s` reads it from the NMI, briefly maps the song
+  bank at `$8000`, restores bank 0, and divides the NTSC ~60 Hz frame rate to 50 Hz. The NES layout keeps all code in
+  the fixed last PRG bank and the story/art in switchable bank 0. The converters share `tools/pt3frames.py` and use
+  the pinned spectrumizer PT3 decoder, rejecting modules with unsupported commands. Playback on the AY targets uses
   z88dk's VT2/PT3 player (NIRVANA+ hook on
   ZX, firmware frame flyback on CPC, VDP IM1 on MSX2); the ZX song buffer now lives in lower RAM, so only the player
   code remains in home bank 0. The Music tab's
@@ -519,6 +524,11 @@ There is no test suite and no configured linter. Verify by:
   shrink to 50-68%); the bank budget is unchanged, so packing is over compressed sizes.
 - `clear` on an option wipes all state then re-grants `# Game start:` names. The engine does **not** auto-clear on
   entering the first scene.
+- **UI sound effects:** the portable core calls `SFX(id)` at cursor moves, confirmations, backing out, item
+  pickups/drops and blocked moves. `PORT_SFX` (set for the NES in `port_data.h`) turns the calls into `plat_sfx()`;
+  other targets compile them to `(void)0`, so no platform needs to implement it yet. The NES implementation overlays a
+  short pulse-2 sequence from `src/nes/nes_audio_tick.s` on the music and restores the music's pulse-2 shadow when it
+  ends.
 - **`# Game password:`** (`scenefile.parse`/`serialize`, `gen_scenes.py` emits `game_title`/`game_password` into
   `build/scene_data.h`) makes the engine show a boot screen once before the first scene: `src/zx/plat_zx.c:password_screen()`
   fills the raced art band black (`fill_art_band_black`, same 6-tile `NIRVANAP_halt` batching as `draw_art`), prints the
@@ -745,10 +755,11 @@ There is no test suite and no configured linter. Verify by:
   colours; the global colours and per-cell extra colour are still picked from the undithered image. `c64_any_key_down`
   in `src/c64/c64_hw.s` is the release scan; `kbhit`/`cgetc` read keys. There is no boot password and no music yet
   (`N_SONGS=0` for this target).
-- **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes`, patches the iNES/NES2.0 header to mapper 1 (MMC1),
-  installs the custom NMI vector and appends the generated CHR banks. `tools/gen_port.py --nes` emits the compressed
-  scene/inventory arrays plus the uncompressed art maps/attributes/palettes in `port_data.c/h` and
-  `build/port_nes_chr.bin`. The cartridge is 32KB PRG with 8KB battery WRAM at `$6000`; BSS and the C stack live there.
+- **NES runtime:** `tools/targets/nes.py` links with `cl65 -t nes -C src/nes/nes.cfg`, merges the generated PRG
+  banks, patches the iNES header to mapper 1 (MMC1), installs the custom NMI vector and appends the generated CHR
+  banks. `tools/gen_port.py --nes` emits the compressed scene/inventory and ZX0-compressed art blobs in
+  `port_data.c/h`, plus `build/port_nes_chr.bin` and the raw song streams in `build/port_nes_song.bin`. The cartridge
+  is a banked MMC1 PRG image with 8KB battery WRAM at `$6000`; BSS lives there and the C stack is in internal RAM.
   The PPU screen is 32x30: row 0 blank, row 1 title, rows 2..`nes_art_rows+1` the picture, and text from
   `nes_art_rows+2` through 29 (`PORT_OVERLAY_MENU=1`; A confirms, B/Select opens/closes the dialog). Each 8KB CHR bank
   has two 4KB pattern tables: table 0 (title/art) holds the normal 96-glyph font (0..95) plus up to 160 art tiles
@@ -765,8 +776,13 @@ There is no test suite and no configured linter. Verify by:
   directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
   flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19 ppubuf API (the version in the editor
   Docker image). `## nes dither:` accepts the full list and dithers between each 2x2-tile block's four colours; the
-  block palettes are still chosen from the undithered image. `art_rows` is 8/10/12 (default 10); the 32KB PRG is the main size
-  limit. There is no boot password and no music yet.
+  block palettes are still chosen from the undithered image. `art_rows` is 8/10/12 (default 10).
+  `src/nes/nes.cfg` splits PRG into a switchable 16KB story/art bank at `$8000` and a fixed last bank at `$C000`
+  containing all code, the NMI and the vectors; converted song streams fill the PRG banks in between, and the iNES
+  PRG count is padded to a power of two (MMC1 addresses 16 banks total). Art blobs are ZX0-compressed and decoded into
+  a small RAM workspace by `plat_draw_art()`. `src/nes/nes_audio_tick.s` runs the music reader and the pulse-2 UI SFX
+  sequencer from the NMI (no C in the NMI); the music's pulse-2 registers are shadowed and restored after an SFX. Start
+  toggles music. The target's link-map guard rejects a story-bank or fixed-bank overflow. There is no boot password.
 - **Oric Atmos runtime:** `tools/targets/oric.py` builds a cc65 `atmos` `.tap` (the Oric is the third 6502 target).
   The HIRES bitmap is 240x200 at `$A000`; text is software-rendered with a generated 6x8 font, the title is row 0,
   the art band rows 1..`art_rows`, and the text pane is below. `art_rows` is 8/10/12 (default 8), `PLAT_ROWS=25`,

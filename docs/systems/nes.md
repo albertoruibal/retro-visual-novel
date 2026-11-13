@@ -22,34 +22,48 @@
 - **Art:** `tools/nesart.py` fits the source to 256 x `8 * art_rows`, preprocesses and quantises it to the NES
   palette, assigns one of the three art palettes per 2x2-tile block and deduplicates the 2bpp tiles into at most 160
   patterns. The `## nes dither:` option accepts the full list and dithers between each block's four colours; the
-  block palettes are still chosen from the undithered image. The blob (uncompressed, in PRG ROM) is
-  `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`; tile
-  patterns live in table 0 of the art's 8KB CHR ROM bank after the 96 font tiles. `margin:` adds N 8x8-cell borders
-  on the left and right, filled with `text_bg`; the picture is scaled to the inner width with its aspect preserved.
-  The editor preview and the ROM use the same converter.
-- **Storage/memory:** an MMC1 (mapper 1) cartridge with 32KB PRG and 8KB battery WRAM at `$6000`. The story data
-  (scenes/inventory compressed with ZX0, plus the art maps/attributes/palettes) is resident in the 32KB PRG; the C
-  workspaces and the C stack live in the 8KB PRG RAM. `src/6502/zx0.c` decodes the scene/inventory blobs.
-  `tools/gen_port.py --nes` writes `build/port_data.c/h` and `build/port_nes_chr.bin`; `tools/targets/nes.py` links the
-  code, patches the iNES header (mapper 1, CHR bank count), installs the custom NMI vector and appends the generated
-  CHR banks.
+  block palettes are still chosen from the undithered image. The blob is
+  `[u16 ntiles][u8 npalettes][palettes][u16 map][attrs]`, ZX0-compressed in bank 0; `plat_draw_art()` decodes it
+  into a small RAM workspace before drawing. Tile patterns live in table 0 of the art's 8KB CHR ROM bank after the
+  96 font tiles. `margin:` adds N 8x8-cell borders on the left and right, filled with `text_bg`; the picture is
+  scaled to the inner width with its aspect preserved. The editor preview and the ROM use the same converter.
+- **Storage/memory:** an MMC1 (mapper 1) cartridge with banked PRG and 8KB battery WRAM at `$6000`. The custom
+  `src/nes/nes.cfg` puts all code, the NMI and the vector table in the **last** 16KB PRG bank (MMC1 mode 3 fixes it at
+  `$C000-$FFFF`), and uses the switchable bank 0 at `$8000-$BFFF` for the ZX0-compressed scenes/inventory and art
+  blobs. Converted song streams are densely packed into the PRG banks between bank 0 and the fixed bank, then unused
+  banks pad the PRG count to a power of two; the iNES PRG count includes them. The layout supports up to 16 PRG banks
+  (14 song banks). The C workspaces and BSS live in the 8KB PRG RAM; `src/6502/zx0.c` decodes scenes, inventory and
+  art. `tools/gen_port.py --nes` writes `build/port_data.c/h`, `build/port_nes_chr.bin` and
+  `build/port_nes_song.bin`; `tools/targets/nes.py` links the code, merges the banks, patches the iNES header
+  (mapper 1, PRG/CHR counts), installs the custom NMI vector and appends the generated CHR banks.
 - **CHR banks:** bank 0 is the boot bank (font, highlight copy and blank tiles); each art gets one 8KB CHR bank
   (`port_art_bank[id]`). MMC1 8KB CHR mode addresses at most 16 banks, so a game may have at most 15 arts.
   `src/nes/nes_mmc1.s` performs the serial MMC1 register writes.
-- **Controls:** D-pad moves/scrolls; A confirms; B or Select opens/closes the action dialog. Start toggles music when
-  a NES music player is added.
-- **Sound:** not implemented yet. The NES build ignores the game's `songs:`/`music:` settings; other targets still
-  play them.
-- **Build:** `cl65 -t nes -Oirs ...`, output `<slug>.nes`; cc65 is required (z88dk has no NES target). The editor
-  Docker image contains cc65 (V2.18, whose `ppubuf` API `src/nes/nes_ppu.s` wraps); on a desktop install a matching
-  cc65 and point the **Build toolchain** settings card at it.
+- **Controls:** D-pad moves/scrolls; A confirms; B or Select opens/closes the action dialog; Start toggles music.
+- **Sound:** PT3 songs are converted at build time by `tools/nesmusic.py` to a NES APU register stream. AY tone
+  channels A/B map to pulse 1/2, AY channel C to the triangle (on/off; it has no volume control) and AY noise to the
+  noise channel; the AY hardware envelope is approximated per frame and low notes are folded up until they fit the
+  11-bit timer. A stream is raw in the PRG banks and read directly by `src/nes/nes_audio_tick.s` from the NMI, which
+  divides the ~60Hz frame rate down to the stream's 50Hz. The song reader briefly maps the current song bank at
+  `$8000` and restores bank 0 before returning. The converter uses the pinned spectrumizer PT3 decoder, so an
+  unsupported module fails the build with a clear message.
+- **UI sounds:** the shared engine emits `plat_sfx()` calls for cursor moves, confirmations, backing out, item
+  pickups/drops and blocked moves. On the NES a short pulse-2 sequence is overlaid on the music by the same NMI tick;
+  the music's pulse-2 registers are shadowed, skipped while the SFX owns the channel, and restored when it ends.
+  Other targets compile the SFX calls away.
+- **Build:** `cl65 -t nes -C src/nes/nes.cfg -Oirs ...`, output `<slug>.nes`; cc65 is required (z88dk has no NES
+  target). The editor Docker image contains cc65 (V2.18, whose `ppubuf` API `src/nes/nes_ppu.s` wraps); on a desktop
+  install a matching cc65 and point the **Build toolchain** settings card at it.
 - **Emulator:** the editor's Emulator tab runs the `.nes` in a pinned EmulatorJS build of FCEUmm (MMC1-capable). Its
   default keyboard mapping is arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and
   `Enter` = Start; remap it in the emulator's Control Settings. The ROM also runs in FCEUX, Mesen, Nestopia or another
   MMC1-capable NES emulator.
-- **Limitations:** no boot-password screen; the 32KB PRG is the main size limit (shorten the story or reduce
-  `art_rows` if the linker overflows). The art/text pattern-table split is timed from the NMI; unusual mid-frame
-  rendering changes would need the delay table retuned.
+- **Limitations:** no boot-password screen. Story/inventory/art must fit the 16KB switchable bank; songs use the
+  extra banks, up to 14 of them (MMC1 addresses 16 16KB PRG banks total). The fixed code bank has little headroom, so
+  link-map guards reject an overflow. The art/text pattern-table split is timed from the NMI; unusual mid-frame
+  rendering changes would need the delay table retuned. The 50Hz music stream is divided from the NTSC ~60Hz rate;
+  PAL timing is not corrected.
 
-Key files: `tools/targets/nes.py`, `tools/nesart.py`, `src/nes/plat_nes.c`, `src/nes/nes_mmc1.s`, `src/6502/zx0.c`,
+Key files: `tools/targets/nes.py`, `tools/nesart.py`, `tools/nesmusic.py`, `src/nes/plat_nes.c`, `src/nes/nes_mmc1.s`,
+`src/nes/nes_audio_tick.s`, `src/nes/nes_music.c`, `src/nes/nes_sfx.c`, `src/nes/nes.cfg`, `src/6502/zx0.c`,
 `tools/gen_port.py`.

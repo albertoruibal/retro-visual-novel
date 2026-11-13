@@ -154,6 +154,7 @@ void inv_step(char dir)
         inv_mark(prev, 0);
         inv_mark(inv_cur, 1);
     }
+    SFX(PLAT_SFX_MOVE);
 }
 #endif
 
@@ -385,6 +386,9 @@ unsigned char drop_screen(unsigned char id)
                 draw_drop_entry(labels[sel - 1], entry_row[sel - 1], 1);
                 draw_drop_entry(labels[sel], entry_row[sel], 0);
                 sel--;
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
             continue;
         }
@@ -400,12 +404,17 @@ unsigned char drop_screen(unsigned char id)
                 draw_drop_entry(labels[sel + 1], entry_row[sel + 1], 1);
                 draw_drop_entry(labels[sel], entry_row[sel], 0);
                 sel++;
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
             continue;
         }
 #if PORT_OVERLAY_MENU
-        if (k == CURSOR_MENU)
+        if (k == CURSOR_MENU) {
+            SFX(PLAT_SFX_BACK);
             return SCENE_NONE;
+        }
 #endif
         if (k == CURSOR_ENTER) {
 #if HAVE_ITEM_OPTS
@@ -422,9 +431,11 @@ unsigned char drop_screen(unsigned char id)
 #if GAME_CARRY > 0
             if (GAME_CARRY > 0 && sel == nv) {
                 flag_set(id, 0);
+                SFX(PLAT_SFX_DROP);
                 return SCENE_NONE;
             }
 #endif
+            SFX(PLAT_SFX_BACK);
             return SCENE_NONE;
         }
     }

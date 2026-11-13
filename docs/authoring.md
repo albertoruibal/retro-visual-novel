@@ -317,8 +317,9 @@ oversized modules are rejected). `music: <id>` on `# Game` names the default son
 game default, and a scene's `music:` overrides the game default for that scene — including `off` to stop music there.
 The player only restarts when the chosen song actually changes, so adjacent scenes with the same song play
 continuously. PT3 plays directly on the ZX, ZX Next, CPC 6128/464 and MSX2 (all AY-compatible). The Master System build
-converts it to an SN76489 PSG stream and the Game Boy Color build to a Game Boy APU register stream at build time.
-The Commodore 64, NES and Oric Atmos builds currently ignore songs; they still build when `songs:`/`music:` are present.
+converts it to an SN76489 PSG stream, and the Game Boy Color and NES builds convert it to their APU register streams at
+build time. The Commodore 64 and Oric Atmos builds currently ignore songs; they still build when `songs:`/`music:` are
+present.
 
 The Music tab converts into `assets/music/`: **Convert MIDI → PT3** keeps the uploaded source as `<id>.mid` next to
 the module, so a re-conversion with a different cut or style does not need a re-upload.
@@ -534,7 +535,10 @@ must fit 64K. The CPC 464 has no extra banks: its story and a small load buffer 
 blob is read from the `GAME.Bn` files on the disk when needed, so total art size is limited by the disk instead of
 RAM. On the MSX2 the scene data is in bank 1, each art takes a bank from 2 up, and songs are packed into the
 following ROM banks. On the Game Boy Color the scenes, art and converted APU streams are uncompressed in MBC1 banks;
-each song starts at a bank boundary and may span several banks. The ZX raw figures to size against:
+each song starts at a bank boundary and may span several banks. On the NES all code lives in the fixed last 16KB PRG
+bank; scenes/inventory and ZX0-compressed art must fit the switchable 16KB bank 0, and converted APU streams use the
+PRG banks between bank 0 and the fixed bank (up to 14 song banks, MMC1's 16-bank limit). The ZX raw figures to size
+against:
 
 - a scene is about 175 bytes, plus its text, labels, conditions and `msg` popup strings;
 - an art is `8*art_rows` bytes plus 48 per unique tile, at most `392*art_rows` (3920 bytes at the default 10).

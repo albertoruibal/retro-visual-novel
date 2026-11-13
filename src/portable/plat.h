@@ -18,6 +18,16 @@
    CPC/MSX SPACE). */
 #define PORT_KEY_MENU 8
 
+/* UI sound-effect ids.  Only targets with PORT_SFX (currently NES) implement
+   plat_sfx(); the rest compile the calls away in port.h. */
+#define PLAT_SFX_MOVE 0
+#define PLAT_SFX_CONFIRM 1
+#define PLAT_SFX_BACK 2
+#define PLAT_SFX_PICK 3
+#define PLAT_SFX_DROP 4
+#define PLAT_SFX_ERROR 5
+#define PLAT_SFX_COUNT 6
+
 /* Text colour slots understood by every platform.  The title slot is the
    scene/item heading: the ZX uses its `## zx title_ink` (default: body
    colour), while the portable targets use their body colour. */
@@ -58,5 +68,6 @@ void toggle_music(void);
 void plat_set_bank(unsigned char bank) __z88dk_fastcall;
 unsigned char plat_read_key(void);
 void plat_wait_release(void);
+void plat_sfx(unsigned char id);
 
 #endif

@@ -169,7 +169,8 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 - **Options and items:** `B` or `SELECT` opens and closes the action dialog. It lists the scene options first and then
   the held items (prefixed `*`); the D-pad moves and scrolls the list and `A` confirms. On a long item description,
   `UP`/`DOWN` scroll the description while the cursor is on the first entry.
-- **Music:** not implemented yet on the NES build.
+- **Music:** Start toggles music. PT3 songs are converted to NES APU register streams at build time; cursor moves,
+  confirmations, backing out, item pickups/drops and blocked moves also play short UI sound effects.
 - There is no boot-password screen. The build targets MMC1 cartridges with 8KB battery WRAM, so use the editor's
   Emulator tab, a compatible emulator (FCEUX, Mesen, Nestopia) or a flash cart.
 

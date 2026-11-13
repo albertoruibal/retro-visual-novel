@@ -52,6 +52,8 @@
 
 static unsigned char attr_shadow[64];
 static unsigned char direct_mode;
+static unsigned char start_down;
+static unsigned char nes_art_ws[NES_ART_WS_SIZE];
 unsigned char nes_split_on;
 
 /* Keep the custom NMI handler in the link so the target can find its address. */
@@ -284,7 +286,8 @@ void plat_draw_art(unsigned char id)
 
     if (id >= N_ART)
         return;
-    p = port_art_data + port_art_off[id];
+    port_unpack(port_art_data + port_art_off[id], nes_art_ws);
+    p = nes_art_ws;
     ntiles = (unsigned int)p[0] | ((unsigned int)p[1] << 8);
     npal = p[2];
     map = p + 3 + (unsigned int)npal * 4;
@@ -354,6 +357,8 @@ static unsigned char read_pad(void)
 unsigned char plat_read_key(void)
 {
     unsigned char pad = read_pad();
+    if (!(pad & 0x10))
+        start_down = 0;
     if (pad & 0x80)          /* A */
         return 3;
     if (pad & (0x40 | 0x20)) /* B or Select */
@@ -366,10 +371,13 @@ unsigned char plat_read_key(void)
         return 6;
     if (pad & 0x01)          /* Right */
         return 7;
-    if (pad & 0x10) {        /* Start: music toggle */
+    if (pad & 0x10) {        /* Start: music toggle (one per press) */
+        if (!start_down) {
+            start_down = 1;
 #if N_SONGS > 0
-        toggle_music();
+            toggle_music();
 #endif
+        }
         return 0;
     }
     return 0;

@@ -6,6 +6,7 @@
 ; register's range ($8000 control, $A000 CHR0, $C000 CHR1, $E000 PRG).
 
         .export _nes_chr_bank
+        .export _nes_prg_bank
         .export _nes_mmc1_init
 
         .segment "CODE"
@@ -17,6 +18,22 @@
 @l:     pha
         and     #$01
         sta     $A000
+        pla
+        lsr     a
+        dex
+        bne     @l
+        rts
+.endproc
+
+
+; void nes_prg_bank(unsigned char bank)
+;   Select one 16K PRG bank at $8000.  MMC1 mode 3 keeps the last bank fixed
+;   at $C000, so this is safe from code in the fixed bank.
+.proc _nes_prg_bank
+        ldx     #5
+@l:     pha
+        and     #$01
+        sta     $E000
         pla
         lsr     a
         dex

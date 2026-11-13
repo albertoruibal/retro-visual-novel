@@ -11,6 +11,7 @@
         .import         popa, popax, ppubuf_put, ppubuf_flush
         .import         _nes_split_on, _nes_split_idx, _port_nes_split_xy
         .import         _nes_update_lock
+        .import         _nes_audio_tick
         .export         _nes_ppu_put, _nes_nmi, _nes_ringcount
 
         .segment        "CODE"
@@ -87,6 +88,7 @@
         lda     #$90            ; text pane uses background table 1
         sta     PPU_CTRL1
 @done:
+        jsr     _nes_audio_tick
         pla
         tax
         pla

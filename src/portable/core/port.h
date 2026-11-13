@@ -97,6 +97,14 @@ void port_atomic_unlock(void);
 #ifndef HAVE_MESSAGES
 #define HAVE_MESSAGES 0
 #endif
+#ifndef PORT_SFX
+#define PORT_SFX 0
+#endif
+#if PORT_SFX
+#define SFX(id) plat_sfx(id)
+#else
+#define SFX(id) ((void)0)
+#endif
 
 #if PORT_KEEP_ART || PORT_OVERLAY_MENU
 #define ITEM_TOP PORT_TEXT_TOP

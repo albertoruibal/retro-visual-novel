@@ -72,12 +72,24 @@ void opt_apply(unsigned char set_, unsigned char unset,
                       unsigned char pick, unsigned char leave,
                       unsigned char clear)
 {
+#if PORT_SFX
+    unsigned char picked = (pick != FLAG_NONE && !flag_get(pick));
+    unsigned char dropped = (leave != FLAG_NONE && flag_get(leave));
+#endif
     if (clear & 1)
         reset_game();
     flag_set(set_, 1);
     flag_set(unset, 0);
     flag_set(pick, 1);
     flag_set(leave, 0);
+#if PORT_SFX
+    if (picked)
+        SFX(PLAT_SFX_PICK);
+    else if (dropped)
+        SFX(PLAT_SFX_DROP);
+    else
+        SFX(PLAT_SFX_CONFIRM);
+#endif
 }
 
 void load_scene(unsigned char id)

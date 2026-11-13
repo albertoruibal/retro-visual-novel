@@ -204,6 +204,7 @@ unsigned char choose_option(unsigned char navail)
                 inv_cur = 0xFF;
                 on_inv = 0;
                 mark_item(sel, 1);
+                SFX(PLAT_SFX_MOVE);
             } else if (k == CURSOR_DOWN || k == CURSOR_RIGHT) {
                 inv_step(1);
             } else if (k == CURSOR_LEFT) {
@@ -241,12 +242,16 @@ unsigned char choose_option(unsigned char navail)
                 mark_item(sel, 0);
                 sel--;
                 mark_item(sel, 1);
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
         } else if (k == CURSOR_DOWN) {
             if (sel + 1 < total) {
                 mark_item(sel, 0);
                 sel++;
                 mark_item(sel, 1);
+                SFX(PLAT_SFX_MOVE);
             } else if (inv_nvis) {
                 mark_item(sel, 0);
                 on_inv = 1;
@@ -255,11 +260,15 @@ unsigned char choose_option(unsigned char navail)
                     draw_inventory();       /* reset a scrolled window */
                 else
                     inv_mark(0, 1);
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
         } else if (k == CURSOR_ENTER) {
 #if HAVE_WORDS
             if (sel < word_count) {
                 flag_set(word_flag_of(sel), 1);
+                SFX(PLAT_SFX_CONFIRM);
                 return SCENE_NONE;
             }
 #endif
@@ -425,8 +434,10 @@ static unsigned char menu_screen(void)
             k = plat_read_key();
         } while (!k);
         plat_wait_release();
-        if (k == CURSOR_MENU)
+        if (k == CURSOR_MENU) {
+            SFX(PLAT_SFX_BACK);
             return SCENE_NONE;
+        }
         if (k == CURSOR_UP || k == CURSOR_DOWN) {
             if ((k == CURSOR_UP && sel)
                     || (k == CURSOR_DOWN && sel + 1 < total)) {
@@ -442,6 +453,9 @@ static unsigned char menu_screen(void)
                 } else {
                     draw_menu_move(nopt, first, prev, sel);
                 }
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
         } else if (k == CURSOR_ENTER) {
             if (sel < nopt) {
@@ -478,7 +492,9 @@ unsigned char choose_option(unsigned char navail)
         } while (!k);
         plat_wait_release();
         if (k == CURSOR_MENU) {
-            unsigned char next = menu_screen();
+            unsigned char next;
+            SFX(PLAT_SFX_CONFIRM);
+            next = menu_screen();
             if (next != SCENE_NONE)
                 return next;
 #if PORT_INV_OVERWRITES_ART && PORT_KEEP_ART
@@ -527,6 +543,9 @@ unsigned char choose_option(unsigned char navail)
                 sel--;
                 ensure_word_visible(sel);
                 mark_word(sel, 1);
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
 #endif
         } else if (k == CURSOR_DOWN) {
@@ -536,6 +555,9 @@ unsigned char choose_option(unsigned char navail)
                 sel++;
                 ensure_word_visible(sel);
                 mark_word(sel, 1);
+                SFX(PLAT_SFX_MOVE);
+            } else {
+                SFX(PLAT_SFX_ERROR);
             }
 #endif
         } else if (k == CURSOR_LEFT) {
@@ -546,6 +568,7 @@ unsigned char choose_option(unsigned char navail)
                     sel--;
                     ensure_word_visible(sel);
                     mark_word(sel, 1);
+                    SFX(PLAT_SFX_MOVE);
                 }
             }
 #if !PORT_NO_TEXT_SCROLL
@@ -572,6 +595,7 @@ unsigned char choose_option(unsigned char navail)
                     sel++;
                     ensure_word_visible(sel);
                     mark_word(sel, 1);
+                    SFX(PLAT_SFX_MOVE);
                 }
             }
 #if !PORT_NO_TEXT_SCROLL
@@ -593,6 +617,7 @@ unsigned char choose_option(unsigned char navail)
 #if HAVE_WORDS
         } else if (k == CURSOR_ENTER && word_count) {
             flag_set(word_flag_of(sel), 1);
+            SFX(PLAT_SFX_CONFIRM);
             return SCENE_NONE;
 #endif
         }
