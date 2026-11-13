@@ -25,6 +25,11 @@
 #define CMD_WAIT 0x80
 
 volatile unsigned char gb_sfx_req;
+unsigned short gb_sfx_ptr;
+unsigned char gb_sfx_wait;
+unsigned char gb_sfx_sh_vol;
+unsigned char gb_sfx_sh_lo;
+unsigned char gb_sfx_sh_hi;
 
 extern void gb_sfx_tick(void) NONBANKED;
 
