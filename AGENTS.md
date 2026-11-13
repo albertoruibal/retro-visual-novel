@@ -778,10 +778,17 @@ There is no test suite and no configured linter. Verify by:
   8KB CHR bank after bank 0 (font + highlight + blanks); MMC1 8KB CHR mode addresses 16 banks, so a game may have at
   most 15 arts. `nesart` emits the full 64-byte attribute table per art. `src/nes/nes_mmc1.s` writes the MMC1 registers
   serially; note the 8KB CHR bank register ignores bit 0 (`bank << 1`). Large redraws (art, pane clears) write VRAM
-  directly with the NMI/rendering off; text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
-  flush, which also resets the scroll. That wrapper targets the cc65 2.18/2.19 ppubuf API (the version in the editor
-  Docker image). `## nes dither:` accepts the full list and dithers between each 2x2-tile block's four colours; the
-  block palettes are still chosen from the undithered image. `art_rows` is 8/10/12 (default 10).
+  directly with rendering forced off, but keep the NMI enabled: the handler leaves the PPU alone while
+  `nes_direct_mode` is set and still runs the audio tick, and `end_direct` only sets `nes_pending_enable`, so the
+  handler re-enables rendering and resets the scroll at the next vblank (enabling mid-frame would show the top of the
+  nametable on the bottom scanlines). A following `begin_direct` cancels a pending re-enable, so the art draw and the
+  pane clear share one blank. A row clear also updates its eight attribute bytes in one pass rather than per cell,
+  keeping the blank to about two frames. Text and attribute updates go through the cc65 ppubuf ring buffer and its NMI
+  flush, which also resets the scroll. `nes_mmc1_busy` makes the NMI skip a music tick while the main thread clocks a
+  MMC1 register, so the two five-write sequences cannot interleave. That wrapper targets the cc65 2.18/2.19 ppubuf API
+  (the version in the editor Docker image). `## nes dither:` accepts the full list and dithers between each 2x2-tile
+  block's four colours; the block palettes are still chosen from the undithered image. `art_rows` is 8/10/12
+  (default 10).
   `src/nes/nes.cfg` splits PRG into a switchable 16KB story/art bank at `$8000` and a fixed last bank at `$C000`
   containing all code, the NMI and the vectors; converted song streams fill the PRG banks in between, and the iNES
   PRG count is padded to a power of two (MMC1 addresses 16 banks total). Art blobs are ZX0-compressed and decoded into

@@ -13,7 +13,10 @@
   is the highlight colour; normal glyphs use pixel value 1 and highlighted glyphs pixel value 2, so a selected word or
   entry cannot tint the adjacent row. The custom NMI switches the PPU background table from 0 to 1 in the last art
   scanline's HBlank, using a generated delay table that accounts for the exact ppubuf flush length. A locked menu
-  update defers the flush to the next frame, writing both selection rows atomically.
+  update defers the flush to the next frame, writing both selection rows atomically. Direct VRAM redraws force blank
+  but keep the NMI running: the handler skips the PPU while the main thread owns it, still ticks the audio, and
+  re-enables rendering at the next vblank (never mid-frame, which would show the top of the nametable on the bottom
+  scanlines). A following redraw cancels the deferred re-enable, so the art and pane updates share one blank.
 - **Colours:** the PPU has four background palettes of four colours; entry 0 is the shared universal background,
   fixed to the game's `text_bg:`. Palette 0 is body text (`entry 1 = text_ink`, `entry 2 = highlight_ink`) and
   palettes 1/2/3 carry three art colours each, for up to ten colours including the shared background.
@@ -45,7 +48,8 @@
   noise channel; the AY hardware envelope is approximated per frame and low notes are folded up until they fit the
   11-bit timer. A stream is raw in the PRG banks and read directly by `src/nes/nes_audio_tick.s` from the NMI, which
   divides the ~60Hz frame rate down to the stream's 50Hz. The song reader briefly maps the current song bank at
-  `$8000` and restores bank 0 before returning. The converter uses the pinned spectrumizer PT3 decoder, so an
+  `$8000` and restores bank 0 before returning. The NMI tick keeps running while a direct VRAM redraw has rendering
+  off, so a scene change does not interrupt the song. The converter uses the pinned spectrumizer PT3 decoder, so an
   unsupported module fails the build with a clear message.
 - **UI sounds:** the shared engine emits `plat_sfx()` calls for cursor moves, confirmations, backing out, item
   pickups/drops and blocked moves. On the NES a short pulse-2 sequence is overlaid on the music by the same NMI tick;

@@ -8,11 +8,22 @@
         .export _nes_chr_bank
         .export _nes_prg_bank
         .export _nes_mmc1_init
+        .export _nes_mmc1_busy
+
+        .segment "BSS"
+; Set while the main thread is clocking a register into the MMC1 serial port.
+; The NMI song player must not start its own five-write sequence in the middle
+; of one, so it skips a tick when this is non-zero.
+_nes_mmc1_busy: .res 1
 
         .segment "CODE"
 
 ; void nes_chr_bank(unsigned char bank)
 .proc _nes_chr_bank
+        pha
+        lda     #1
+        sta     _nes_mmc1_busy
+        pla
         asl     a               ; 8KB CHR mode: register bit 0 is ignored
         ldx     #5
 @l:     pha
@@ -22,6 +33,8 @@
         lsr     a
         dex
         bne     @l
+        lda     #0
+        sta     _nes_mmc1_busy
         rts
 .endproc
 
@@ -30,6 +43,10 @@
 ;   Select one 16K PRG bank at $8000.  MMC1 mode 3 keeps the last bank fixed
 ;   at $C000, so this is safe from code in the fixed bank.
 .proc _nes_prg_bank
+        pha
+        lda     #1
+        sta     _nes_mmc1_busy
+        pla
         ldx     #5
 @l:     pha
         and     #$01
@@ -38,11 +55,15 @@
         lsr     a
         dex
         bne     @l
+        lda     #0
+        sta     _nes_mmc1_busy
         rts
 .endproc
 
 ; void nes_mmc1_init(void)
 .proc _nes_mmc1_init
+        lda     #1
+        sta     _nes_mmc1_busy
         lda     #$0C            ; horizontal mirroring, fix last bank, 8K CHR
         ldx     #5
 @ctl:   pha

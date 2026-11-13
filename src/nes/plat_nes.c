@@ -51,10 +51,15 @@
 #define NT_ATTR 0x23C0
 
 static unsigned char attr_shadow[64];
-static unsigned char direct_mode;
 static unsigned char start_down;
 static unsigned char nes_art_ws[NES_ART_WS_SIZE];
 unsigned char nes_split_on;
+/* Shared with the NMI: direct_mode means the main thread owns the PPU and is
+   writing VRAM with rendering off; pending_enable asks the NMI to switch
+   rendering back on at the next vblank (never mid-frame), and to keep the
+   audio tick running while the picture is blanked. */
+unsigned char nes_direct_mode;
+unsigned char nes_pending_enable;
 
 /* Keep the custom NMI handler in the link so the target can find its address. */
 extern void nes_nmi(void);
@@ -87,31 +92,28 @@ static void ppu_addr(unsigned int addr)
     PPU_ADDR = (unsigned char)addr;
 }
 
-static void ppu_write(unsigned char value)
-{
-    PPU_DATA = value;
-}
+#define ppu_write(value) (PPU_DATA = (unsigned char)(value))
 
 static void begin_direct(void)
 {
-    PPU_CTRL1 = 0;         /* NMI off while the VRAM is written directly */
-    PPU_CTRL2 = 0;
-    direct_mode = 1;
+    PPU_CTRL1 = 0;         /* NMI off while the flags change */
+    nes_pending_enable = 0; /* a new write cancels an earlier re-enable */
+    nes_direct_mode = 1;
+    PPU_CTRL2 = 0;         /* rendering off for direct VRAM writes */
+    PPU_CTRL1 = 0x80;      /* NMI stays on so the audio tick keeps running */
 }
 
 static void end_direct(void)
 {
-    direct_mode = 0;
-    ppu_addr(0x2000);
-    PPU_SCROLL = 0;
-    PPU_SCROLL = 0;
-    PPU_CTRL2 = 0x0A;      /* background on, sprites off, no clipping */
-    PPU_CTRL1 = 0x80;      /* NMI on, background table 0 */
+    /* The NMI re-enables rendering at the next vblank and restores the scroll.
+       Doing it here, mid-frame, shows the top of the nametable on the bottom
+       scanlines (the art band flashes below the text). */
+    nes_pending_enable = 1;
 }
 
 static void write_attr(unsigned char index)
 {
-    if (direct_mode) {
+    if (nes_direct_mode) {
         ppu_addr(NT_ATTR + index);
         ppu_write(attr_shadow[index]);
     } else {
@@ -145,11 +147,21 @@ static void set_cell_attr(unsigned char row, unsigned char col,
 static void clear_row_now(unsigned char row)
 {
     unsigned char i;
+    unsigned char base, mask;
     ppu_addr(NT_BASE + (unsigned int)row * PORT_COLS);
     for (i = 0; i < PORT_COLS; i++)
         ppu_write(0);
-    for (i = 0; i < PORT_COLS; i++)
-        set_cell_attr(row, i, 0);
+    /* One 32-tile row touches only its vertical half of eight attribute
+       bytes: clear both tile quadrants in those bytes in one pass. */
+    base = (unsigned char)((row >> 2) * 8);
+    mask = (unsigned char)((row & 2) ? 0xF0 : 0x0F);
+    for (i = 0; i < 8; i++) {
+        unsigned char index = (unsigned char)(base + i);
+        if (attr_shadow[index] & mask) {
+            attr_shadow[index] &= (unsigned char)~mask;
+            write_attr(index);
+        }
+    }
 }
 
 static void init_split(void)
@@ -283,9 +295,11 @@ void plat_draw_art(unsigned char id)
     const unsigned char *p, *map, *attrs;
     unsigned int ntiles, i;
     unsigned char npal, k;
+    unsigned char chr_bank;
 
     if (id >= N_ART)
         return;
+    chr_bank = port_art_bank[id];
     port_unpack(port_art_data + port_art_off[id], nes_art_ws);
     p = nes_art_ws;
     ntiles = (unsigned int)p[0] | ((unsigned int)p[1] << 8);
@@ -295,7 +309,7 @@ void plat_draw_art(unsigned char id)
     (void)ntiles;
 
     begin_direct();
-    nes_chr_bank(port_art_bank[id]);
+    nes_chr_bank(chr_bank);
     for (k = 0; k < npal && k < 3; k++) {
         ppu_addr((unsigned int)(0x3F05 + k * 4));
         ppu_write(p[3 + k * 4 + 1]);
