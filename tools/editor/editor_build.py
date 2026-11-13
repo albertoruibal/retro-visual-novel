@@ -25,12 +25,16 @@ def _build_env_for(slug):
 
 
 def _selected_build_ids(doc, requested=None):
-    """Selected targets plus the always-built web emulator player."""
-    ids = targets.ordered_targets(
-        str(t).strip().lower() for t in (requested or [])
-        if str(t).strip())
-    if not ids:
-        ids = targets.ordered_targets(targets.selected_targets(doc))
+    """Selected targets plus the always-built web emulator player.
+
+    An explicit ``requested`` list builds exactly those targets (the editor's
+    "Build selected" action); only the full build appends the web export.
+    """
+    req = [str(t).strip().lower() for t in (requested or [])
+           if str(t).strip()]
+    if req:
+        return targets.ordered_targets(req)
+    ids = targets.ordered_targets(targets.selected_targets(doc))
     if ids and "web" not in ids:
         ids = targets.ordered_targets(ids + ["web"])
     return ids

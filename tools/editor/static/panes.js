@@ -290,11 +290,11 @@ function systemCard(t) {
 function paneSystems() {
   const list = systemTargets();
   if (!list.length) {
-    return `<h2>Build systems <span class="pill">built by the Build button</span></h2>
+    return `<h2>Build systems <span class="pill">built by Build all / Build selected</span></h2>
     <div class="card"><div class="hint">No build targets are registered.</div></div>`;
   }
   const t = list.find((x) => x.id === activeSystemId()) || list[0];
-  return `<h2>Build systems <span class="pill">built by the Build button</span></h2>
+  return `<h2>Build systems <span class="pill">built by Build all / Build selected</span></h2>
   <div class="hint">Pick a platform's tab to configure it; tick its checkbox to
     include it in the build.</div>
   ${systemTabs()}

@@ -24,7 +24,8 @@ document.querySelector('.item[data-tab="game"]').onclick = () => {
 $("regenall").onclick = regenAll;
 $("regenmissing").onclick = regenMissing;
 $("stopgen").onclick = stopGeneration;
-$("build").onclick = runBuild;
+$("build").onclick = () => runBuild();
+$("buildone").onclick = () => runBuild([$("buildtarget").value]);
 document.querySelectorAll(".viewtab").forEach((b) =>
   b.addEventListener("click", () => setView(b.dataset.view)));
 $("mobsel").onchange = (e) => {

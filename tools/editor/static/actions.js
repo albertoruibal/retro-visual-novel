@@ -22,11 +22,30 @@ async function save() {
   finally { $("save").disabled = false; }
 }
 
-async function runBuild() {
+function refreshBuildTargets() {
+  const sel = $("buildtarget");
+  if (!sel) return;
+  const ids = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
+  const list = ((typeof systemTargets === "function") ? systemTargets() : [])
+    .filter((t) => ids.includes(t.id));
+  const prev = sel.value;
+  sel.innerHTML = list.map((t) =>
+    `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join("");
+  if (list.some((t) => t.id === prev)) sel.value = prev;
+  const none = !list.length;
+  sel.disabled = none;
+  const btn = $("buildone");
+  if (btn) btn.disabled = none;
+}
+
+async function runBuild(requested) {
+  const explicit = Array.isArray(requested) && requested.length ? requested : null;
   await loadServerSettings();
-  const tg = (typeof gameTargets === "function") ? gameTargets() : ["zx128"];
-  const needCc65 = tg.some((t) => t === "c64" || t === "nes");
-  const needZ88dk = tg.some((t) => t !== "c64" && t !== "nes" && t !== "web");
+  const tg = explicit ||
+    ((typeof gameTargets === "function") ? gameTargets() : ["zx128"]);
+  const needCc65 = tg.some((t) => t === "c64" || t === "nes" || t === "oric");
+  const needZ88dk = tg.some((t) => t !== "c64" && t !== "nes" &&
+                                    t !== "oric" && t !== "web");
   if (needZ88dk && !SERVER.z88dk_available) {
     const miss = (SERVER.z88dk_missing || []).join(", ");
     setBuildStatus(miss ? `z88dk incomplete — missing ${miss}`
@@ -43,7 +62,7 @@ async function runBuild() {
   }
   if (view === "raw" && rawDirty) { await saveRaw(); if (rawDirty) return; }
   else if (dirty && !(await save())) return;
-  if (typeof gameTargets === "function" && !gameTargets().length) {
+  if (typeof gameTargets === "function" && !tg.length) {
     alert("Select at least one system in the Systems tab first.");
     return;
   }
@@ -51,7 +70,8 @@ async function runBuild() {
   $("buildlog").textContent = "starting…";
   setBuildStatus("building…");
   try {
-    const r = await api("POST", "/api/build", {});
+    const r = await api("POST", "/api/build",
+                        explicit ? { targets: explicit } : {});
     build = r.build;
     const tick = async () => {
       const b = await api("GET", "/api/build/" + build);
