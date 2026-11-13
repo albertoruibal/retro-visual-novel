@@ -23,6 +23,8 @@
     <div class="story">
       <h1 id="scenetitle" class="scenetitle"></h1>
       <div id="scenetext" class="scenetext"></div>
+      <button id="optionsbutton" class="option menuopen" type="button"
+              aria-keyshortcuts="Space" hidden>Options</button>
       <div id="options" class="options"></div>
     </div>
     <nav id="inventory" class="inventory" aria-label="Inventory" hidden></nav>
@@ -35,6 +37,14 @@
     <h2 id="itemtitle" class="itemtitle"></h2>
     <div id="itemdesc" class="itemdesc"></div>
     <div id="itemopts" class="options"></div>
+  </section>
+</div>
+<div id="optionsmenu" class="sheet" hidden>
+  <section class="sheetpanel" role="dialog" aria-modal="true"
+           aria-labelledby="menutitle">
+    <button id="menuclose" class="close" type="button" aria-label="Close">×</button>
+    <h2 id="menutitle" class="itemtitle">Options</h2>
+    <div id="menulist" class="options"></div>
   </section>
 </div>
 <div id="messagepopup" class="messagepopup" hidden>

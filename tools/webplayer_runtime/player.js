@@ -98,7 +98,9 @@
     if (deckEl) deckEl.dataset.media = media;
     if (deckName) deckName.textContent = system.mediaLabel || media;
     if (system.kind === "web") {
-      hintEl.textContent = "The mobile-first web novel. Tap or click an option, word or item.";
+      hintEl.textContent = D.web && D.web.popupMenu
+        ? "The mobile-first web novel. SPACE opens the options menu; tap or click an option, word or item."
+        : "The mobile-first web novel. Tap or click an option, word or item.";
     } else if (system.emulator === "jsspeccy" && speccyTouchWanted()) {
       hintEl.textContent = "Use the on-screen pad: the arrows move, ENTER confirms and SPACE opens the action dialog.";
     } else {

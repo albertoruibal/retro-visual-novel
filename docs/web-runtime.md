@@ -99,6 +99,7 @@ window.RVN_GAME = {
   artRows: 12,                  // Web art_rows (even, 8..16)
   mono: false,                  // baked mono art + white text when true
   dither: "off",                // mono dither scheme
+  popupMenu: false,             // SPACE opens the options menu (see below)
   startScene: "start",
   startItems: [],
   carry: 0,
@@ -146,6 +147,13 @@ Text lines are rendered `segments` plus conditions. A segment with a `flag` is a
 the current scene. `popup` is an empty string or the option's `msg` text. A scene's `music` is a song id or `null`;
 songs that could not be rendered are removed and the scene becomes silent.
 
+`popupMenu` is true when a selected native system uses the portable pop-up options dialog: SMS, Game Boy Color, C64
+and NES always do, and ZX, CPC, MSX1, MSX2, Next and Oric do when their `menu: popup` option is set. The novel then
+hides the pinned options and inventory band and keeps them behind an **Options** button and the SPACE key, matching
+the native build: SPACE opens the options menu. The menu lists the visible scene options first, then held items
+prefixed `*`; SPACE (or Escape, the close button or the backdrop) closes it. With no such system selected the options
+and inventory stay pinned on screen.
+
 The native `system_*` build-time flags are folded during export with the web target, so all of them are false:
 lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
 
@@ -156,7 +164,8 @@ window.RVN_PLAYER = {
   format: 1,
   slug: "demo-game",
   title: "The Lighthouse Keeper",
-  web: { label: "Web version", src: "novel/index.html", machine: "HTML5" },
+  web: { label: "Web version", src: "novel/index.html", machine: "HTML5",
+         popupMenu: false },
   systems: [
     { id: "zx128", label: "ZX Spectrum 128K", kind: "native",
       emulator: "jsspeccy", machine: "128", page: "",

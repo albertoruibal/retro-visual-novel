@@ -34,11 +34,16 @@
   var currentArt = null;
   var lastScene = "";
 
+  var popupMenu = !!D.popupMenu;
   var app = $("app");
   var gameTitle = $("gametitle");
   var sceneTitle = $("scenetitle");
   var sceneText = $("scenetext");
   var optionsEl = $("options");
+  var optionsButton = $("optionsbutton");
+  var optionsMenu = $("optionsmenu");
+  var menuList = $("menulist");
+  var menuClose = $("menuclose");
   var inventoryEl = $("inventory");
   var artImg = $("artimg");
   var artPlaceholder = $("artplaceholder");
@@ -157,6 +162,22 @@
     if (opt.pick && flags.has(opt.pick)) return false;
     if (opt.pick && D.carry > 0 && countItems() >= D.carry) return false;
     return true;
+  }
+
+  function visibleOptions(scene) {
+    var out = [];
+    for (var i = 0; i < scene.opts.length; i++) {
+      if (optionVisible(scene.opts[i])) out.push(scene.opts[i]);
+    }
+    return out;
+  }
+
+  function heldItems() {
+    var held = [];
+    for (var i = 0; i < D.itemOrder.length; i++) {
+      if (flags.has(D.itemOrder[i])) held.push(D.itemOrder[i]);
+    }
+    return held;
   }
 
   function applyEffects(opt) {
@@ -354,18 +375,18 @@
 
   function renderOptions(scene) {
     optionsEl.replaceChildren();
-    var shown = 0;
-    for (var i = 0; i < scene.opts.length; i++) {
-      var opt = scene.opts[i];
-      if (!optionVisible(opt)) continue;
+    optionsEl.hidden = popupMenu;
+    optionsButton.hidden = !popupMenu;
+    if (popupMenu) return;
+    var opts = visibleOptions(scene);
+    for (var i = 0; i < opts.length; i++) {
       (function (choice) {
         optionsEl.appendChild(optionButton(choice, function () {
           activateOption(choice, function () { navigate(choice.target); });
         }));
-      })(opt);
-      shown++;
+      })(opts[i]);
     }
-    if (!shown) {
+    if (!opts.length) {
       var empty = document.createElement("p");
       empty.className = "empty";
       empty.textContent = scene.ending ? "The End." : "No options are available.";
@@ -375,12 +396,9 @@
 
   function renderInventory() {
     inventoryEl.replaceChildren();
-    var held = [];
-    for (var i = 0; i < D.itemOrder.length; i++) {
-      var id = D.itemOrder[i];
-      if (flags.has(id)) held.push(id);
-    }
-    inventoryEl.hidden = held.length === 0;
+    var held = heldItems();
+    inventoryEl.hidden = popupMenu || held.length === 0;
+    if (popupMenu) return;
     for (var j = 0; j < held.length; j++) {
       (function (itemId) {
         var meta = D.items[itemId] || { name: itemId };
@@ -394,7 +412,80 @@
     }
   }
 
+  function menuOpen() {
+    return !!optionsMenu && !optionsMenu.hidden;
+  }
+
+  function menuEntry(label, onClick) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "option";
+    button.textContent = label;
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function renderMenu() {
+    var scene = scenes[current] || scenes[startScene];
+    if (!scene) return;
+    menuList.replaceChildren();
+    var opts = visibleOptions(scene);
+    for (var i = 0; i < opts.length; i++) {
+      (function (choice) {
+        menuList.appendChild(menuEntry(choice.label || "", function () {
+          closeMenu();
+          activateOption(choice, function () { navigate(choice.target); });
+        }));
+      })(opts[i]);
+    }
+    var held = heldItems();
+    for (var j = 0; j < held.length; j++) {
+      (function (itemId) {
+        var meta = D.items[itemId] || { name: itemId };
+        menuList.appendChild(menuEntry("* " + (meta.name || itemId),
+                                      function () {
+          closeMenu();
+          openItem(itemId);
+        }));
+      })(held[j]);
+    }
+    if (!opts.length && !held.length) {
+      var empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = scene.ending
+        ? "The End." : "No options are available.";
+      menuList.appendChild(empty);
+    }
+  }
+
+  function openMenu() {
+    if (!optionsMenu || !optionsMenu.hidden) return;
+    renderMenu();
+    optionsMenu.hidden = false;
+    var first = menuList.querySelector(".option");
+    if (first) first.focus();
+    else if (menuClose) menuClose.focus();
+  }
+
+  function closeMenu() {
+    if (!optionsMenu || optionsMenu.hidden) return;
+    optionsMenu.hidden = true;
+    if (optionsButton && !optionsButton.hidden) optionsButton.focus();
+  }
+
+  function moveFocus(nodes, key) {
+    var focusable = Array.prototype.slice.call(nodes);
+    if (!focusable.length) return;
+    var index = focusable.indexOf(document.activeElement);
+    if (index === -1) index = key === "ArrowDown" ? -1 : focusable.length;
+    index += key === "ArrowDown" ? 1 : -1;
+    if (index < 0) index = focusable.length - 1;
+    if (index >= focusable.length) index = 0;
+    focusable[index].focus();
+  }
+
   function renderScene(scroll) {
+    closeMenu();
     var scene = scenes[current] || scenes[startScene];
     if (!scene) { fatal("This game has no playable scene."); return; }
     current = scene.id;
@@ -523,6 +614,11 @@
   sheet.addEventListener("click", function (event) {
     if (event.target === sheet) closeItem();
   });
+  optionsButton.addEventListener("click", openMenu);
+  menuClose.addEventListener("click", closeMenu);
+  optionsMenu.addEventListener("click", function (event) {
+    if (event.target === optionsMenu) closeMenu();
+  });
   messageClose.addEventListener("click", closeMessage);
   messagePopup.addEventListener("click", function (event) {
     if (event.target === messagePopup) closeMessage();
@@ -537,6 +633,16 @@
       }
       return;
     }
+    if (menuOpen()) {
+      if (event.key === "Escape" || event.key === " ") {
+        event.preventDefault();
+        closeMenu();
+      } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        moveFocus(menuList.querySelectorAll(".option"), event.key);
+      }
+      return;
+    }
     if (!sheet.hidden) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -546,16 +652,14 @@
     }
     if (!password.hidden) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (popupMenu && event.key === " ") {
+      event.preventDefault();
+      openMenu();
+      return;
+    }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-    var focusable = Array.prototype.slice.call(
-      document.querySelectorAll("#options .option, #inventory button"));
-    if (!focusable.length) return;
-    var index = focusable.indexOf(document.activeElement);
-    if (index === -1) index = event.key === "ArrowDown" ? -1 : focusable.length;
-    index += event.key === "ArrowDown" ? 1 : -1;
-    if (index < 0) index = focusable.length - 1;
-    if (index >= focusable.length) index = 0;
-    focusable[index].focus();
+    moveFocus(document.querySelectorAll("#options .option, #inventory button"),
+              event.key);
     event.preventDefault();
   });
 
