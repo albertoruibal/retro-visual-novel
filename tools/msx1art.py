@@ -15,7 +15,9 @@ A compiled art blob is::
 
 The name-table byte in each cell is the real Graphics II pattern number
 (96..255 for art, 0..95 for the shared font).  The eight colour bytes are
-``ink << 4 | paper`` for that cell's eight pixel rows.
+``ink << 4 | paper`` for that pattern's eight pixel rows; Graphics II indexes
+the colour table by pattern number, so cells that share a pattern also share
+its colours and are deduplicated together.
 
 ``mono`` (the per-system Black and white option) renders the picture as a
 dithered white-on-black 1-bit band instead of the 15-colour TMS9918 palette.
@@ -198,43 +200,62 @@ def _fixed_pattern(rgb_rows, pattern):
     return result
 
 
-def _pack_cells(cell_rows):
-    """Deduplicate 8-byte patterns and build cells + pattern data.
+def _pattern_error(pattern, colours, rgb_rows):
+    """RGB error of drawing ``rgb_rows`` with a fixed pattern and colours."""
+    err = 0
+    for y in range(8):
+        colour = colours[y]
+        ink = TMS_RGB[(colour >> 4) & 0x0F]
+        paper = TMS_RGB[colour & 0x0F]
+        for x in range(8):
+            ref = ink if pattern[y] & (0x80 >> x) else paper
+            err += _dist2(rgb_rows[y][x], ref)
+    return err
 
-    ``cell_rows`` is a list of ``(pattern, colour_bytes)`` in art-band order.
-    Patterns are capped at ``MAX_TILES``; an extra pattern is merged into the
-    nearest one and that cell's colours are recomputed for the shared pattern.
+
+def _pack_cells(cell_rows):
+    """Deduplicate patterns *and* colours, then build cells + pattern data.
+
+    The TMS9918A colour table is indexed by pattern number, not by screen
+    cell, so every cell that shares a pattern number must also share its eight
+    colour bytes.  Cells are therefore deduplicated by both pieces; when the
+    160 art pattern slots are exhausted the closest existing pattern (with its
+    established colours) is reused.
     """
     patterns = []
+    pattern_colours = []
     index = {}
     cells = bytearray()
     for pattern, colours, rgb_rows in cell_rows:
         key = bytes(pattern)
-        if not any(key):
-            cells.append(0)
-            cells.extend(colours)
-            continue
-        idx = index.get(key)
+        pair = (key, bytes(colours))
+        idx = index.get(pair)
         if idx is None and len(patterns) < MAX_TILES:
             idx = len(patterns)
             patterns.append(key)
-            index[key] = idx
+            pattern_colours.append(bytes(colours))
+            index[pair] = idx
         elif idx is None:
-            # Reuse the most similar existing pattern (the colour table is per
-            # cell, so only the 1bpp pattern itself has to be shared).
+            # Reuse the existing pattern whose fixed colours best reproduce
+            # this cell.  The colour table cannot vary between cells sharing
+            # a pattern, so keep that pattern's established colours.
             best = None
             value = int.from_bytes(key, "big")
             for i, existing in enumerate(patterns):
-                diff = (value ^ int.from_bytes(existing, "big")).bit_count()
-                if best is None or diff < best[0]:
-                    best = (diff, i)
+                if rgb_rows is not None:
+                    cost = _pattern_error(existing, pattern_colours[i],
+                                          rgb_rows)
+                else:
+                    cost = (value ^ int.from_bytes(existing, "big")).bit_count()
+                    cost *= 1 << 16
+                if best is None or cost < best[0]:
+                    best = (cost, i)
             idx = best[1]
-            pattern = patterns[idx]
-            if rgb_rows is not None:
-                colours = _fixed_pattern(rgb_rows, pattern)
+            colours = pattern_colours[idx]
         cells.append((FONT_TILES + idx) & 0xFF)
         cells.extend(colours)
-    return bytes([len(patterns)]) + bytes(cells) + b"".join(patterns)
+    return (bytes([len(patterns)]) + bytes(cells)
+            + b"".join(patterns))
 
 
 def _colour_blob(im, conv, art_rows, text_bg):

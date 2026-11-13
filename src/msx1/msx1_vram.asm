@@ -9,8 +9,9 @@
 ;   void msx1_vwrite(const unsigned char *src, unsigned int addr,
 ;                    unsigned int count);
 ;   void msx1_fill(unsigned int addr, unsigned char value, unsigned int count);
-;   void msx1_text(const char *src, unsigned int pnt, unsigned int ct,
-;                  unsigned char n, unsigned char color);
+;   void msx1_text(const char *src, unsigned int pnt,
+;                  unsigned int colour_bank_base, unsigned char n,
+;                  unsigned char color);
 
     SECTION code_user
     PUBLIC _msx1_vwrite
@@ -100,8 +101,9 @@ fl_done:
     ret
 
  ; ------------------------------------------------------------------ text
-; Draw n glyphs at the name-table address PNT and fill their colour-table
-; cells at CT with one ink/paper byte.
+; Draw n glyphs at the name-table address PNT.  Graphics II indexes its colour
+; table by pattern number, so each glyph's eight colour bytes are written at
+; colour_bank_base + (char - 32) * 8.
 _msx1_text:
     push    ix
     ld      ix, 4
@@ -131,29 +133,46 @@ tx_put:
     out     ($98), a
     dec     b
     jr      nz, tx_name
-    ; colour table: n*8 copies of the ink/paper byte
+    ; colour table: one entry per pattern number, in this screen third.
+    ; HL walks the source string; DE builds each pattern's colour address.
+    ld      l, (ix+8)
+    ld      h, (ix+9)
     ld      a, (ix+2)
-    ld      l, a
-    ld      h, 0
-    add     hl, hl
-    add     hl, hl
-    add     hl, hl          ; BC = n*8
-    ld      b, h
-    ld      c, l
-    ld      e, (ix+4)
-    ld      d, (ix+5)
+    ld      b, a            ; remaining glyphs
+tx_colour:
+    ld      a, (hl)
+    inc     hl
+    cp      32
+    jr      c, txc_blank
+    cp      128
+    jr      nc, txc_blank
+    sub     32
+    jr      txc_have
+txc_blank:
+    xor     a
+txc_have:
+    ld      e, a
+    ld      d, 0
+    sla     e
+    rl      d
+    sla     e
+    rl      d
+    sla     e
+    rl      d               ; DE = pattern * 8
+    ld      a, (ix+4)
+    add     a, e
+    ld      e, a
+    ld      a, (ix+5)
+    adc     a, d
+    ld      d, a            ; DE = colour bank base + pattern * 8
     call    msx1_set_addr
     ld      a, (ix+0)       ; ink/paper byte
-    ld      l, a
-    ld      a, b
-    or      c
-    jr      z, tx_done
-tx_colour:
-    ld      a, l
+    ld      c, 8
+txc_bytes:
     out     ($98), a
-    dec     bc
-    ld      a, b
-    or      c
+    dec     c
+    jr      nz, txc_bytes
+    dec     b
     jr      nz, tx_colour
 tx_done:
     pop     ix

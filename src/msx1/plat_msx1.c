@@ -2,9 +2,12 @@
  * MSX1 platform layer (TMS9918A Graphics II).
  *
  * SCREEN 2 gives a 32x24 tile display: the title is row 0, the art band rows
- * 1..art_rows, and the text pane the rows below.  The art band is stored as
- * name-table entries plus colour-table cells; its unique 8x8 patterns are
- * copied into the pattern-generator banks for the screen thirds it spans.
+ * 1..art_rows, and the text pane the rows below.  Colour-table entries are
+ * indexed by pattern number (one 2 KB bank per screen third), not by screen
+ * cell, so every cell sharing a pattern also shares that pattern's colours.
+ * The art band is stored as name-table entries plus colour-table bytes for
+ * each pattern; its unique 8x8 patterns are copied into the pattern-generator
+ * banks for the screen thirds it spans.
  * Scene/inventory/song data uses the same ASCII16-mapped banks as the MSX2
  * target (bank 1 for story data, one bank per art, a font bank after them).
  */
@@ -39,6 +42,13 @@
 
 static unsigned char art_ws[PORT_ART_WS];
 
+/* Highlights need their own copies of the glyph patterns because Graphics II
+   colour is attached to a pattern, not to a screen cell.  The cache maps a
+   normal font pattern to a spare pattern slot per screen third. */
+#define HL_FREE 0xFF
+static unsigned char pattern_used[3][32];
+static unsigned char hl_pattern[3][96];
+
 /* The name-table byte for the character cell; the font occupies patterns
    0..95 and each art's patterns follow at 96..95+ntiles. */
 #define MSX1_BG ((unsigned char)(((PORT_TEXT_BG & 0x0F) << 4) \
@@ -71,16 +81,79 @@ static void screen2(void)
     #endasm
 }
 
-/* Clear a run of whole character rows in the name and colour tables. */
+static void set_pattern_used(unsigned char bank, unsigned char p)
+{
+    pattern_used[bank][p >> 3] |= (unsigned char)(1 << (p & 7));
+}
+
+static unsigned char pattern_is_used(unsigned char bank, unsigned char p)
+{
+    return pattern_used[bank][p >> 3] & (unsigned char)(1 << (p & 7));
+}
+
+static void reset_highlight_cache(void)
+{
+    unsigned char bank, i;
+    for (bank = 0; bank < 3; bank++) {
+        for (i = 0; i < 32; i++)
+            pattern_used[bank][i] = 0;
+        for (i = 0; i < 96; i++)
+            hl_pattern[bank][i] = HL_FREE;
+        for (i = 0; i < MSX1_FONT_TILES; i++)
+            set_pattern_used(bank, i);
+    }
+}
+
+/* Return a pattern slot for highlighted glyph ``p`` in ``bank``.  The glyph
+   is copied from the font ROM and its colour entry set to the highlight ink
+   when a new slot is allocated. */
+static unsigned char highlight_pattern(unsigned char bank, unsigned char p)
+{
+    unsigned char hp = hl_pattern[bank][p];
+    unsigned char i;
+    unsigned int addr;
+    if (hp != HL_FREE)
+        return hp;
+    for (i = 255; i >= MSX1_FONT_TILES; i--) {
+        if (pattern_is_used(bank, i))
+            continue;
+        hp = i;
+        set_pattern_used(bank, hp);
+        hl_pattern[bank][p] = hp;
+        plat_set_bank(MSX1_FONT_BANK);
+        msx1_vwrite((const unsigned char *)(0x8000 + (unsigned int)p * 8),
+                    MSX1_PATTERN + (unsigned int)bank * 0x0800
+                    + (unsigned int)hp * 8, 8);
+        plat_set_bank(PORT_DATA_BANK);
+        addr = MSX1_CT + (unsigned int)bank * 0x0800
+               + (unsigned int)hp * 8;
+        msx1_fill(addr, PORT_HIGHLIGHT_INK & 0xFF, 8);
+        return hp;
+    }
+    return p;
+}
+
+static void mark_art_patterns(void)
+{
+    unsigned char r, c, bank;
+    unsigned int off;
+    for (r = 0; r < PORT_ART_ROWS; r++) {
+        bank = (unsigned char)((1 + r) / 8);
+        for (c = 0; c < MSX1_COLS; c++) {
+            off = ((unsigned int)r * MSX1_COLS + c) * 9;
+            set_pattern_used(bank, art_ws[1 + off]);
+        }
+    }
+}
+
+/* Clear a run of whole character rows in the name table.  Blank cells use
+   pattern 0, whose colour entry stays at the background colour. */
 static void clear_rows(unsigned char first, unsigned char last)
 {
     unsigned char row;
-    for (row = first; row <= last && row < MSX1_ROWS; row++) {
+    for (row = first; row <= last && row < MSX1_ROWS; row++)
         msx1_fill(MSX1_PNT + (unsigned int)row * MSX1_COLS, 0,
                   MSX1_COLS);
-        msx1_fill(MSX1_CT + (unsigned int)row * MSX1_COLS * 8, MSX1_BG,
-                  MSX1_COLS * 8);
-    }
 }
 
 void plat_init(void)
@@ -89,6 +162,7 @@ void plat_init(void)
 
     screen2();
     msx1_set_reg(7, PORT_TEXT_BG & 0x0F);
+    reset_highlight_cache();
 
     /* Copy the shared 8x8 font into each Graphics II pattern bank (one bank
        per eight-row screen third).  The raw font sits in its own ROM bank. */
@@ -138,11 +212,22 @@ void plat_text_at(unsigned char row, unsigned char col, const char *s,
     if (!n)
         return;
     pnt = MSX1_PNT + (unsigned int)row * MSX1_COLS + col;
-    ct = MSX1_CT + ((unsigned int)row * MSX1_COLS + col) * 8;
-    if (color == PLAT_COLOR_SEL)
-        cell = PORT_HIGHLIGHT_INK & 0xFF;
-    else
-        cell = PORT_TEXT_INK & 0xFF;
+    /* The colour table is per pattern number, not per cell: pass the bank
+       base and let the asm write each glyph's colour below its pattern. */
+    ct = MSX1_CT + (unsigned int)(row / 8) * 0x800;
+    if (color == PLAT_COLOR_SEL) {
+        /* Selected text uses cached duplicate patterns so its highlight ink
+           does not recolour every other occurrence of the same glyph. */
+        unsigned char j, ch, p, hp;
+        for (j = 0; j < n; j++) {
+            ch = (unsigned char)s[j];
+            p = (ch >= 32 && ch < 128) ? (unsigned char)(ch - 32) : 0;
+            hp = highlight_pattern((unsigned char)(row / 8), p);
+            msx1_vwrite(&hp, pnt + j, 1);
+        }
+        return;
+    }
+    cell = PORT_TEXT_INK & 0xFF;
     msx1_text(s, pnt, ct, n, cell);
 }
 
@@ -189,11 +274,14 @@ void plat_draw_art(unsigned char id)
             src = cells + ((unsigned int)r * MSX1_COLS + c) * 9;
             msx1_vwrite(src,
                         MSX1_PNT + (unsigned int)(1 + r) * MSX1_COLS + c, 1);
+            /* Colour table entry for this pattern in its screen third. */
             msx1_vwrite(src + 1,
-                        MSX1_CT + ((unsigned int)(1 + r) * MSX1_COLS + c) * 8,
-                        8);
+                        MSX1_CT + (unsigned int)((1 + r) / 8) * 0x800
+                        + (unsigned int)src[0] * 8, 8);
         }
     }
+    reset_highlight_cache();
+    mark_art_patterns();
 #else
     (void)id;
 #endif

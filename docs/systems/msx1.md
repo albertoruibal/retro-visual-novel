@@ -10,9 +10,14 @@
 - **Black and white:** `mono: on` renders the picture as a dithered white-on-black 1-bit band and forces white text
   on the black background, instead of the 15-colour palette. Colour art uses the full `dither:` list between each
   8x1 row's ink and paper; in mono, `off` becomes a 2x2 Bayer dither, like the 48K Spectrum.
+- **Text colours:** Graphics II attaches colour to a pattern, not a cell. Selected text therefore uses cached
+  duplicate glyph patterns in the screen third's spare pattern slots, with the highlight ink in their colour-table
+  entries; ordinary text keeps the shared font patterns. This keeps the highlighted row from recolouring every other
+  occurrence of the same letters.
 - **Conversion:** `tools/msx1art.py` fits the source to the 256 x `8*art_rows` band. For colour it quantises to the
-  TMS palette, picks the best two colours for each 8x1 row, deduplicates the 8x8 patterns (at most 160 art tiles)
-  and reuses the nearest pattern when the cap is reached. A compiled art blob is
+  TMS palette, picks the best two colours for each 8x1 row and deduplicates by both the 8x8 pattern and its colours
+  (at most 160 art tiles), because the TMS9918A colour table is indexed by pattern number rather than by screen cell.
+  When the cap is reached the closest existing pattern and its established colours are reused. A compiled art blob is
   `[u8 ntiles][cell[32*art_rows][1 pnt + 8 colour bytes]][u8 patterns[ntiles*8]]`; the name-table byte is the real
   Graphics II pattern number (96..255 for art, 0..95 for the font).
 - **Storage:** scene/inventory data lives in ASCII16 ROM bank 1. Each art gets one 16K bank from bank 2, and the
