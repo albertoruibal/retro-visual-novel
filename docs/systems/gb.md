@@ -37,6 +37,9 @@ The `# Systems` id remains `gb` for compatibility with existing games.
   vblank handler divides the ~59.7 Hz frame rate down to the stream's 50 Hz. `Select` toggles music. The converter uses
   the pinned spectrumizer PT3 decoder, so a module with unsupported PT3 commands fails the build with a clear message
   instead of playing incorrectly.
+- **UI sounds:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves play the same short
+  effects as the NES on pulse 2. `src/gb/gb_sfx.asm` snapshots the pulse-2 registers when an effect starts and restores
+  them when it ends; effects also work when no song is playing or music is paused.
 - **Storage:** the CGB has no SM83 ZX0 decoder, so blobs are **uncompressed**. `build/port_data.c` (names, start flags,
   tables and the text palettes) stays in bank 0. Scene and inventory blobs are packed with `[u16 length]` prefixes into
   MBC1 banks from bank 1; art follows in the next banks, then the converted song streams. `plat_set_bank` writes the
@@ -49,5 +52,6 @@ The `# Systems` id remains `gb` for compatibility with existing games.
 Limitations: no boot-password screen on the Game Boy Color. Keep the fixed-bank code below 0x4000 and BSS below the
 stack at 0xE000; the target checks the link map.
 
-Key files: `tools/gbart.py`, `tools/gbmusic.py`, `src/gb/plat_gb.c`, `src/gb/gb_music.c`, `src/gb/gb_copy.asm`,
+Key files: `tools/gbart.py`, `tools/gbmusic.py`, `src/gb/plat_gb.c`, `src/gb/gb_music.c`, `src/gb/gb_sfx.asm`,
+`src/gb/gb_copy.asm`,
 `src/gb/gb_vram.asm`, `tools/targets/gb.py`.

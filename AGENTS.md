@@ -28,7 +28,7 @@ constraints live in `docs/systems/zx128.md`.
     src/6502/zx0.c           shared 6502 C ZX0 decoder (C64 + NES + Oric)
     src/sms/ src/cpc/        platform layers and paging/vram asm
     src/msx1/ src/msx2/      MSX platform layers (MSX1 TMS9918A, MSX2 V9938)
-    src/gb/                  platform layer (GB APU player in src/gb/gb_music.c)
+    src/gb/                  platform layer (GB APU player in gb_music.c, UI SFX in gb_sfx.asm)
     src/c64/ src/nes/        6502 platform layers (VIC-II MCM / NES PPU, MMC1 asm)
                              NES audio tick + link config: src/nes/nes.cfg, nes_audio_tick.s, nes_music.c, nes_sfx.c
     src/oric/                Oric Atmos HIRES platform layer + atmos.cfg
@@ -525,10 +525,11 @@ There is no test suite and no configured linter. Verify by:
 - `clear` on an option wipes all state then re-grants `# Game start:` names. The engine does **not** auto-clear on
   entering the first scene.
 - **UI sound effects:** the portable core calls `SFX(id)` at cursor moves, confirmations, backing out, item
-  pickups/drops and blocked moves. `PORT_SFX` (set for the NES in `port_data.h`) turns the calls into `plat_sfx()`;
-  other targets compile them to `(void)0`, so no platform needs to implement it yet. The NES implementation overlays a
-  short pulse-2 sequence from `src/nes/nes_audio_tick.s` on the music and restores the music's pulse-2 shadow when it
-  ends.
+  pickups/drops and blocked moves. `PORT_SFX` (set for the NES, SMS and Game Boy Color in `port_data.h`) turns the
+  calls into `plat_sfx()`; other targets compile them to `(void)0`. The NES overlays a short pulse-2 sequence from
+  `src/nes/nes_audio_tick.s` on the music and restores the music's pulse-2 shadow when it ends. SMS uses PSGlib's SFX
+  engine on SN76489 tone channel 2 (`src/sms/sms_music.asm` + `plat_sms.c`), and the Game Boy overlays pulse 2 with
+  the music's register snapshots in `src/gb/gb_sfx.asm`. Effects still play when music is paused.
 - **`# Game password:`** (`scenefile.parse`/`serialize`, `gen_scenes.py` emits `game_title`/`game_password` into
   `build/scene_data.h`) makes the engine show a boot screen once before the first scene: `src/zx/plat_zx.c:password_screen()`
   fills the raced art band black (`fill_art_band_black`, same 6-tile `NIRVANAP_halt` batching as `draw_art`), prints the

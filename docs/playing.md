@@ -127,6 +127,8 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 - On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
   permanent inventory row.
 - **Music:** the console's `PAUSE` button pauses/resumes the converted SN76489 soundtrack.
+- **Sound effects:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves also play short UI
+  sound effects, including while the music is paused.
 
 ## Nintendo Game Boy Color
 
@@ -139,6 +141,8 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
   permanent inventory row. On a CGB the configured `highlight_ink:` colours the selection; the `>` marker remains so
   the same cartridge is still usable on a monochrome Game Boy.
 - **Music:** `Select` pauses/resumes the converted Game Boy APU soundtrack.
+- **Sound effects:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves also play short UI
+  sound effects, including while the music is paused.
 - The Game Boy Color build has no boot-password screen.
 
 ## Commodore 64

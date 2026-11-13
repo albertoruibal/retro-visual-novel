@@ -38,9 +38,7 @@ static unsigned short text_pal[8];
 
 extern void gb_vram_copy(unsigned char *dst, const unsigned char *src,
                          unsigned int n) __smallc;
-#if N_SONGS > 0
 extern void gb_music_vbl(void) NONBANKED;
-#endif
 
 unsigned char port_bank_reg;
 
@@ -91,11 +89,9 @@ void plat_init(void)
     for (row = 0; row < GB_MAP_ROWS; row++)
         gb_clear_row(row);
     LCDC_REG = 0x91;              /* LCD + background on */
-#if N_SONGS > 0
     disable_interrupts();
     add_VBL(gb_music_vbl);
     enable_interrupts();
-#endif
 }
 
 void plat_clear(void)

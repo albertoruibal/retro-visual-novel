@@ -4,10 +4,11 @@
 ; void sms_psg_stop(void) __smallc;
 ; unsigned char sms_detect_region(void) __smallc;
 ;
-; The 0x38 IM1 vector is replaced when a game has songs.  It acknowledges the
-; VDP interrupt and advances PSGlib at 50 Hz: every vblank on a PAL console,
-; five of every six vblanks on NTSC.  Code lives in the fixed 0x0000..0x7FFF
-; region, so a mapped data bank cannot cover it.
+; The 0x38 IM1 vector is always replaced: it acknowledges the VDP interrupt and
+; advances PSGlib at 50 Hz (every vblank on a PAL console, five of every six on
+; NTSC).  The SFX frame runs even when music is paused; the music frame only
+; runs when a song is enabled.  Code lives in the fixed 0x0000..0x7FFF region,
+; so a mapped data bank cannot cover it.
 
 SECTION code_user
 
@@ -70,6 +71,7 @@ smsdet_detected:
 
 PUBLIC _z80_rst_38h
 EXTERN asm_PSGlib_Frame
+EXTERN asm_PSGlib_SFXFrame
 EXTERN _sms_music_enabled
 EXTERN _sms_music_region
 EXTERN _sms_music_acc
@@ -82,12 +84,9 @@ _z80_rst_38h:
         in      a,(0xBF)            ; acknowledge the VDP interrupt
         rlca
         jr      nc,music_done       ; not a frame interrupt
-        ld      a,(_sms_music_enabled)
-        or      a
-        jr      z,music_done
         ld      a,(_sms_music_region)
         cp      0x80                ; VDP_PAL
-        jr      z,music_play        ; 50 Hz console: every frame
+        jr      z,audio_play        ; 50 Hz console: every frame
         ld      a,(_sms_music_acc)   ; NTSC 60 Hz -> 50 Hz (5 of 6 frames)
         add     a,5
         cp      6
@@ -97,7 +96,11 @@ _z80_rst_38h:
 music_step:
         sub     6
         ld      (_sms_music_acc),a
-music_play:
+audio_play:
+        call    asm_PSGlib_SFXFrame
+        ld      a,(_sms_music_enabled)
+        or      a
+        jr      z,music_done
         call    asm_PSGlib_Frame
 music_done:
         pop     hl

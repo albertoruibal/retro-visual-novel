@@ -29,6 +29,9 @@
   into a data bank after the art and decoded into `SONG_WS_SIZE` bytes of RAM; PAUSE toggles music. The converter
   uses the pinned spectrumizer PT3 decoder, so a module with unsupported PT3 commands fails the build with a clear
   message instead of playing incorrectly.
+- **UI sounds:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves play the same short
+  effects as the NES. They use PSGlib's SFX engine on SN76489 tone channel 2 (the music's third tone voice is muted
+  while an effect plays and restored afterwards), and they still play when the music is paused.
 - **Options:** `art_rows`, `margin` (N 8x8-cell side borders, filled with `text_bg`), `dither` (full list). Text
   width is fixed at 30 columns; dialog labels wrap at 28.
 - **Controls:** D-pad up/down scrolls long text, or moves between highlighted words when it fits; left/right moves

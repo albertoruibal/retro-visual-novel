@@ -54,7 +54,7 @@
 - **UI sounds:** the shared engine emits `plat_sfx()` calls for cursor moves, confirmations, backing out, item
   pickups/drops and blocked moves. On the NES a short pulse-2 sequence is overlaid on the music by the same NMI tick;
   the music's pulse-2 registers are shadowed, skipped while the SFX owns the channel, and restored when it ends.
-  Other targets compile the SFX calls away.
+  The Master System and Game Boy Color use the same effect set on their own sound hardware.
 - **Build:** `cl65 -t nes -C src/nes/nes.cfg -Oirs ...`, output `<slug>.nes`; cc65 is required (z88dk has no NES
   target). The editor Docker image contains cc65 (V2.18, whose `ppubuf` API `src/nes/nes_ppu.s` wraps); on a desktop
   install a matching cc65 and point the **Build toolchain** settings card at it.

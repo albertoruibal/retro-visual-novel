@@ -1,5 +1,5 @@
 /*
- * Game Boy Color APU stream player.
+ * Game Boy Color APU stream player and UI audio support.
  *
  * tools/gbmusic.py converts a PT3 module to a stream of register commands:
  * the low byte of an APU register (0x10..0x3F) followed by its value, a wait
@@ -11,18 +11,24 @@
  * the Game Boy's 8K work RAM.  The vblank handler divides the ~59.7 Hz frame
  * rate down to the stream's 50 Hz; the player saves and restores the main
  * thread's ROM bank around its reads.
+ *
+ * The shared engine calls plat_sfx() for UI sounds; src/gb/gb_sfx.asm owns the
+ * pulse-2 sequencer and snapshots the music registers while an effect plays.
  */
 
 #include <gb/gb.h>
 #include "plat.h"
 #include "port_data.h"
 
-#if N_SONGS > 0
-
 #define CMD_END 0x00
 #define CMD_LOOP 0x01
 #define CMD_WAIT 0x80
 
+volatile unsigned char gb_sfx_req;
+
+extern void gb_sfx_tick(void) NONBANKED;
+
+#if N_SONGS > 0
 extern unsigned char port_bank_reg;
 
 static unsigned char music_playing;
@@ -34,21 +40,7 @@ static unsigned char music_wait;
 static unsigned char music_vbl_acc;
 
 void gb_music_tick(void) NONBANKED;
-
-static unsigned char music_byte(void) NONBANKED
-{
-    if (music_off >= 0x4000) {
-        music_off = 0;
-        music_bank++;
-        plat_set_bank(music_bank);
-    }
-    return *(const unsigned char *)(0x4000 + music_off++);
-}
-
-static void music_write(unsigned char reg, unsigned char value) NONBANKED
-{
-    *(volatile unsigned char *)(0xFF00 + reg) = value;
-}
+#endif
 
 static void music_silence(void) NONBANKED
 {
@@ -58,33 +50,40 @@ static void music_silence(void) NONBANKED
 static void music_init_apu(void) NONBANKED
 {
     unsigned char i;
-    static const unsigned char square[16] = {
-        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    };
 
     music_silence();
     NR52_REG = 0x80;
     NR50_REG = 0x77;
     NR51_REG = 0xFF;
-    NR10_REG = 0x00;
     NR11_REG = 0x80;
     NR21_REG = 0x80;
-    for (i = 0; i < 16; i++)
-        *(volatile unsigned char *)(0xFF30 + i) = square[i];
-    NR12_REG = 0x00;
-    NR13_REG = 0x00;
-    NR14_REG = 0x00;
-    NR22_REG = 0x00;
-    NR23_REG = 0x00;
-    NR24_REG = 0x00;
     NR30_REG = 0x80;
-    NR32_REG = 0x00;
-    NR33_REG = 0x00;
-    NR34_REG = 0x00;
-    NR42_REG = 0x00;
-    NR43_REG = 0x00;
-    NR44_REG = 0x00;
+    for (i = 0; i < 8; i++) {
+        *(volatile unsigned char *)(0xFF30 + i) = 0xFF;
+        *(volatile unsigned char *)(0xFF38 + i) = 0x00;
+    }
+}
+
+void gb_audio_ensure_on(void) NONBANKED
+{
+    if (!(NR52_REG & 0x80))
+        music_init_apu();
+}
+
+void plat_sfx(unsigned char id) NONBANKED
+{
+    gb_sfx_req = (unsigned char)(id + 1);
+}
+
+#if N_SONGS > 0
+static unsigned char music_byte(void) NONBANKED
+{
+    if (music_off >= 0x4000) {
+        music_off = 0;
+        music_bank++;
+        plat_set_bank(music_bank);
+    }
+    return *(const unsigned char *)(0x4000 + music_off++);
 }
 
 void gb_music_play(unsigned char bank, unsigned short off) __smallc NONBANKED
@@ -105,15 +104,6 @@ void gb_music_stop(void) __smallc NONBANKED
     music_playing = 0;
     music_wait = 0;
     music_silence();
-}
-
-void gb_music_vbl(void) NONBANKED
-{
-    music_vbl_acc += 5;          /* 59.7 Hz -> ~50 Hz: play 5 of 6 frames */
-    if (music_vbl_acc < 6)
-        return;
-    music_vbl_acc -= 6;
-    gb_music_tick();
 }
 
 void gb_music_tick(void) NONBANKED
@@ -147,10 +137,22 @@ void gb_music_tick(void) NONBANKED
         }
         if (cmd >= 0x10) {
             value = music_byte();
-            music_write(cmd, value);
+            *(volatile unsigned char *)(0xFF00 + cmd) = value;
         }
     }
     plat_set_bank(prev);
 }
 
 #endif
+
+void gb_music_vbl(void) NONBANKED
+{
+#if N_SONGS > 0
+    music_vbl_acc += 5;          /* 59.7 Hz -> ~50 Hz: play 5 of 6 frames */
+    if (music_vbl_acc >= 6) {
+        music_vbl_acc -= 6;
+        gb_music_tick();
+    }
+#endif
+    gb_sfx_tick();
+}

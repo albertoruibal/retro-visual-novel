@@ -23,17 +23,6 @@ def _available():
     return True, ""
 
 
-def _n_songs(bdir):
-    path = os.path.join(bdir, "port_data.h")
-    try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            head = f.read()
-    except OSError:
-        return 0
-    m = re.search(r"^#define N_SONGS (\d+)", head, re.M)
-    return int(m.group(1)) if m else 0
-
-
 def _guard_map(path):
     """Keep resident code below the data-bank window and BSS off the stack."""
     if not os.path.exists(path):
@@ -43,7 +32,9 @@ def _guard_map(path):
     bad = []
     for sym in ("_z80_rst_38h", "_sms_psg_play", "_sms_psg_stop",
                 "_sms_detect_region", "_port_unpack", "_zx0_unpack",
-                "asm_PSGlib_Frame", "asm_PSGlib_Play", "asm_PSGlib_Stop"):
+                "_plat_sfx", "asm_PSGlib_Frame", "asm_PSGlib_Play",
+                "asm_PSGlib_Stop", "asm_PSGlib_SFXFrame",
+                "asm_PSGlib_SFXStop"):
         m = re.search(rf"^{re.escape(sym)}\s*=\s*\$([0-9A-Fa-f]+)", txt, re.M)
         if m and int(m.group(1), 16) >= 0x8000:
             bad.append(sym)
@@ -74,7 +65,6 @@ def _build(ctx):
     slug = ctx.slug
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
                ctx.gdir, "--sms"], ctx.env)
-    n_songs = _n_songs(ctx.bdir)
     td = tempfile.mkdtemp(prefix=f".sms-{slug}-", dir=ctx.bdir)
     try:
         sources = [
@@ -88,16 +78,13 @@ def _build(ctx):
             os.path.join(ctx.bdir, "port_data.h"),
             os.path.join(ctx.bdir, "port_banks.asm"),
             os.path.join(ctx.bdir, "port_song.asm"),
+            os.path.join(ctx.root, "src", "sms", "sms_music.asm"),
         ]
-        if n_songs:
-            sources.append(os.path.join(ctx.root, "src", "sms",
-                                        "sms_music.asm"))
         names = build.stage_inputs(td, sources)
         names = [n for n in names if n.endswith((".c", ".asm"))]
         cmd = ["zcc", "+sms", "-startup=16", "-clib=new", "-create-app", "-m",
-               "-DPLAT_ROWS=24", "-I."]
-        if n_songs:
-            cmd.append("-pragma-define:CRT_ENABLE_RST=128")
+               "-DPLAT_ROWS=24", "-I.",
+               "-pragma-define:CRT_ENABLE_RST=128"]
         cmd += [*names, "-o", slug]
         build.run(cmd, ctx.env, cwd=td)
         _guard_map(os.path.join(td, slug + ".map"))

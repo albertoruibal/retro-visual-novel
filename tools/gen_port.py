@@ -1307,7 +1307,7 @@ def main():
         ("PORT_MUSIC_PSG", 1 if use_sms else 0),
         ("PORT_MUSIC_GB", 1 if use_gb else 0),
         ("PORT_MUSIC_NES", 1 if use_nes else 0),
-        ("PORT_SFX", 1 if use_nes else 0),
+        ("PORT_SFX", 1 if (use_nes or use_sms or use_gb) else 0),
         ("SONG_NONE", gen_scenes.SONG_NONE),
         ("SONG_WS_SIZE", song_ws_size if music_target else 0),
     ]

@@ -18,8 +18,8 @@
    CPC/MSX SPACE). */
 #define PORT_KEY_MENU 8
 
-/* UI sound-effect ids.  Only targets with PORT_SFX (currently NES) implement
-   plat_sfx(); the rest compile the calls away in port.h. */
+/* UI sound-effect ids.  Only targets with PORT_SFX (NES, SMS and Game Boy
+   Color) implement plat_sfx(); the rest compile the calls away in port.h. */
 #define PLAT_SFX_MOVE 0
 #define PLAT_SFX_CONFIRM 1
 #define PLAT_SFX_BACK 2
