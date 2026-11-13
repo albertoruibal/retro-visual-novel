@@ -2,7 +2,7 @@
 
 # Game
 
-title: The Lighthouse Keeper
+title: Demo Game
 prompt: 1980s game screen, high contrast, flat colours, no text, no letters
 negative_prompt: blurry, low resolution, jpeg artifacts, deformed, extra limbs, malformed, watermark, signature, text,
   letters
@@ -156,11 +156,12 @@ image: gen-1794340316471.png
 crop: 0 0 100 75
 
 ## elias_talk
-prompt: the lamp room at the top of the Fisterra lighthouse at night, the translucent ghost of an old keeper standing at
-  the great brass Fresnel lens, pale sea-worn face, heavy coat white with salt, faint cold blue-white glow, his lower
-  body dissolving into mist, the new keeper facing him, rain on the gallery glass, no text
+prompt: the lamp room at the top of the Fisterra lighthouse at night, the ghost of an old keeper standing at the great
+  brass Fresnel lens, solid clearly drawn figure with sharp visible facial features and deep-set eyes, grey beard,
+  weathered pale grey-blue skin, heavy salt-stained slate-blue coat, faint cool blue rim light instead of a white glow,
+  only his boots fading into thin mist, the new keeper facing him, rain on the gallery glass, no text
 refs: elias
-image: gen-1794341151566.png
+image: gen-1794568170322.png
 crop: 0 0 100 75
 
 # References
@@ -186,11 +187,12 @@ image: gen-1794255109914.png
 seed: 42
 
 ## elias
-prompt: reference sheet of the ghost of a tall weathered Galician lighthouse keeper in his sixties, translucent pale
-  blue-white figure, sea-worn face, grey beard, heavy coat white with salt, salt-crusted hair, faint cold glow, lower
-  body dissolving into mist, three-quarter view, full figure, isolated on a flat dark navy background, pale outlines, no
-  water, no text
-image: gen-1794338644978.png
+prompt: reference sheet of the ghost of a tall weathered Galician lighthouse keeper in his sixties, solid clearly drawn
+  spectral figure, visible facial features and deep-set eyes, weathered pale grey-blue skin, grey beard, salt-crusted
+  hair, heavy salt-stained slate-blue coat, faint cold blue rim light instead of a white glow, only his lower legs
+  fading into thin mist, three-quarter view, full figure, isolated on a flat dark navy background, crisp dark outlines,
+  no water, no text
+image: gen-1794565578145.png
 
 ## pena
 prompt: reference sheet of an ordinary Galician coastal villager in his fifties, weathered ruddy face, tired eyes, flat
@@ -241,7 +243,7 @@ opt: Fire the signal flare -> ending_truth inscene the_hour if know_truth msg Th
 # Scenes
 
 ## start
-name: The Lighthouse Keeper
+name: Demo Game
 art: title
 music: theme
 text:
@@ -534,7 +536,7 @@ opt: Back -> start
 name: About
 art: title
 text:
-  The Lighthouse Keeper
+  Demo Game
   A short mystery set at Fisterra, on the Galician Costa da Morte.
   Story, art and code made for the demo.
 opt: Back -> start
