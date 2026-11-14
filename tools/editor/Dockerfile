@@ -1,4 +1,7 @@
-ARG Z88DK_IMAGE=z88dk/z88dk:latest
+# Pin the last z88dk image whose z88dk-zx0 round-trips; newer images fall back
+# to the larger built-in compressor and overflow the demo's ZX Spectrum 48K
+# scene budget. Override with --build-arg Z88DK_IMAGE=... to test a newer tree.
+ARG Z88DK_IMAGE=z88dk/z88dk:latest@sha256:2922a2a794494fbcb43d56de7022dc898a6bbe6bc2859409d0b00e4be57da9e4
 FROM ${Z88DK_IMAGE}
 
 # cc65 supplies the 6502 toolchain for the Commodore 64, NES and Oric Atmos targets
