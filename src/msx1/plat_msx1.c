@@ -327,13 +327,55 @@ static unsigned char msx_space(void)
 }
 #endif
 
-/* Device 1 is the cursor-key pseudo-stick; 0 and 2 are the two PSG joystick
-   ports.  Read all three because the port selected by the PSG's G-Port bit is
-   reported differently by z88dk and some emulators (WebMSX maps its single
-   AUTO gamepad to the port read by device 2). */
+/* Read PSG register 14 (the joystick inputs) directly.  z88dk's joystick()
+   masks the result to five bits in the prebuilt classic library, dropping the
+   second fire button, so button 2 could never open the action dialog.  R#15
+   selects the port: bits 0-3 high, bits 4-5 low and G-Port (bit 6) set for
+   port 1; bit 6 clear for port 2. */
+static unsigned char msx_joy_raw(unsigned char port) __z88dk_fastcall
+{
+    #asm
+    di
+    ld      c,l
+    ld      a,15
+    out     (0A0h),a
+    in      a,(0A2h)
+    and     080h
+    or      00Fh
+    bit     0,c
+    jr      nz, msx1_joy_port2
+    or      040h
+msx1_joy_port2:
+    out     (0A1h),a
+    ld      a,14
+    out     (0A0h),a
+    in      a,(0A2h)
+    ei
+    ld      l,a
+    ld      h,0
+    #endasm
+}
+
+static unsigned int msx_joy_bits(unsigned char raw)
+{
+    unsigned char v = (unsigned char)~raw;
+    unsigned int k = 0;
+    if (v & 0x01) k |= MOVE_UP;
+    if (v & 0x02) k |= MOVE_DOWN;
+    if (v & 0x04) k |= MOVE_LEFT;
+    if (v & 0x08) k |= MOVE_RIGHT;
+    if (v & 0x10) k |= MOVE_FIRE;
+    if (v & 0x20) k |= MOVE_FIRE2;
+    return k;
+}
+
+/* Device 1 is the cursor-key pseudo-stick; the two PSG ports are read
+   directly so both fire buttons work. */
 static unsigned int msx_joy(void)
 {
-    return (unsigned int)(joystick(0) | joystick(1) | joystick(2));
+    return (unsigned int)(joystick(1)
+        | msx_joy_bits(msx_joy_raw(0))
+        | msx_joy_bits(msx_joy_raw(1)));
 }
 
 unsigned char plat_read_key(void)
