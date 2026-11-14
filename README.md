@@ -100,6 +100,10 @@ npm run venv
 npm run dist
 ```
 
+Desktop releases are built by `.github/workflows/release.yml`. Pushing a `v*` tag (or running the workflow manually
+with the tag) builds the Linux AppImage/deb, Windows installer and macOS DMGs, then attaches them to the GitHub
+Release. The tag must match the `version` in `electron/package.json`.
+
 ## Game building toolchain
 
 It uses python tools and z88dk (https://z88dk.org/site/), sccz80 with the classic lib.
