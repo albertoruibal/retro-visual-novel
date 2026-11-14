@@ -26,6 +26,8 @@
   scene bank was silently dropped.
 - **Sound:** the MSX1 target currently builds with no songs (the PSG player is not wired up yet). Use the MSX2
   target for music.
+- **Controls:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or a joystick in either port;
+  fire confirms, and with `menu: popup` `SPACE` or joystick button 2 opens the action dialog.
 - **Options:** `art_rows` (8, 10 or 12, default 10), `margin` (N 8x8-cell side borders filled with the background),
   `mono` (Black and white), `dither` (colour and mono) and `menu: popup` for the action dialog.
 - **Build:** `zcc +msx -subtype=rom` with `-pragma-define:MAPPER_ASCII16`, output `<slug>-msx1.rom`. The game needs an

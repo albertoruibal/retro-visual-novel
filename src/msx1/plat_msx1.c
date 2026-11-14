@@ -327,13 +327,22 @@ static unsigned char msx_space(void)
 }
 #endif
 
+/* Device 1 is the cursor-key pseudo-stick; 0 and 2 are the two PSG joystick
+   ports.  Read all three because the port selected by the PSG's G-Port bit is
+   reported differently by z88dk and some emulators (WebMSX maps its single
+   AUTO gamepad to the port read by device 2). */
+static unsigned int msx_joy(void)
+{
+    return (unsigned int)(joystick(0) | joystick(1) | joystick(2));
+}
+
 unsigned char plat_read_key(void)
 {
     unsigned int k;
 #if PORT_OVERLAY_MENU
     if (msx_space()) return PORT_KEY_MENU;
 #endif
-    k = joystick(0) | joystick(1);
+    k = msx_joy();
     if (k & MOVE_UP) return 1;
     if (k & MOVE_DOWN) return 2;
     if (k & MOVE_LEFT) return 6;
@@ -361,7 +370,7 @@ unsigned char plat_read_key(void)
 void plat_wait_release(void)
 {
     for (;;) {
-        while ((joystick(0) | joystick(1))
+        while (msx_joy()
                & (MOVE_UP | MOVE_DOWN | MOVE_LEFT | MOVE_RIGHT | MOVE_FIRE
 #if PORT_OVERLAY_MENU
                   | MOVE_FIRE2

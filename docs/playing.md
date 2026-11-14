@@ -16,7 +16,7 @@ Color, Commodore 64 and NES always do this).
 | ZX Spectrum 128K | Cursor keys or W/A/S/D | Enter | Bottom inventory row, or `SPACE` dialog |
 | ZX Spectrum Next | Cursor keys, W/A/S/D, arrow keys or joystick | Enter or fire | Bottom inventory row, or `SPACE` dialog |
 | Amstrad CPC | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned/inventory, or `SPACE` dialog |
-| MSX2 | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
+| MSX1 / MSX2 | Cursor/WASD/8/2/4/6/joystick (either port) | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
 | Sega Master System | D-pad | Button 2 | Button 1 opens/closes the action dialog |
 | Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
 | Commodore 64 | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
@@ -103,19 +103,19 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
   and `SPACE` closes it. A long scene body scrolls with `UP`/`DOWN` (or `LEFT`/`RIGHT` when the scene has no
   words). On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry.
 
-## MSX2
+## MSX1 / MSX2
 
-- **Movement:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or the joystick.
+- **Movement:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or a joystick in either port.
 - **Confirm:** `ENTER` or the joystick fire button when the dialog is enabled; with pinned options `SPACE` also
   confirms.
 - **Words:** `LEFT`/`RIGHT` move between highlighted words.
 - **Options and inventory:** by default the options are pinned below the text and row 23 is the inventory band.
   `DOWN` from the last option enters it, `LEFT`/`RIGHT` step through the held items, `UP` returns to the options, and
   `ENTER` opens the selected item. On the item screen `UP`/`DOWN` move between the entries, and while the cursor is
-  on the first entry they scroll a long description. With `## msx2 menu: popup`, `SPACE` or joystick button 2
-  opens and closes the action dialog instead, and the text may use row 23.
+  on the first entry they scroll a long description. With `menu: popup` on the system's block, `SPACE` or joystick
+  button 2 opens and closes the action dialog instead, and the text may use row 23.
 - The text pane never scrolls, so a scene's text (and options on the pinned layout) must fit the rows left below the
-  art band.
+  art band. The MSX1 build has no music yet; the MSX2 build uses `P` to toggle it.
 
 ## Sega Master System
 

@@ -40,6 +40,8 @@
   the songs after the art banks. Press `P` to toggle music. The player runs at 50 Hz like every other target: on a
   60 Hz NTSC VDP (R#9 `NT` clear, read from the BIOS `REG9SAV` shadow) the ISR advances it five frames in six, while a
   50 Hz PAL VDP advances it every frame.
+- **Controls:** cursor keys, `W` `A` `S` `D`, the numeric cursors `8`/`2`/`4`/`6`, or a joystick in either port;
+  fire confirms, and `SPACE` or joystick button 2 opens the action dialog with `menu: popup`.
 - **Options:** `art_rows` (8, 10 or 12, default 12), `columns` (64 or 80, default 64), `margin` (N 8x8-cell side
   borders, filled with `text_bg`), `dither` (full list) and `menu: popup` for the action dialog.
 - **Build:** `zcc +msx -subtype=rom2`, then `build/port_art.asm`; output `<slug>.rom`. The scene/inventory and per-strip art
