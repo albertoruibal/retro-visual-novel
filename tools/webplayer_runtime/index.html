@@ -11,10 +11,10 @@
 <div class="player" id="player" hidden>
   <header class="topbar">
     <h1 id="title" class="title"></h1>
-    <div id="variants" class="variants" hidden>
-      <label for="variantpick">Variant</label>
-      <select id="variantpick"></select>
-    </div>
+    <button id="menutoggle" class="button menu-toggle" type="button"
+            aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">
+      <span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
   </header>
   <main class="stage">
     <div class="screenwrap">
@@ -24,7 +24,14 @@
         <span id="bootcopy"></span>
       </div>
     </div>
-    <aside class="panel">
+    <aside class="panel" id="sidebar" aria-label="Player menu">
+      <div class="sidebar-head">
+        <div id="variants" class="variants" hidden>
+          <label for="variantpick">Variant</label>
+          <select id="variantpick"></select>
+        </div>
+        <button id="menuclose" class="button menu-close" type="button" aria-label="Close menu">×</button>
+      </div>
       <div class="deck" id="deck" data-media="web" aria-label="Media">
         <div class="deck-media" aria-hidden="true">
           <svg class="media-art media-tape" viewBox="0 0 120 76" focusable="false">
@@ -89,6 +96,7 @@
       </p>
     </aside>
   </main>
+  <div id="menuscrim" class="menu-scrim" hidden></div>
 </div>
 <div id="fatal" class="fatal" hidden></div>
 <noscript>This player needs JavaScript.</noscript>

@@ -20,6 +20,12 @@
   var fullscreenEl = $("fullscreen");
   var webTapEl = $("webtap");
   var screenWrap = document.querySelector(".screenwrap");
+  var menuToggle = $("menutoggle");
+  var menuClose = $("menuclose");
+  var sidebar = $("sidebar");
+  var menuScrim = $("menuscrim");
+  var mobileQuery = window.matchMedia
+    ? window.matchMedia("(max-width: 900px)") : null;
 
   function fatal(message) {
     if (fatalEl) {
@@ -27,6 +33,26 @@
       fatalEl.hidden = false;
     }
     if (player) player.hidden = true;
+  }
+
+  function menuIsOpen() {
+    return !!(sidebar && sidebar.classList.contains("open"));
+  }
+
+  function setMenu(open) {
+    if (!sidebar || !menuToggle) return;
+    if (open && mobileQuery && !mobileQuery.matches) open = false;
+    var wasOpen = menuIsOpen();
+    sidebar.classList.toggle("open", open);
+    menuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    menuToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    if (menuScrim) menuScrim.hidden = !open;
+    document.body.classList.toggle("menu-open", open);
+    if (open && !wasOpen && menuClose) {
+      menuClose.focus();
+    } else if (!open && wasOpen && menuToggle) {
+      menuToggle.focus();
+    }
   }
 
   var variantsEl = $("variants");
@@ -168,7 +194,7 @@
 
   function setAspect(system) {
     screenEl.className = "screen" + (system.kind === "web" ? " web" : "");
-    if (system.kind === "web") {
+    if (system.kind === "web" || shortLandscape()) {
       screenEl.style.aspectRatio = "";
       screenEl.style.maxWidth = "";
     } else {
@@ -217,7 +243,10 @@
       button.className = "button system";
       button.dataset.system = system.id;
       button.textContent = system.label || system.id;
-      button.addEventListener("click", function () { boot(system.id); });
+      button.addEventListener("click", function () {
+        setMenu(false);
+        boot(system.id);
+      });
       systemsEl.appendChild(button);
     });
   }
@@ -298,6 +327,14 @@
     var fullH = 240 * zoom;
     var boxW = 256 * zoom;
     var boxH = 192 * zoom;
+    if (shortLandscape() && screenWrap) {
+      var pad = speccyTouchPad();
+      var reserve = pad ? pad.offsetHeight + 10 : 0;
+      boxW = screenWrap.clientWidth;
+      boxH = Math.max(0, screenWrap.clientHeight - reserve);
+      screenEl.style.aspectRatio = "auto";
+      screenEl.style.maxWidth = "none";
+    }
     screenEl.style.width = boxW + "px";
     screenEl.style.height = boxH + "px";
     app.style.width = boxW + "px";
@@ -425,14 +462,24 @@
     return pad;
   }
 
+  function shortLandscape() {
+    return !!(window.matchMedia &&
+      window.matchMedia("(max-width: 900px) and (orientation: landscape) and (max-height: 560px)").matches);
+  }
+
   function speccyZoom() {
     var pad = speccyTouchPad();
     var reserve = pad ? pad.offsetHeight + 10 : 0;
     var width = screenWrap && screenWrap.clientWidth
       ? screenWrap.clientWidth : screenBox().width;
-    var height = window.innerHeight * 0.72;
-    if (screenWrap && screenWrap.clientHeight > 0)
-      height = Math.min(height, screenWrap.clientHeight);
+    var height;
+    if (shortLandscape() && screenWrap && screenWrap.clientHeight > 0) {
+      height = screenWrap.clientHeight;
+    } else {
+      height = window.innerHeight * 0.72;
+      if (screenWrap && screenWrap.clientHeight > 0)
+        height = Math.min(height, screenWrap.clientHeight);
+    }
     height -= reserve;
     if (width <= 0 || height <= 0) return 1;
     return Math.min(width / 256, height / 192);
@@ -555,6 +602,31 @@
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(fitSpeccy, 120);
   });
+
+  if (menuToggle) {
+    menuToggle.addEventListener("click", function () {
+      setMenu(!menuIsOpen());
+    });
+  }
+  if (menuClose) {
+    menuClose.addEventListener("click", function () { setMenu(false); });
+  }
+  if (menuScrim) {
+    menuScrim.addEventListener("click", function () { setMenu(false); });
+  }
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && menuIsOpen()) setMenu(false);
+  });
+  if (mobileQuery) {
+    var onMenuQuery = function () {
+      if (!mobileQuery.matches) setMenu(false);
+    };
+    if (mobileQuery.addEventListener) {
+      mobileQuery.addEventListener("change", onMenuQuery);
+    } else if (mobileQuery.addListener) {
+      mobileQuery.addListener(onMenuQuery);
+    }
+  }
 
   if (D.title) titleEl.textContent = D.title;
   var requestedVariant = new URLSearchParams(window.location.search)

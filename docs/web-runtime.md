@@ -163,8 +163,8 @@ The native `system_*` build-time flags are folded during export with the web tar
 lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
 
 `player-data.js` assigns `window.RVN_PLAYER`. Each variant carries its own story path and native systems; the player
-shows a variant selector at the top when more than one entry is present (`web`/`systems` are kept as an alias for the
-primary variant):
+shows a variant selector at the top of its sidebar when more than one entry is present (`web`/`systems` are kept as an
+alias for the primary variant):
 
 ```js
 window.RVN_PLAYER = {
@@ -257,18 +257,22 @@ the dither stays crisp.
 
 - The system selector is a retro right-hand sidebar of rocker keys: only the selected native systems, then the Web
   version (when Web is ticked) last. A media bay above it shows the matching tape, disk, cartridge or web icon for the
-  current system.
-- Short landscape viewports (phones) keep the selector on the right instead of stacking it below the screen: the
-  player is locked to the viewport height, the selector moves above the hidden media bay, and the panel scrolls
-  internally, so the whole selector stays reachable without scrolling the page (whose iframe otherwise swallows the
-  swipe). Portrait and desktop layouts are unchanged.
+  current system. The variant selector sits at the top of the sidebar.
+- On mobile (<=900 px wide, portrait or landscape) the sidebar is hidden behind a top-bar burger button and opens as
+  a right-hand drawer over the screen; the scrim, the close button, Escape, or picking a system closes it. The player
+  drops its outer padding, so the game area runs edge to edge with the full stage width, and the drawer scrolls
+  internally when its contents do not fit.
+- Short landscape phones lock the player to the viewport height and use a compact two-row Spectrum pad below the
+  full-width screen, so the picture keeps most of the screen. Desktop windows wider than 900 px keep the static
+  right-hand sidebar and the original spacing.
 - The Web version uses the full mobile-first novel in an iframe.
 - Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
-  aspect ratio.
+  aspect ratio, except in short mobile landscape where it fills the stage and the picture is letterboxed inside it.
 - On a coarse-pointer (touch) device the native ZX Spectrum entry also draws a `.speccy-touch` pad below the screen:
   a D-pad plus `ENTER`, `SPACE` and `P`. The buttons synthesize the key events JSSpeccy expects (bare `5`/`6`/`7`/`8`
   for the directions, `SPACE` for the pop-up action dialog), because JSSpeccy has no soft keyboard. It shares the
-  `screenwrap.has-touch` layout and reserves its height when scaling the picture.
+  `screenwrap.has-touch` layout and reserves its height when scaling the picture; in short landscape it collapses to
+  two rows and `speccyZoom()` gives the freed height to the screen.
 - The panel shows the selected system, a hint, **Reload** and **Fullscreen**.
 - `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
   `localStorage`, defaulting to the first native system (or Web when no native system is selected).
