@@ -3,6 +3,8 @@
 **Retro Visual Novel** is an 8-bit visual novel creator for the ZX Spectrum 128K
 and other 8-bit targets, with a shared engine and authoring UI.
 
+[**Play the demo in your browser**](https://albertoruibal.github.io/retro-visual-novel/)
+
 ## Supported targets
 
 - [ZX Spectrum 128K](docs/systems/zx128.md)

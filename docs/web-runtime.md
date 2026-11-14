@@ -289,6 +289,13 @@ subtree and the **Web version** entry. The folder is replaced atomically. The zi
 `GET /api/webzip/<slug>` has `index.html` at the archive root and is ready to upload to itch.io as an HTML game. The
 folder is gitignored (`<game-folder>/web/`; in this repo `/demo-game/web/`).
 
+## Publishing on GitHub Pages
+
+`.github/workflows/pages.yml` rebuilds every `demo-game` variant inside the editor Docker image on each push to
+`master` and publishes the generated `demo-game/web/` folder as the Pages artifact (the repository's Pages source is
+**GitHub Actions**). Run it manually from the Actions tab with **Run workflow**; the live player is
+[albertoruibal.github.io/retro-visual-novel](https://albertoruibal.github.io/retro-visual-novel/).
+
 ## Limits and notes
 
 - The Web novel has music, but no save slots; progress (current scene + flags) is saved automatically in `localStorage`
