@@ -59,11 +59,13 @@ input { touch-action: manipulation; }
   min-height: 36px;
 }
 
-.gametitle {
+.scenetitle {
   flex: 1 1 auto;
   min-width: 0;
+  margin: 0;
   font-size: clamp(1rem, 3.6vw, 1.2rem);
   font-weight: 700;
+  line-height: 1.25;
   color: var(--highlight);
   overflow-wrap: anywhere;
 }
@@ -121,14 +123,6 @@ input { touch-action: manipulation; }
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-}
-
-.scenetitle {
-  margin: 0;
-  font-size: clamp(1.1rem, 4.6vw, 1.55rem);
-  line-height: 1.25;
-  color: var(--highlight);
-  overflow-wrap: anywhere;
 }
 
 .scenetext {

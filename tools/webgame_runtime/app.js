@@ -36,7 +36,6 @@
   var lastScene = "";
 
   var app = $("app");
-  var gameTitle = $("gametitle");
   var sceneTitle = $("scenetitle");
   var sceneText = $("scenetext");
   var optionsEl = $("options");
@@ -577,7 +576,6 @@
   updateSoundButton();
   musicEl.volume = 0.65;
   setColours();
-  gameTitle.textContent = D.title || "";
   if (D.password) {
     renderPassword();
   } else {
