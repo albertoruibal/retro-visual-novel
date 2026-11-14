@@ -66,7 +66,6 @@
           id: id,
           label: item.label || id,
           src: item.src || "",
-          popupMenu: !!item.popupMenu,
           systems: Array.isArray(item.systems) ? item.systems : []
         };
       });
@@ -76,7 +75,6 @@
         id: "default",
         label: "default",
         src: data.web.src,
-        popupMenu: !!data.web.popupMenu,
         systems: Array.isArray(data.systems) ? data.systems : []
       }];
     }
@@ -85,7 +83,6 @@
         id: "default",
         label: "default",
         src: "",
-        popupMenu: false,
         systems: data.systems
       }];
     }
@@ -157,8 +154,7 @@
         kind: "web",
         machine: "HTML5",
         media: "web",
-        mediaLabel: "Web",
-        popupMenu: currentVariant.popupMenu
+        mediaLabel: "Web"
       });
     }
     byId = {};
@@ -211,9 +207,7 @@
     if (deckEl) deckEl.dataset.media = media;
     if (deckName) deckName.textContent = system.mediaLabel || media;
     if (system.kind === "web") {
-      hintEl.textContent = currentVariant.popupMenu
-        ? "The mobile-first web novel. SPACE opens the options menu; tap or click an option, word or item."
-        : "The mobile-first web novel. Tap or click an option, word or item.";
+      hintEl.textContent = "The mobile-first web novel. Tap or click an option, word or item.";
     } else if (system.emulator === "jsspeccy" && speccyTouchWanted()) {
       hintEl.textContent = "Use the on-screen pad: the arrows move, ENTER confirms and SPACE opens the action dialog.";
     } else {

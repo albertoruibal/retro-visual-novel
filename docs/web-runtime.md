@@ -104,7 +104,6 @@ window.RVN_GAME = {
   artRows: 12,                  // Web art_rows (even, 8..16)
   mono: false,                  // baked mono art + white text when true
   dither: "off",                // mono dither scheme
-  popupMenu: false,             // SPACE opens the options menu (see below)
   startScene: "start",
   startItems: [],
   carry: 0,
@@ -152,12 +151,8 @@ Text lines are rendered `segments` plus conditions. A segment with a `flag` is a
 the current scene. `popup` is an empty string or the option's `msg` text. A scene's `music` is a song id or `null`;
 songs that could not be rendered are removed and the scene becomes silent.
 
-`popupMenu` is true when a selected native system uses the portable pop-up options dialog: SMS, Game Boy Color, C64
-and NES always do, and ZX, CPC, MSX1, MSX2, Next and Oric do when their `menu: popup` option is set. The novel then
-hides the pinned options and inventory band and keeps them behind an **Options** button and the SPACE key, matching
-the native build: SPACE opens the options menu. The menu lists the visible scene options first, then held items
-prefixed `*`; SPACE (or Escape, the close button or the backdrop) closes it. With no such system selected the options
-and inventory stay pinned on screen.
+The web novel always pins the scene options and the inventory on screen. A native system's `menu: popup` setting only
+changes that native build; it never turns the web options into a pop-up menu or hides them behind a button.
 
 The native `system_*` build-time flags are folded during export with the web target, so all of them are false:
 lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
@@ -173,7 +168,7 @@ window.RVN_PLAYER = {
   title: "Demo Game",
   variants: [
     { id: "en", label: "en", title: "Demo Game",
-      src: "novel/en/index.html", popupMenu: false,
+      src: "novel/en/index.html",
       systems: [
         { id: "zx128", label: "ZX Spectrum 128K", kind: "native",
           variant: "en", emulator: "jsspeccy", machine: "128", page: "",
@@ -181,10 +176,9 @@ window.RVN_PLAYER = {
           aspect: 1.333333, media: "tape", mediaLabel: "Tape" }
       ] },
     { id: "es", label: "es", title: "Juego de demostración",
-      src: "novel/es/index.html", popupMenu: false, systems: [/* ... */] }
+      src: "novel/es/index.html", systems: [/* ... */] }
   ],
-  web: { label: "Web version", src: "novel/en/index.html", machine: "HTML5",
-         popupMenu: false },
+  web: { label: "Web version", src: "novel/en/index.html", machine: "HTML5" },
   systems: [/* the primary variant's systems */]
 };
 ```

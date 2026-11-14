@@ -223,33 +223,6 @@ def _web_options(doc):
     return False, scenefile.DEFAULT_DITHER
 
 
-OVERLAY_ALWAYS = {"sms", "gb", "c64", "nes"}
-
-
-def popup_menu(doc):
-    """True when a selected native system uses the pop-up options dialog.
-
-    Mirrors ``tools/gen_port.py``: SMS, Game Boy Color, C64 and NES always use
-    ``PORT_OVERLAY_MENU``; the other targets opt in with ``menu: popup``. The
-    Web novel then opens its options with SPACE too, instead of pinning the
-    options and inventory on screen.
-    """
-    try:
-        for target_id in targets.selected_targets(doc):
-            if target_id == "web":
-                continue
-            if target_id in OVERLAY_ALWAYS:
-                return True
-            target = targets.get_target(target_id)
-            if target is None:
-                continue
-            if bool(targets.target_options(doc, target).get("menu")):
-                return True
-    except Exception:               # noqa: BLE001 - optional registry
-        pass
-    return False
-
-
 def render_web_art(im, conv, rows):
     """Render a Web band: dithered 1-bit with mono, else the fitted source.
 
@@ -432,7 +405,6 @@ def webgame_data(slug, variant=None):
         "inventory": scenefile.inventory_strings(game),
         "mono": mono,
         "dither": dither,
-        "popupMenu": popup_menu(doc),
         "textColors": {
             "ink": _colour(text),
             "highlight": _colour(highlight),
@@ -540,7 +512,6 @@ def _player_data(base, variants):
                 "machine": "HTML5",
                 "media": "web",
                 "mediaLabel": "Web",
-                "popupMenu": primary.get("popupMenu", False),
             }
         data["systems"] = primary.get("systems") or []
     return data
@@ -773,7 +744,6 @@ def export_web(slug, include_novel=None, variants=None):
                 "label": variant,
                 "title": doc["game"].get("title") or variant,
                 "src": src,
-                "popupMenu": popup_menu(doc),
                 "systems": _clean_systems(systems),
             })
             warnings.extend(warns)

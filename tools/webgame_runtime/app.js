@@ -35,16 +35,11 @@
   var currentArt = null;
   var lastScene = "";
 
-  var popupMenu = !!D.popupMenu;
   var app = $("app");
   var gameTitle = $("gametitle");
   var sceneTitle = $("scenetitle");
   var sceneText = $("scenetext");
   var optionsEl = $("options");
-  var optionsButton = $("optionsbutton");
-  var optionsMenu = $("optionsmenu");
-  var menuList = $("menulist");
-  var menuClose = $("menuclose");
   var inventoryEl = $("inventory");
   var artImg = $("artimg");
   var artPlaceholder = $("artplaceholder");
@@ -376,9 +371,6 @@
 
   function renderOptions(scene) {
     optionsEl.replaceChildren();
-    optionsEl.hidden = popupMenu;
-    optionsButton.hidden = !popupMenu;
-    if (popupMenu) return;
     var opts = visibleOptions(scene);
     for (var i = 0; i < opts.length; i++) {
       (function (choice) {
@@ -398,8 +390,7 @@
   function renderInventory() {
     inventoryEl.replaceChildren();
     var held = heldItems();
-    inventoryEl.hidden = popupMenu || held.length === 0;
-    if (popupMenu) return;
+    inventoryEl.hidden = held.length === 0;
     for (var j = 0; j < held.length; j++) {
       (function (itemId) {
         var meta = D.items[itemId] || { name: itemId };
@@ -411,67 +402,6 @@
         inventoryEl.appendChild(button);
       })(held[j]);
     }
-  }
-
-  function menuOpen() {
-    return !!optionsMenu && !optionsMenu.hidden;
-  }
-
-  function menuEntry(label, onClick) {
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "option";
-    button.textContent = label;
-    button.addEventListener("click", onClick);
-    return button;
-  }
-
-  function renderMenu() {
-    var scene = scenes[current] || scenes[startScene];
-    if (!scene) return;
-    menuList.replaceChildren();
-    var opts = visibleOptions(scene);
-    for (var i = 0; i < opts.length; i++) {
-      (function (choice) {
-        menuList.appendChild(menuEntry(choice.label || "", function () {
-          closeMenu();
-          activateOption(choice, function () { navigate(choice.target); });
-        }));
-      })(opts[i]);
-    }
-    var held = heldItems();
-    for (var j = 0; j < held.length; j++) {
-      (function (itemId) {
-        var meta = D.items[itemId] || { name: itemId };
-        menuList.appendChild(menuEntry("* " + (meta.name || itemId),
-                                      function () {
-          closeMenu();
-          openItem(itemId);
-        }));
-      })(held[j]);
-    }
-    if (!opts.length && !held.length) {
-      var empty = document.createElement("p");
-      empty.className = "empty";
-      empty.textContent = scene.ending
-        ? "The End." : "No options are available.";
-      menuList.appendChild(empty);
-    }
-  }
-
-  function openMenu() {
-    if (!optionsMenu || !optionsMenu.hidden) return;
-    renderMenu();
-    optionsMenu.hidden = false;
-    var first = menuList.querySelector(".option");
-    if (first) first.focus();
-    else if (menuClose) menuClose.focus();
-  }
-
-  function closeMenu() {
-    if (!optionsMenu || optionsMenu.hidden) return;
-    optionsMenu.hidden = true;
-    if (optionsButton && !optionsButton.hidden) optionsButton.focus();
   }
 
   function moveFocus(nodes, key) {
@@ -486,7 +416,6 @@
   }
 
   function renderScene(scroll) {
-    closeMenu();
     var scene = scenes[current] || scenes[startScene];
     if (!scene) { fatal("This game has no playable scene."); return; }
     current = scene.id;
@@ -615,11 +544,6 @@
   sheet.addEventListener("click", function (event) {
     if (event.target === sheet) closeItem();
   });
-  optionsButton.addEventListener("click", openMenu);
-  menuClose.addEventListener("click", closeMenu);
-  optionsMenu.addEventListener("click", function (event) {
-    if (event.target === optionsMenu) closeMenu();
-  });
   messageClose.addEventListener("click", closeMessage);
   messagePopup.addEventListener("click", function (event) {
     if (event.target === messagePopup) closeMessage();
@@ -634,16 +558,6 @@
       }
       return;
     }
-    if (menuOpen()) {
-      if (event.key === "Escape" || event.key === " ") {
-        event.preventDefault();
-        closeMenu();
-      } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        event.preventDefault();
-        moveFocus(menuList.querySelectorAll(".option"), event.key);
-      }
-      return;
-    }
     if (!sheet.hidden) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -653,11 +567,6 @@
     }
     if (!password.hidden) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (popupMenu && event.key === " ") {
-      event.preventDefault();
-      openMenu();
-      return;
-    }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     moveFocus(document.querySelectorAll("#options .option, #inventory button"),
               event.key);
