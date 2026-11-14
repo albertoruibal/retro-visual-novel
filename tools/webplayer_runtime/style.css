@@ -505,6 +505,60 @@ kbd {
   .system { font-size: .62rem; }
 }
 
+/* Short landscape viewports (phones): keep the system selector beside the screen
+   instead of below it, and fit the whole player to the viewport. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .player {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    padding: 8px;
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    gap: 8px;
+    overflow: hidden;
+  }
+  .topbar { flex-wrap: nowrap; gap: 8px; }
+  .title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .stage {
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 34vw, 320px);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 10px;
+    align-items: stretch;
+    min-height: 0;
+  }
+  .screenwrap { min-height: 0; align-items: center; }
+  .screen.web { height: 100%; min-height: 0; max-width: 100%; }
+  .panel {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px;
+    gap: 8px;
+  }
+  .systemgroup { order: -1; }
+  .deck { display: none; }
+  .keys { display: none; }
+  .hint { font-size: .8rem; }
+  .speccy-touch { gap: 12px; padding: 6px 8px; }
+  .speccy-touch .touch-dpad {
+    grid-template-columns: repeat(3, 36px);
+    grid-template-rows: repeat(3, 36px);
+    gap: 3px;
+  }
+  .speccy-touch .touch-actions { gap: 6px; grid-template-columns: repeat(2, minmax(46px, auto)); }
+  .speccy-touch button { min-width: 36px; min-height: 36px; padding: 0 6px; font-size: 11px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

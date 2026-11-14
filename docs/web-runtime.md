@@ -258,6 +258,10 @@ the dither stays crisp.
 - The system selector is a retro right-hand sidebar of rocker keys: only the selected native systems, then the Web
   version (when Web is ticked) last. A media bay above it shows the matching tape, disk, cartridge or web icon for the
   current system.
+- Short landscape viewports (phones) keep the selector on the right instead of stacking it below the screen: the
+  player is locked to the viewport height, the selector moves above the hidden media bay, and the panel scrolls
+  internally, so the whole selector stays reachable without scrolling the page (whose iframe otherwise swallows the
+  swipe). Portrait and desktop layouts are unchanged.
 - The Web version uses the full mobile-first novel in an iframe.
 - Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
   aspect ratio.
