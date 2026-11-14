@@ -637,6 +637,22 @@ def _write_web_art(src, dest, art, game, rows, warnings):
     shutil.copyfile(src, dest)
 
 
+
+def _stamp_scripts(html_path, names):
+    """Append a content hash to local script tags so static hosts bust caches."""
+    if not os.path.isfile(html_path):
+        return
+    text = open(html_path, encoding="utf-8").read()
+    for name in names:
+        path = os.path.join(os.path.dirname(html_path), name)
+        if not os.path.isfile(path):
+            continue
+        digest = hashlib.sha1(open(path, "rb").read()).hexdigest()[:12]
+        text = text.replace(f'src="{name}"', f'src="{name}?v={digest}"')
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
 def _export_rev(tmp, sources):
     """Fingerprint the exported player so the editor reloads only on change."""
     digest = hashlib.sha1()
@@ -764,6 +780,14 @@ def export_web(slug, include_novel=None, variants=None):
         _copy_emulators(tmp, emulator_dirs, warnings)
         with open(os.path.join(tmp, PLAYER_DATA), "w", encoding="utf-8") as f:
             f.write(_player_js(_player_data(base, variant_entries)))
+        _stamp_scripts(os.path.join(tmp, "index.html"),
+                       (PLAYER_DATA, "player.js"))
+        for variant in variant_entries:
+            if not variant.get("src"):
+                continue
+            novel = os.path.join(tmp, NOVEL_DIRNAME, variant["id"])
+            _stamp_scripts(os.path.join(novel, "index.html"),
+                           (GAME_JS, "app.js"))
         rev = _export_rev(tmp, sources)
         shutil.rmtree(old, ignore_errors=True)
         if os.path.exists(dest):
