@@ -8,6 +8,7 @@
     "name": "Alberto Alonso Ruibal",
     "email": "alberto@alonsoruibal.com"
   },
+  "homepage": "https://github.com/albertoruibal/retro-visual-novel",
   "desktopName": "com.retrovisualnovel.editor",
   "private": true,
   "main": "main.js",
