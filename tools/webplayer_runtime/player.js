@@ -109,21 +109,35 @@
     return variants[0].id;
   }
 
+  function touchDevice() {
+    if (!window.matchMedia) return false;
+    if (window.matchMedia("(pointer: coarse)").matches) return true;
+    return navigator.maxTouchPoints > 0 &&
+      window.matchMedia("(max-width: 820px)").matches;
+  }
+
+  function defaultSystem() {
+    return systems[0] ? systems[0].id : "";
+  }
+
   function applyVariant(id) {
     currentVariant = findVariant(id) || variants[0];
     hasWeb = !!currentVariant.src;
-    systems = (hasWeb ? [{
-      id: "web",
-      label: "Web version",
-      kind: "web",
-      machine: "HTML5",
-      media: "web",
-      mediaLabel: "Web",
-      popupMenu: currentVariant.popupMenu
-    }] : []).concat(currentVariant.systems);
+    systems = currentVariant.systems.slice();
+    if (hasWeb) {
+      systems.push({
+        id: "web",
+        label: "Web version",
+        kind: "web",
+        machine: "HTML5",
+        media: "web",
+        mediaLabel: "Web",
+        popupMenu: currentVariant.popupMenu
+      });
+    }
     byId = {};
     systems.forEach(function (system) { byId[system.id] = system; });
-    current = hasWeb ? "web" : (systems[0] ? systems[0].id : "");
+    current = defaultSystem();
   }
 
   function storedSystem() {
@@ -131,7 +145,7 @@
       var value = window.localStorage.getItem(storageKey());
       if (value && byId[value]) return value;
     } catch (error) { /* storage unavailable */ }
-    return hasWeb ? "web" : (systems[0] ? systems[0].id : "");
+    return defaultSystem();
   }
 
   function setStatus(text, bad) {
@@ -303,10 +317,7 @@
   };
 
   function speccyTouchWanted() {
-    if (!window.matchMedia) return false;
-    if (window.matchMedia("(pointer: coarse)").matches) return true;
-    return navigator.maxTouchPoints > 0 &&
-      window.matchMedia("(max-width: 820px)").matches;
+    return touchDevice();
   }
 
   function speccyKeyboardRoot() {

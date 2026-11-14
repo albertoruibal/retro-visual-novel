@@ -255,8 +255,8 @@ the dither stays crisp.
 
 ## Player layout
 
-- The system selector is a retro right-hand sidebar of rocker keys: the Web version (when Web is ticked) first, then
-  only the selected native systems. A media bay above it shows the matching tape, disk, cartridge or web icon for the
+- The system selector is a retro right-hand sidebar of rocker keys: only the selected native systems, then the Web
+  version (when Web is ticked) last. A media bay above it shows the matching tape, disk, cartridge or web icon for the
   current system.
 - The Web version uses the full mobile-first novel in an iframe.
 - Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
@@ -267,7 +267,7 @@ the dither stays crisp.
   `screenwrap.has-touch` layout and reserves its height when scaling the picture.
 - The panel shows the selected system, a hint, **Reload** and **Fullscreen**.
 - `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
-  `localStorage`, defaulting to the Web version (or the first native system when Web is unticked).
+  `localStorage`, defaulting to the first native system (or Web when no native system is selected).
 
 ## Export
 
