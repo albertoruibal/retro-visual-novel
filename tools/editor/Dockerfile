@@ -1,4 +1,5 @@
-FROM z88dk/z88dk:latest
+ARG Z88DK_IMAGE=z88dk/z88dk:latest
+FROM ${Z88DK_IMAGE}
 
 # cc65 supplies the 6502 toolchain for the Commodore 64, NES and Oric Atmos targets
 # (z88dk has no C64/NES target). It lives in Alpine's edge/testing repository.

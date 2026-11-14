@@ -21,8 +21,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build every demo variant and the web player
+        env:
+          Z88DK_IMAGE: z88dk/z88dk:latest@sha256:2922a2a794494fbcb43d56de7022dc898a6bbe6bc2859409d0b00e4be57da9e4
         run: |
-          docker build -t rvn-editor tools/editor
+          docker build --build-arg Z88DK_IMAGE="$Z88DK_IMAGE" -t rvn-editor tools/editor
           variants=$(python3 -c "import sys; sys.path.insert(0, 'tools'); import gamestore; print(' '.join(v['id'] for v in gamestore.variant_files('demo-game')))")
           for variant in $variants; do
             docker run --rm -v "$PWD:/src" -w /src rvn-editor \
