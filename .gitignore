@@ -20,6 +20,7 @@
 /demo-game/*_BSS.bin
 /demo-game/*_DATA.bin
 /demo-game/game.md.bak
+/demo-game/game-*.md.bak
 /NIRVANAP_ENGINE.asm
 vendor/nirvanap/NIRVANAP_ENGINE.asm
 vendor/nirvanap/nirvanap.lib

@@ -244,11 +244,11 @@ async function saveRaw() {
     } catch (e) {
       if (e.status !== 409) throw e;
       const ok = confirm(
-        "game.md was changed on disk by another user or process since you " +
+        "the story file was changed on disk by another user or process since you " +
         "opened the Source tab.\n\nOK: overwrite their changes with your " +
         "version.\nCancel: keep this buffer; Reload to load theirs.");
       if (!ok) {
-        renderRawStatus("not saved — game.md changed on disk", "bad");
+        renderRawStatus("not saved — the story file changed on disk", "bad");
         return;
       }
       r = await api("PUT", "/api/raw",

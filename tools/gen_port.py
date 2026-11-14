@@ -346,6 +346,22 @@ def main():
         if i + 1 < len(raw):
             target_id = raw[i + 1].strip().lower()
             del raw[i:i + 2]
+    variant = None
+    i = 0
+    while i < len(raw):
+        value = raw[i]
+        if value == "--variant":
+            if i + 1 < len(raw):
+                variant = raw[i + 1]
+                del raw[i:i + 2]
+                continue
+            del raw[i]
+            continue
+        if value.startswith("--variant="):
+            variant = value.split("=", 1)[1]
+            del raw[i]
+            continue
+        i += 1
     for i, value in enumerate(list(raw)):
         if value.startswith("--target="):
             target_id = value.split("=", 1)[1].strip().lower()
@@ -356,17 +372,19 @@ def main():
     if not arg:
         sys.exit("usage: gen_port.py <game-dir-or-slug> "
                  "[--sms|--cpc|--cpc464|--msx1|--msx2|--gb|--next|--c64|--nes|--oric|"
-                 "--target <id>]")
+                 "--target <id>] [--variant <id>]")
+    variant = variant or gamestore.env_variant()
     if os.path.isdir(arg):
-        gdir = os.path.abspath(arg)
+        game = gamestore.game_from_dir(os.path.abspath(arg), variant)
     else:
-        game = gamestore.resolve(arg)
-        if game is None:
-            sys.exit(f"no such game: {arg!r}")
-        gdir = game["dir"]
-    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+        game = gamestore.resolve(arg, variant)
+    if game is None:
+        sys.exit(f"no such game: {arg!r}")
+    gdir = game["dir"]
+    md = game["md"]
+    bdir = game["bdir"]
     os.makedirs(bdir, exist_ok=True)
-    doc = scenefile.parse(os.path.join(gdir, "game.md"))
+    doc = scenefile.parse(md)
     scenes = doc["scenes"]
     arts = doc["arts"]
     game = doc["game"]
@@ -908,7 +926,7 @@ def main():
         next_banks = {}
         palette_data = {}
         try:
-            accent_src = open(os.path.join(gdir, "game.md"), encoding="utf-8").read()
+            accent_src = open(md, encoding="utf-8").read()
         except OSError:
             accent_src = ""
         accent_chars = [ch for ch in gen_scenes.ACCENT_BYTES

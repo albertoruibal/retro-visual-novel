@@ -26,7 +26,7 @@ editor server never generates story data per request.
   player.js               system selector, native emulator embedding
   player-data.js          generated window.RVN_PLAYER data
   style.css
-  novel/                  mobile-first story runtime
+  novel/<variant>/        mobile-first story runtime, one per variant
     index.html
     app.js
     style.css
@@ -34,7 +34,7 @@ editor server never generates story data per request.
     assets/art/<id>.png
     assets/music/<id>.wav
   emulator/               only the emulator bundles the selected systems need
-  files/<artifact>        the exact file each native system plays
+  files/<variant>/<artifact>  the exact file each variant's native system plays
 ```
 
 All URLs are relative, so the folder works at a host root, under a project path (for example a GitHub Pages
@@ -72,7 +72,7 @@ display order:
 - The ZX Spectrum Next has no bundled browser emulator, so it is not included in the player.
 - A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
 - Unselected native systems are never copied or listed. With Web unticked the automatic `webplayer` step writes no
-  `novel/` folder and the player offers only the selected native systems; if nothing is selected it reports that
+  `novel/` folders and the player offers only the selected native systems; if nothing is selected it reports that
   there is no game data.
 
 The player itself has no download button. The editor's top-bar **Export player** button re-exports the combined player
@@ -92,12 +92,14 @@ and reloads the preview.
 
 ## Data model
 
-`novel/game.js` assigns one global:
+`novel/<variant>/game.js` assigns one global:
 
 ```js
 window.RVN_GAME = {
   format: 1,
   slug: "demo-game",
+  variant: "en",                 // game-<variant>.md id
+  storageKey: "demo-game.en",    // localStorage namespace for progress/sound
   title: "The Lighthouse Keeper",
   artRows: 12,                  // Web art_rows (even, 8..16)
   mono: false,                  // baked mono art + white text when true
@@ -160,29 +162,43 @@ and inventory stay pinned on screen.
 The native `system_*` build-time flags are folded during export with the web target, so all of them are false:
 lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
 
-`player-data.js` assigns `window.RVN_PLAYER` (`web` is present only when the Web system is selected):
+`player-data.js` assigns `window.RVN_PLAYER`. Each variant carries its own story path and native systems; the player
+shows a variant selector at the top when more than one entry is present (`web`/`systems` are kept as an alias for the
+primary variant):
 
 ```js
 window.RVN_PLAYER = {
   format: 1,
   slug: "demo-game",
-  title: "The Lighthouse Keeper",
-  web: { label: "Web version", src: "novel/index.html", machine: "HTML5",
+  title: "Demo Game",
+  variants: [
+    { id: "en", label: "en", title: "Demo Game",
+      src: "novel/en/index.html", popupMenu: false,
+      systems: [
+        { id: "zx128", label: "ZX Spectrum 128K", kind: "native",
+          variant: "en", emulator: "jsspeccy", machine: "128", page: "",
+          file: "files/en/demo-game-en.tap", filename: "demo-game-en.tap",
+          aspect: 1.333333, media: "tape", mediaLabel: "Tape" }
+      ] },
+    { id: "es", label: "es", title: "Juego de demostración",
+      src: "novel/es/index.html", popupMenu: false, systems: [/* ... */] }
+  ],
+  web: { label: "Web version", src: "novel/en/index.html", machine: "HTML5",
          popupMenu: false },
-  systems: [
-    { id: "zx128", label: "ZX Spectrum 128K", kind: "native",
-      emulator: "jsspeccy", machine: "128", page: "",
-      file: "files/demo-game.tap", filename: "demo-game.tap", aspect: 1.333333,
-      media: "tape", mediaLabel: "Tape" }
-  ]
+  systems: [/* the primary variant's systems */]
 };
 ```
+
+Switching the variant stops the current emulator or iframe, rebuilds the system list for that variant and starts the
+same system id when present (otherwise the variant's Web novel). The selection is saved in
+`localStorage["rvn.player.<slug>.variant"]`; scenes/flags and sound use the novel's `storageKey`, so each variant has
+its own progress.
 
 ## Music
 
 `# Game songs:` declares PT3 modules. Each scene's `music:` (or the game default) is resolved by
 `scenefile.resolve_song`. The exporter renders each used module with `spectrumizer.play` to a 22050 Hz mono WAV in
-`novel/assets/music/`, reusing the `assets/gen/song_<id>.wav` cache. If `spectrumizer` is unavailable the export still
+`novel/<variant>/assets/music/`, reusing the `assets/gen/song_<id>.wav` cache. If `spectrumizer` is unavailable the export still
 succeeds with a warning and no music.
 
 The novel creates a looping `<audio>` element, switches tracks when the scene's song changes, pauses for `music: off`,

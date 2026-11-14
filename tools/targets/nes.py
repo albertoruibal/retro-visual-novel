@@ -80,7 +80,7 @@ def _guard_map(path):
 def _build(ctx):
     import build
 
-    slug = ctx.slug
+    slug = ctx.out_stem
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
                ctx.gdir, "--nes"], ctx.env)
     chr_path = os.path.join(ctx.bdir, "port_nes_chr.bin")

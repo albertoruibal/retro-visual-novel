@@ -23,13 +23,20 @@ See [playing the games](docs/playing.md) for the controls on each target.
 
 ## Games
 
-The game is defined in a folder with a `game.md` in its root,
-see the example in [demo-game/game.md](demo-game/game.md).
+The game is defined in a folder with a `game.md` in its root. A folder may instead hold one or more
+`game-<variant>.md` files (for example a language or a story part); variants share the `assets/` tree, including the
+art and reference folders. See the demo's [English](demo-game/game-en.md) and [Spanish](demo-game/game-es.md) files.
 
 It is defined in markdown, it can be manually edit or with the UI.
 
 See [authoring games](docs/authoring.md) for information about the Markdown format.
 
+### Variants
+
+A folder can hold several story variants side by side: `game.md` (optional, the primary variant) plus
+`game-<variant>.md` files such as `game-en.md` and `game-es.md`. They share the same `assets/art/`, `assets/refs/` and
+`assets/music/` folders. The editor adds a variant picker when more than one file exists, native builds are suffixed
+(`<slug>-es.tap`), and the exported web player gets a variant selector at the top.
 
 ## Editor desktop app
 
@@ -111,6 +118,7 @@ python3 tools/build.py list-targets
 python3 tools/build.py build <game>              # all selected
 python3 tools/build.py build <game> zx sms       # explicit
 python3 tools/build.py build <game> --all
+python3 tools/build.py build <game> zx128 --variant es   # one variant
 ```
 
 Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128), `.dsk` with the

@@ -38,7 +38,7 @@ def _build(ctx):
     import tempfile
     import build
 
-    slug = ctx.slug
+    slug = ctx.out_stem
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
                ctx.gdir, "--msx1"], ctx.env)
     td = tempfile.mkdtemp(prefix=f".msx1-{slug}-", dir=ctx.bdir)

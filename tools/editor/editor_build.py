@@ -6,15 +6,17 @@ from server import *  # noqa: F401,F403 - shared state and helpers
 
 from editor_games import *
 
-def _build_env_for(slug):
+def _build_env_for(slug, variant=None):
     env = dict(os.environ)
-    game = gamestore.resolve(slug)
+    game = gamestore.resolve(slug, variant)
     if game:
         # The server may have inherited the desktop app's startup tab list.
         # It is stale once a folder is opened at runtime, and gamestore gives
         # RVN_GAMES precedence over RVN_GAME, so drop it: the child build
         # only needs the game being built.
         env["RVN_GAME"] = game["dir"]
+        if game["variant"]:
+            env["RVN_VARIANT"] = game["variant"]
         env.pop("RVN_GAMES", None)
         env.pop("ZXAD_GAMES", None)
         env.pop("ZXAD_GAME", None)
@@ -41,7 +43,7 @@ def _selected_build_ids(doc, requested=None):
     return ids
 
 
-def _run_build(build_id, slug, requested=None):
+def _run_build(build_id, slug, requested=None, variant=None):
     """Build every target selected in game.md (or an explicit override).
 
     Each target runs as its own tools/build.py child so one platform failing
@@ -54,12 +56,12 @@ def _run_build(build_id, slug, requested=None):
     log = []
     results = {}
     try:
-        env = _build_env_for(slug)
+        env = _build_env_for(slug, variant)
         # Each child is one target; the orchestrator appends the web step, so
         # a child must not auto-export the player after its own build.
         env["RVN_WEB_AUTO"] = "0"
-        game = _game_or_error(slug)
-        doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+        game = _game_or_error(slug, variant)
+        doc = scenefile.parse(game["md"])
         ids = _selected_build_ids(doc, requested)
         _builds[build_id]["targets"] = {t: {"status": "queued", "log": []}
                                         for t in ids}
@@ -82,7 +84,8 @@ def _run_build(build_id, slug, requested=None):
             started = time.monotonic()
             proc = subprocess.Popen(
                 [sys.executable, "-u", os.path.join(ROOT, "tools", "build.py"),
-                 "build", slug, target_id], cwd=ROOT, env=env,
+                 "build", slug, target_id,
+                 "--variant", str(game["variant"])], cwd=ROOT, env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             tlog = [banner]
             for line in proc.stdout:
@@ -115,9 +118,9 @@ def _run_build(build_id, slug, requested=None):
 
 
 
-def start_build(slug, requested=None):
-    game = _game_or_error(slug)
-    doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+def start_build(slug, requested=None, variant=None):
+    game = _game_or_error(slug, variant)
+    doc = scenefile.parse(game["md"])
     ids = _selected_build_ids(doc, requested)
     cc65_targets = ("c64", "nes", "oric")
     if any(t not in cc65_targets and t not in ("web", "webplayer")
@@ -135,10 +138,12 @@ def start_build(slug, requested=None):
             raise ValueError(
                 "cc65 is incomplete — missing %s. Install cc65 or set its "
                 "folder in Settings (Build toolchain)." % ", ".join(missing))
-    build_id = f"build-{slug}-{int(time.time()*1000)}"
-    _builds[build_id] = {"id": build_id, "game": slug, "status": "queued",
+    build_id = f"build-{slug}-{game['variant']}-{int(time.time()*1000)}"
+    _builds[build_id] = {"id": build_id, "game": slug,
+                         "variant": game["variant"], "status": "queued",
                          "log": [], "targets": {}}
-    threading.Thread(target=_run_build, args=(build_id, slug, requested),
+    threading.Thread(target=_run_build,
+                     args=(build_id, slug, requested, game["variant"]),
                      daemon=True).start()
     return build_id
 

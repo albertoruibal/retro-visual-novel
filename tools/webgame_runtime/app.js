@@ -25,7 +25,8 @@
     ? D.startScene : D.scenes[0].id;
   var bandAspect = 256 / (8 * Math.max(1, Number(D.artRows) || 10));
 
-  var STATE_KEY = "rvn.web." + (D.slug || "game") + ".state";
+  var STORAGE_KEY = D.storageKey || D.slug || "game";
+  var STATE_KEY = "rvn.web." + STORAGE_KEY + ".state";
   var STATE_VERSION = 1;
 
   var flags = new Set(D.startItems);
@@ -66,7 +67,7 @@
   var currentSong = null;
 
   function soundKey() {
-    return "rvn.web." + (D.slug || "game") + ".sound";
+    return "rvn.web." + STORAGE_KEY + ".sound";
   }
 
   function loadSoundPref() {

@@ -50,6 +50,9 @@ $("additem").onclick = () => addEntity("item");
 $("rawsave").onclick = saveRaw;
 $("rawrevert").onclick = loadRaw;
 $("buildclear").onclick = () => { $("buildlog").textContent = ""; };
+if ($("variantpick")) {
+  $("variantpick").onchange = (e) => switchVariant(e.target.value);
+}
 window.addEventListener("resize", () => {
   if (EDIT_MODES.includes(view)) redrawSelection();
 });
@@ -58,6 +61,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 const session = loadSession();
 if (session.game) game = session.game;
+if (session.variant) variant = session.variant;
 if (session.view === "web") session.view = "emu";
 if (VIEWS.includes(session.view)) view = session.view;
 const hashView = location.hash.slice(1) === "web" ? "emu" : location.hash.slice(1);

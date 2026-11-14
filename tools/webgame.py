@@ -6,9 +6,9 @@ bundles the selected native systems' web emulators and built files:
 
     <game-folder>/web/
       index.html, player.js, player-data.js, style.css
-      novel/                 the mobile-first story runtime
+      novel/<variant>/       each variant's mobile-first story runtime
       emulator/              only the selected systems' emulator bundles
-      files/                 one played artifact per native system
+      files/<variant>/       one played artifact per native system
 
 The story runtime (``tools/webgame_runtime/``) reads ``novel/game.js``, which
 assigns ``window.RVN_GAME``.  The player shell reads ``player-data.js``, which
@@ -146,17 +146,18 @@ def runtime_file(name):
     return open(runtime_path(name), "rb").read(), ctype
 
 
-def _game(slug):
-    rec = gamestore.resolve(slug)
+def _game(slug, variant=None):
+    rec = gamestore.resolve(slug, variant)
     if rec is None:
         raise KeyError(f"no such game: {slug!r}")
     return rec
 
 
 def _doc(rec):
-    path = os.path.join(rec["dir"], "game.md")
+    path = rec.get("md") or os.path.join(rec["dir"], "game.md")
     if not os.path.isfile(path):
-        raise FileNotFoundError(f"{rec['slug']}: game.md does not exist")
+        raise FileNotFoundError(f"{rec['slug']}: {os.path.basename(path)} "
+                                "does not exist")
     return scenefile.parse(path)
 
 
@@ -361,9 +362,9 @@ def urllib_quote(value):
     return quote(str(value), safe="")
 
 
-def webgame_data(slug):
-    """Build the ``window.RVN_GAME`` object for one game (export data)."""
-    rec = _game(slug)
+def webgame_data(slug, variant=None):
+    """Build the ``window.RVN_GAME`` object for one variant (export data)."""
+    rec = _game(slug, variant)
     doc = _doc(rec)
     game = doc["game"]
     item_meta = doc.get("item_meta") or {}
@@ -413,9 +414,13 @@ def webgame_data(slug):
     text, highlight, bg = scenefile.text_tokens(game)
     if mono:
         text, highlight, bg = "white", "white", "black"
+    storage_key = (rec["slug"] if len(rec.get("variants") or []) <= 1
+                   else f"{rec['slug']}.{rec['variant']}")
     return {
         "format": 1,
         "slug": rec["slug"],
+        "variant": rec["variant"],
+        "storageKey": storage_key,
         "title": game.get("title") or rec["slug"],
         "artRows": art_rows,
         "startScene": start_scene,
@@ -472,15 +477,18 @@ def _player_systems(rec, doc):
     systems = []
     emulator_dirs = set()
     warnings = []
+    variant = rec["variant"]
     for target_id in targets.ordered_targets(targets.selected_targets(doc)):
         target = targets.get_target(target_id)
         if target is None or not target.outputs or target.id == "web":
             continue
         extension = target.outputs[0]
-        filename = f"{rec['slug']}{target.artifact_suffix}{extension}"
+        filename = (f"{rec['output_stem']}{target.artifact_suffix}"
+                    f"{extension}")
         source = os.path.join(rec["dir"], filename)
         if not os.path.isfile(source) or os.path.getsize(source) == 0:
-            warnings.append(f"{target.label}: {filename} is not built; skipped")
+            warnings.append(f"{variant}/{target.label}: {filename} is not "
+                            "built; skipped")
             continue
         if target.emulator in EMU_ASSET_DIRS:
             media = _media_for(extension)
@@ -488,10 +496,11 @@ def _player_systems(rec, doc):
                 "id": target.id,
                 "label": target.label,
                 "kind": "native",
+                "variant": variant,
                 "emulator": target.emulator,
                 "machine": target.machine,
                 "page": EMU_PAGE.get(target.emulator, ""),
-                "file": f"{FILES_EXPORT_DIR}/{filename}",
+                "file": f"{FILES_EXPORT_DIR}/{variant}/{filename}",
                 "filename": filename,
                 "aspect": round(EMU_ASPECT.get(target.id, 4 / 3), 6),
                 "media": media,
@@ -501,31 +510,39 @@ def _player_systems(rec, doc):
                 entry["run"] = "GAME"
             emulator_dirs.update(EMU_ASSET_DIRS[target.emulator])
         else:
-            warnings.append(f"{target.label}: no web emulator; skipped")
+            warnings.append(f"{variant}/{target.label}: no web emulator; "
+                            "skipped")
             continue
         entry["_source"] = source
         systems.append(entry)
     return systems, emulator_dirs, warnings
 
 
-def _player_data(rec, doc, systems, include_novel=True):
-    clean = [{k: v for k, v in item.items() if k != "_source"}
-             for item in systems]
+def _clean_systems(systems):
+    return [{k: v for k, v in item.items() if k != "_source"}
+            for item in systems]
+
+
+def _player_data(base, variants):
+    """Assemble window.RVN_PLAYER from per-variant entries."""
     data = {
         "format": 1,
-        "slug": rec["slug"],
-        "title": doc["game"].get("title") or rec["slug"],
+        "slug": base["slug"],
+        "title": (variants[0].get("title") if variants else "") or base["slug"],
+        "variants": variants,
     }
-    if include_novel:
-        data["web"] = {
-            "label": "Web version",
-            "src": f"{NOVEL_DIRNAME}/index.html",
-            "machine": "HTML5",
-            "media": "web",
-            "mediaLabel": "Web",
-            "popupMenu": popup_menu(doc),
-        }
-    data["systems"] = clean
+    primary = variants[0] if variants else None
+    if primary:
+        if primary.get("src"):
+            data["web"] = {
+                "label": "Web version",
+                "src": primary["src"],
+                "machine": "HTML5",
+                "media": "web",
+                "mediaLabel": "Web",
+                "popupMenu": primary.get("popupMenu", False),
+            }
+        data["systems"] = primary.get("systems") or []
     return data
 
 
@@ -624,7 +641,6 @@ def _export_rev(tmp, sources):
     """Fingerprint the exported player so the editor reloads only on change."""
     digest = hashlib.sha1()
     names = list(PLAYER_FILES) + [PLAYER_DATA]
-    names += [f"{NOVEL_DIRNAME}/{name}" for name in RUNTIME_FILES + (GAME_JS,)]
     for name in names:
         path = os.path.join(tmp, name)
         if not os.path.isfile(path):
@@ -639,8 +655,7 @@ def _export_rev(tmp, sources):
         digest.update(
             f"{art_id}\0{os.path.basename(src)}\0{st.st_size}\0{st.st_mtime_ns}\n"
             .encode("utf-8"))
-    for sub in (FILES_EXPORT_DIR, os.path.join(NOVEL_DIRNAME, "assets", "music"),
-                os.path.join(NOVEL_DIRNAME, ART_SUBDIR)):
+    for sub in (FILES_EXPORT_DIR, NOVEL_DIRNAME):
         root = os.path.join(tmp, sub)
         for base, _dirs, files in os.walk(root):
             for name in sorted(files):
@@ -652,65 +667,103 @@ def _export_rev(tmp, sources):
     return digest.hexdigest()
 
 
-def export_web(slug, include_novel=None):
+def export_web(slug, include_novel=None, variants=None):
     """Write a self-contained ``<game>/web/`` player and return its info.
 
-    ``include_novel`` forces the mobile-first story in or out; ``None`` (the
-    default) follows the Web system selection in ``game.md``.  ``export_player``
-    and ``export_game`` are the explicit player-only and Web-game forms used by
-    their build targets.
+    Every variant is exported into its own ``novel/<variant>/`` and
+    ``files/<variant>/`` subtree, and the player shell gets a variant selector
+    when more than one is present. ``include_novel`` forces the mobile-first
+    story in or out; ``None`` (the default) follows each variant's Web system
+    selection. ``variants`` optionally restricts the exported ids.
     """
-    rec = _game(slug)
-    doc = _doc(rec)
-    if include_novel is None:
-        include_novel = _web_selected(doc)
-    sources = _art_sources(rec, doc) if include_novel else {}
-    data = webgame_data(slug) if include_novel else None
-    mono = bool(data.get("mono")) if data else False
-    art_rows = selected_art_rows(doc)
-    art_by_id = {art["id"]: art for art in doc.get("arts") or []}
-    systems, emulator_dirs, warnings = _player_systems(rec, doc)
-    dest = os.path.join(rec["dir"], WEB_DIRNAME)
+    base = _game(slug)
+    entries = base.get("variants") or []
+    if variants:
+        wanted = {str(v) for v in variants}
+        entries = [e for e in entries if e["id"] in wanted]
+    if not entries:
+        raise KeyError(f"no such game variant: {slug!r}")
+    dest = os.path.join(base["dir"], WEB_DIRNAME)
     tmp = dest + ".tmp"
     old = dest + ".old"
     shutil.rmtree(tmp, ignore_errors=True)
-    novel = os.path.join(tmp, NOVEL_DIRNAME)
     try:
         os.makedirs(tmp, exist_ok=True)
         for name in PLAYER_FILES:
             shutil.copyfile(player_path(name), os.path.join(tmp, name))
-        rendered = set()
-        if include_novel:
-            os.makedirs(os.path.join(novel, ART_SUBDIR), exist_ok=True)
-            for name in RUNTIME_FILES:
-                shutil.copyfile(runtime_path(name), os.path.join(novel, name))
-            rendered = _render_music(rec, doc, novel, warnings)
-            data["songs"] = {song: info for song, info in data["songs"].items()
-                             if song in rendered}
-            for scene in data["scenes"]:
-                if scene.get("music") not in rendered:
-                    scene["music"] = None
-            with open(os.path.join(novel, GAME_JS), "w", encoding="utf-8") as f:
-                f.write(_js(data))
-            for art_id, src in sources.items():
-                if not src or not os.path.isfile(src):
-                    continue
-                target = os.path.join(novel, ART_SUBDIR, f"{art_id}.png")
-                if mono:
-                    _write_web_art(src, target, art_by_id.get(art_id)
-                                   or {"id": art_id}, doc["game"], art_rows,
-                                   warnings)
-                else:
-                    shutil.copyfile(src, target)
+        emulator_dirs = set()
+        warnings = []
+        sources = {}
+        variant_entries = []
+        rendered_total = 0
+        arts_total = 0
+        any_novel = False
+        for selected in entries:
+            rec = _game(slug, selected["id"])
+            doc = _doc(rec)
+            variant = rec["variant"]
+            has_novel = (include_novel if include_novel is not None
+                         else _web_selected(doc))
+            systems, dirs, warns = _player_systems(rec, doc)
+            emulator_dirs.update(dirs)
+            if not has_novel and not systems:
+                warnings.append(f"{variant}: no story or built systems; skipped")
+                continue
+            src = ""
+            if has_novel:
+                src = f"{NOVEL_DIRNAME}/{variant}/index.html"
+                novel = os.path.join(tmp, NOVEL_DIRNAME, variant)
+                os.makedirs(os.path.join(novel, ART_SUBDIR), exist_ok=True)
+                for name in RUNTIME_FILES:
+                    shutil.copyfile(runtime_path(name),
+                                    os.path.join(novel, name))
+                data = webgame_data(slug, variant)
+                rendered = _render_music(rec, doc, novel, warns)
+                rendered_total += len(rendered)
+                data["songs"] = {song: info
+                                 for song, info in data["songs"].items()
+                                 if song in rendered}
+                for scene in data["scenes"]:
+                    if scene.get("music") not in rendered:
+                        scene["music"] = None
+                with open(os.path.join(novel, GAME_JS), "w",
+                          encoding="utf-8") as f:
+                    f.write(_js(data))
+                mono = bool(data.get("mono"))
+                art_rows = selected_art_rows(doc)
+                art_by_id = {art["id"]: art for art in doc.get("arts") or []}
+                for art_id, source in _art_sources(rec, doc).items():
+                    if not source or not os.path.isfile(source):
+                        continue
+                    sources[f"{variant}:{art_id}"] = source
+                    target = os.path.join(novel, ART_SUBDIR, f"{art_id}.png")
+                    if mono:
+                        _write_web_art(source, target,
+                                       art_by_id.get(art_id)
+                                       or {"id": art_id}, doc["game"],
+                                       art_rows, warns)
+                    else:
+                        shutil.copyfile(source, target)
+                    arts_total += 1
+                any_novel = True
+            files_dir = os.path.join(tmp, FILES_EXPORT_DIR, variant)
+            if systems:
+                os.makedirs(files_dir, exist_ok=True)
+            for system in systems:
+                shutil.copyfile(system["_source"],
+                                os.path.join(files_dir, system["filename"]))
+            variant_entries.append({
+                "id": variant,
+                "label": variant,
+                "title": doc["game"].get("title") or variant,
+                "src": src,
+                "popupMenu": popup_menu(doc),
+                "systems": _clean_systems(systems),
+            })
+            warnings.extend(warns)
         _copy_emulators(tmp, emulator_dirs, warnings)
-        files_dir = os.path.join(tmp, FILES_EXPORT_DIR)
-        if systems:
-            os.makedirs(files_dir, exist_ok=True)
-        for system in systems:
-            shutil.copyfile(system["_source"],
-                            os.path.join(files_dir, system["filename"]))
         with open(os.path.join(tmp, PLAYER_DATA), "w", encoding="utf-8") as f:
-            f.write(_player_js(_player_data(rec, doc, systems, include_novel)))
+            f.write(_player_js(_player_data(base, variant_entries)))
         rev = _export_rev(tmp, sources)
         shutil.rmtree(old, ignore_errors=True)
         if os.path.exists(dest):
@@ -721,19 +774,20 @@ def export_web(slug, include_novel=None):
         shutil.rmtree(tmp, ignore_errors=True)
         raise
     return {
-        "game": rec["slug"],
+        "game": base["slug"],
         "path": dest,
-        "relative": os.path.relpath(dest, rec["dir"]),
-        "zip": f"/api/webzip/{urllib_quote(rec['slug'])}",
-        "arts": len([s for s in sources.values() if s and os.path.isfile(s)]),
-        "web": include_novel,
-        "novel": include_novel,
-        "systems": [item["id"] for item in systems],
-        "music": len(rendered),
+        "relative": os.path.relpath(dest, base["dir"]),
+        "zip": f"/api/webzip/{urllib_quote(base['slug'])}",
+        "arts": arts_total,
+        "web": any_novel,
+        "novel": any_novel,
+        "variants": [item["id"] for item in variant_entries],
+        "systems": [system["id"] for item in variant_entries
+                    for system in item["systems"]],
+        "music": rendered_total,
         "warnings": warnings,
         "rev": rev,
     }
-
 
 def export_player(slug):
     """Write the browser player and native emulators without the novel."""
@@ -770,6 +824,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Export a game as a standalone web player.")
     parser.add_argument("game", help="game slug or folder")
+    parser.add_argument("--variant", default=None,
+                        help="variant id (default: the primary game.md/variant)")
     parser.add_argument("--json", action="store_true",
                         help="print the novel data instead of exporting")
     mode = parser.add_mutually_exclusive_group()
@@ -779,7 +835,8 @@ def main(argv=None):
                       help="write the player plus the mobile-first novel")
     args = parser.parse_args(argv)
     if args.json:
-        print(json.dumps(webgame_data(args.game), indent=2, ensure_ascii=False))
+        print(json.dumps(webgame_data(args.game, args.variant), indent=2,
+                         ensure_ascii=False))
         return 0
     if args.web_game:
         include_novel = True

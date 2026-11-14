@@ -253,6 +253,18 @@ def main():
     refine_refs = "--refine-refs" in args
     if refine_refs:
         args.remove("--refine-refs")
+    variant = None
+    if "--variant" in args:
+        i = args.index("--variant")
+        if i + 1 >= len(args):
+            sys.exit("--variant needs an id")
+        variant = args[i + 1]
+        del args[i:i + 2]
+    for i, value in enumerate(list(args)):
+        if value.startswith("--variant="):
+            variant = value.split("=", 1)[1]
+            del args[i]
+            break
     want_refs = False
     if "--refs" in args:
         want_refs = True
@@ -264,10 +276,10 @@ def main():
             sys.exit("--ref needs a reference id")
         ref_ids.append(args[i + 1])
         del args[i:i + 2]
-    game = gamestore.resolve(slug)
+    game = gamestore.resolve(slug, variant or gamestore.env_variant())
     if game is None:
         sys.exit(f"no such game: {slug!r} (see 'games/')")
-    md = os.path.join(game["dir"], "game.md")
+    md = game["md"]
     art_root = os.path.join(game["dir"], scenefile.ART_ROOT)
     ref_root = os.path.join(game["dir"], scenefile.REF_ROOT)
 

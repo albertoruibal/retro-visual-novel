@@ -55,7 +55,7 @@ def _guard(path):
 def _build(ctx):
     import build
 
-    slug = ctx.slug
+    slug = ctx.out_stem
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
                ctx.gdir, "--c64"], ctx.env)
     td = tempfile.mkdtemp(prefix=f".c64-{slug}-", dir=ctx.bdir)

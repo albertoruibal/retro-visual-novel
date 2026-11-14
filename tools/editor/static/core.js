@@ -11,6 +11,7 @@
 
 let P = null;              // project
 let game = null;           // active game slug (basename of its folder)
+let variant = null;        // active game-<variant>.md id (null = primary)
 let GAMES = [];            // [{slug,title,dir}] open games, in tab order
 let TARGETS = { targets: [], selected: [] };  // build-target registry
 let GAME_FOLDERS = true;   // true if GAMES are opened folders (vs games/)
@@ -52,7 +53,7 @@ const VIEWS = [...EDIT_MODES, "graph", "raw", "build", "emu"];
 const SESSION_KEY = "rvn.editor.session";
 const LEGACY_SESSION_KEY = "zxadv.editor.session";
 function saveSession() {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ game, view })); } catch {}
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ game, variant, view })); } catch {}
 }
 function loadSession() {
   try {
@@ -325,7 +326,10 @@ function withGame(path) {
   if (path === "/api/health") return path;
   if (path === "/api/settings") return path;
   if (path === "/api/open" || path === "/api/new" || path === "/api/close") return path;
-  return path + (path.includes("?") ? "&" : "?") + "game=" + encodeURIComponent(game);
+  var sep = path.includes("?") ? "&" : "?";
+  var url = path + sep + "game=" + encodeURIComponent(game);
+  if (variant) url += "&variant=" + encodeURIComponent(variant);
+  return url;
 }
 
 async function api(method, path, body) {

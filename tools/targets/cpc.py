@@ -167,7 +167,7 @@ def build_cpc(ctx, target_id, gen_flag, out_ext, disk_stream=False):
     """Build one CPC variant; ``disk_stream`` selects the 64K 464 layout."""
     import build
 
-    slug = ctx.slug
+    slug = ctx.out_stem
     build.run([ctx.py, os.path.join(ctx.root, "tools", "gen_port.py"),
                ctx.gdir, gen_flag], ctx.env)
     td = tempfile.mkdtemp(prefix=f".{target_id}-{slug}-", dir=ctx.bdir)

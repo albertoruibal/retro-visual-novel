@@ -6,6 +6,17 @@ from server import *  # noqa: F401,F403 - shared state and helpers
 
 from editor_games import *
 
+def _allowed_outputs(game):
+    """Every artifact name a registered target can produce for any variant."""
+    allowed = set()
+    for entry in game.get("variants") or []:
+        stem = gamestore.output_stem_for(game["slug"], entry)
+        for target in targets.all_targets().values():
+            for ext in target.outputs:
+                allowed.add(f"{stem}{target.artifact_suffix}{ext}")
+    return allowed
+
+
 def tap_file(slug, name):
     """Serve a built game file (.tap/.sna) to the embedded emulator.
 
@@ -15,15 +26,12 @@ def tap_file(slug, name):
     game = _game_or_error(slug)
     if not (name.endswith(".tap") or name.endswith(".sna")):
         raise ValueError("only .tap / .sna can be served")
-    # the build writes exactly games/<slug>/<slug>.tap; accept only that name
-    if name != f"{slug}.tap" and name != f"{slug}.sna":
+    if name not in _allowed_outputs(game):
         raise ValueError(f"no such build output: {name}")
     path = os.path.join(game["dir"], name)
     if not os.path.exists(path):
         raise FileNotFoundError(f"{name} not built yet — run Build first")
-    mt = ("application/octet-stream" if name.endswith(".tap")
-          else "application/octet-stream")
-    return open(path, "rb").read(), mt
+    return open(path, "rb").read(), "application/octet-stream"
 
 
 
@@ -31,14 +39,10 @@ def artifact_file(slug, name):
     """Serve one built target artifact to the web emulators.
 
     Only the game's own target outputs are exposed; the name must be one a
-    registered target produces (``<slug><artifact_suffix><ext>``).
+    registered target produces for one of the game's variants.
     """
     game = _game_or_error(slug)
-    allowed = set()
-    for target in targets.all_targets().values():
-        for ext in target.outputs:
-            allowed.add(f"{game['slug']}{target.artifact_suffix}{ext}")
-    if name not in allowed:
+    if name not in _allowed_outputs(game):
         raise ValueError(f"no such build output: {name}")
     path = os.path.join(game["dir"], name)
     if not os.path.exists(path):

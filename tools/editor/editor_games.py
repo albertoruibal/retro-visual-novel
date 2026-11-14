@@ -39,18 +39,17 @@ def _check_revision(path, expected):
     return current
 
 
-def _game_or_error(slug):
-    """Resolve a slug to an existing game, raising KeyError otherwise."""
-    game = gamestore.resolve(slug)
+def _game_or_error(slug, variant=None):
+    """Resolve a slug (and variant) to a game, raising KeyError otherwise."""
+    game = gamestore.resolve(slug, variant)
     if game is None:
         raise KeyError(f"no such game: {slug!r}")
     return game
 
 
 
-def _game_md_path(slug):
-    game = _game_or_error(slug)
-    return os.path.join(game["dir"], "game.md")
+def _game_md_path(slug, variant=None):
+    return _game_or_error(slug, variant)["md"]
 
 
 
@@ -92,15 +91,15 @@ def _new_art_filename(prefix):
 
 
 
-def _set_art_image(slug, art_id, filename):
+def _set_art_image(slug, art_id, filename, variant=None):
     """Persist ``image: <filename>`` for one art, atomically, keeping a .bak.
 
     Called after a generate/upload writes a new candidate, so a headless run
     (or an immediate build) picks the fresh image. The editor flushes pending
     edits before it asks for a render, so this cannot clobber unsaved state.
     """
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     if not os.path.exists(md):
         return
     doc = scenefile.parse(md)
@@ -118,12 +117,12 @@ def _set_art_image(slug, art_id, filename):
 
 
 
-def _set_ref_image(slug, ref_id, filename):
+def _set_ref_image(slug, ref_id, filename, variant=None):
     """Persist ``image: <filename>`` for one reference, atomically."""
     if not scenefile.valid_ref_id(ref_id):
         return
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     if not os.path.exists(md):
         return
     doc = scenefile.parse(md)
@@ -141,10 +140,10 @@ def _set_ref_image(slug, ref_id, filename):
 
 
 
-def _write_game_doc(slug, doc):
-    """Write a parsed project atomically, keeping the previous game.md as .bak."""
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+def _write_game_doc(slug, doc, variant=None):
+    """Write a parsed project atomically, keeping the previous md as .bak."""
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     text = scenefile.serialize(doc)
     tmp = md + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
@@ -176,12 +175,12 @@ def _delete_candidate_image(root, ident, filename):
 
 
 
-def delete_art_image(slug, art_id, filename):
+def delete_art_image(slug, art_id, filename, variant=None):
     """Delete one art candidate, repointing ``image:`` if it was active."""
     if not _valid_art_id(art_id):
         raise ValueError(f"invalid art id {art_id!r}")
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     doc = scenefile.parse(md) if os.path.exists(md) else None
     art = _find_art(doc, art_id) if doc else None
     explicit = scenefile.art_image_name(art) if art else None
@@ -196,7 +195,7 @@ def delete_art_image(slug, art_id, filename):
             art.pop("image", None)
         else:
             art["image"] = newest
-        _write_game_doc(slug, doc)
+        _write_game_doc(slug, doc, variant)
         image = newest
     else:
         image = explicit or newest
@@ -205,12 +204,12 @@ def delete_art_image(slug, art_id, filename):
 
 
 
-def delete_ref_image(slug, ref_id, filename):
+def delete_ref_image(slug, ref_id, filename, variant=None):
     """Delete one reference candidate, repointing ``image:`` if it was active."""
     if not scenefile.valid_ref_id(ref_id):
         raise ValueError(f"invalid reference id {ref_id!r}")
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     doc = scenefile.parse(md) if os.path.exists(md) else None
     ref = _find_ref(doc, ref_id) if doc else None
     explicit = scenefile.ref_image_name(ref) if ref else None
@@ -225,7 +224,7 @@ def delete_ref_image(slug, ref_id, filename):
             ref.pop("image", None)
         else:
             ref["image"] = newest
-        _write_game_doc(slug, doc)
+        _write_game_doc(slug, doc, variant)
         image = newest
     else:
         image = explicit or newest
@@ -239,7 +238,7 @@ ART_FIELD_NEEDS = ("refs", "image", "crop") + tuple(scenefile.CONV_KEYS)
 
 
 
-def active_generation(slug=None):
+def active_generation(slug=None, variant=None):
     """The newest generation job still queued or running, or None.
 
     The editor keeps the Stop button and progress poller alive only while it
@@ -251,17 +250,21 @@ def active_generation(slug=None):
     with _lock:
         running = [j for j in _jobs.values()
                    if j.get("status") in ("queued", "running")
-                   and (slug is None or j.get("game") == slug)]
+                   and (slug is None or j.get("game") == slug)
+                   and (variant is None or j.get("variant") == variant)]
     if not running:
         return None
     return max(running, key=lambda j: j.get("started", 0))
 
 
 
-def project_json(slug):
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+def project_json(slug, variant=None):
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     doc = scenefile.parse(md)
+    doc["variant"] = game["variant"]
+    doc["primary"] = game["primary"]
+    doc["variants"] = game["variants"]
     doc["system_flags"] = sorted(scenefile.SYSTEM_FLAGS)
     try:
         flag_map, item_list, order = scenefile.assign_flags(
@@ -287,7 +290,7 @@ def project_json(slug):
                     "game_dir": game["dir"],
                     "stable_diffusion_url": STABLE_DIFFUSION_URL}
     doc["ai"] = {"image": IMAGE_ENABLED}
-    doc["active_job"] = active_generation(game["slug"])
+    doc["active_job"] = active_generation(game["slug"], game["variant"])
     return doc
 
 
@@ -374,7 +377,7 @@ def _migrate_song_files(old_doc, doc, mdir):
 
 
 
-def _write_game_md(slug, content, expected_revision=None):
+def _write_game_md(slug, content, expected_revision=None, variant=None):
     """Validate and atomically write game.md (kept as .bak). Returns warn count.
 
     On an error the write is refused and ``_ValidationFailed`` (a ValueError)
@@ -391,7 +394,8 @@ def _write_game_md(slug, content, expected_revision=None):
     errors = [i for i in issues if i.get("level") == "error"]
     if errors:
         raise _ValidationFailed(issues)
-    path = _game_md_path(slug)
+    game = _game_or_error(slug, variant)
+    path = game["md"]
     with _lock:
         _check_revision(path, expected_revision)
         tmp = path + ".tmp"
@@ -399,7 +403,7 @@ def _write_game_md(slug, content, expected_revision=None):
             f.write(content)
         if os.path.exists(path):
             old_doc = scenefile.parse(path)
-            mdir = os.path.join(gamestore.resolve(slug)["dir"], "assets", "music")
+            mdir = os.path.join(game["dir"], "assets", "music")
             _migrate_song_files(old_doc, doc, mdir)
             shutil.copyfile(path, path + ".bak")
         os.replace(tmp, path)
@@ -407,14 +411,14 @@ def _write_game_md(slug, content, expected_revision=None):
 
 
 
-def lint_game_md(slug, content):
+def lint_game_md(slug, content, variant=None):
     """Validate game.md text without writing; returns issues with line numbers.
 
     Used by the Source tab's live checker so an error is underlined as soon as
     it is typed, before a Save is attempted. An unparseable file yields a single
     file-level issue rather than raising.
     """
-    _game_or_error(slug)
+    _game_or_error(slug, variant)
     try:
         doc = scenefile.parse(content)
     except Exception as e:      # noqa: BLE001 - a bad line can break the parse
@@ -426,15 +430,15 @@ def lint_game_md(slug, content):
 
 
 
-def save_project(doc, slug, expected_revision=None):
+def save_project(doc, slug, expected_revision=None, variant=None):
     from editor_images import _drop_art_overrides
-    """Write <game>/game.md atomically, keeping a .bak of the previous file.
+    """Write the selected variant md atomically, keeping a .bak.
 
     ``expected_revision`` refuses the save with ``_SaveConflict`` when another
-    user/process edited game.md after the editor loaded it.
+    user/process edited the file after the editor loaded it.
     """
-    game = _game_or_error(slug)
-    md = os.path.join(game["dir"], "game.md")
+    game = _game_or_error(slug, variant)
+    md = game["md"]
     gen_dir = os.path.join(game["dir"], "assets", "gen")
     mdir = os.path.join(game["dir"], "assets", "music")
     ref_root = _ref_root(game["dir"])

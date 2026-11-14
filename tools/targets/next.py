@@ -29,7 +29,7 @@ def _preview(path, conv, options, game=None):
 def _build(ctx):
     import build
 
-    results = build._build_next(ctx.slug)
+    results = build._build_next(ctx)
     out = BuildResult(target="next")
     for item in results or []:
         out.add_output(item.get("path", ""), item.get("kind", ""),

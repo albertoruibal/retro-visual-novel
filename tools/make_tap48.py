@@ -18,8 +18,9 @@ import gamestore
 from make_tap import block
 
 
-def flat_size(gdir):
-    path = os.path.join(gdir, gamestore.BUILD_NAME, "scene_data.h")
+def flat_size(gdir, bdir=None):
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    path = os.path.join(bdir, "scene_data.h")
     try:
         txt = open(path).read()
     except OSError:
@@ -34,16 +35,17 @@ def main():
         sys.exit("usage: make_tap48.py <base.tap> <out.tap> [<game>]")
     base, out_path = args[0], args[1]
     slug = args[2] if len(args) > 2 else None
-    game = gamestore.resolve(slug)
+    game = gamestore.resolve(slug, gamestore.env_variant())
     if game is None:
         sys.exit(f"no such game: {slug!r} (see 'games/')")
     gdir = game["dir"]
-    path = os.path.join(gdir, gamestore.BUILD_NAME, "scene_flat.bin")
+    bdir = game["bdir"]
+    path = os.path.join(bdir, "scene_flat.bin")
     try:
         data = open(path, "rb").read()
     except OSError:
         sys.exit(f"missing {path}; the 48K build generates it")
-    size = flat_size(gdir) or len(data)
+    size = flat_size(gdir, bdir) or len(data)
     if len(data) > size:
         sys.exit(f"scene_flat.bin is {len(data)}B, exceeding FLAT_DATA_SIZE "
                  f"{size}B")

@@ -32,10 +32,14 @@ function renderGameBar() {
   const g = GAMES.find(x => x.slug === game) || null;
   const el = $("gamelabel");
   if (el) {
-    el.innerHTML = `<span class="gp-label">${esc(g ? (g.title || g.slug) : "no folder open")}</span>`;
+    const name = g ? (g.title || g.slug) : "no folder open";
+    const suffix = variant && P && (P.variants || []).length > 1
+      ? ` (${variant})` : "";
+    el.innerHTML = `<span class="gp-label">${esc(name + suffix)}</span>`;
     el.title = g ? g.dir : "Open a game folder";
   }
   renderGameMenu();
+  renderVariantBar();
   const reload = $("reload");
   if (reload) reload.disabled = !game;
   const exportPlayer = $("exportplayer");
@@ -94,6 +98,38 @@ function closeGameMenu() {
   if (btn) btn.setAttribute("aria-expanded", "false");
 }
 
+
+/* The variant selector (game-<id>.md files). Hidden for a single-variant game. */
+function renderVariantBar() {
+  const wrap = $("variantpickwrap");
+  const pick = $("variantpick");
+  if (!wrap || !pick) return;
+  const list = (P && P.variants) || [];
+  if (list.length < 2) {
+    wrap.hidden = true;
+    pick.innerHTML = "";
+    return;
+  }
+  wrap.hidden = false;
+  pick.innerHTML = list.map((v) =>
+    `<option value="${esc(v.id)}">${esc(v.id)}</option>`).join("");
+  pick.value = variant || (P && P.variant) || list[0].id;
+}
+
+async function switchVariant(id) {
+  if (!id || id === variant) return;
+  if ((dirty || rawDirty) && !confirm("Discard unsaved changes?")) {
+    renderVariantBar();
+    return;
+  }
+  variant = id;
+  sel = { kind: "game" };
+  selMemo = {};
+  stopEmulator();
+  saveSession();
+  await load();
+}
+
 /* Switch to another open game. Unsaved edits are discarded after a confirm,
  * mirroring Open folder…. */
 async function switchGame(slug) {
@@ -101,6 +137,7 @@ async function switchGame(slug) {
   if (!GAMES.some(x => x.slug === slug)) return;
   if ((dirty || rawDirty) && !confirm("Discard unsaved changes?")) return;
   game = slug;
+  variant = null;
   sel = { kind: "game" };
   selMemo = {};
   stopEmulator();
@@ -125,6 +162,7 @@ async function closeGame(slug) {
       return;
     }
     game = GAMES.length ? GAMES[0].slug : null;
+    variant = null;
     sel = { kind: "game" };
     selMemo = {};
     stopEmulator();
@@ -146,6 +184,9 @@ async function load() {
     return;
   }
   P = await api("GET", "/api/project");
+  if (P.variant) variant = P.variant;
+  saveSession();
+  renderGameBar();
   try { TARGETS = await api("GET", "/api/targets"); }
   catch { TARGETS = { targets: [], selected: [] }; }
   if (P.ai) setAiFlags(P.ai);
@@ -416,7 +457,7 @@ function closeServerSettings() {
 }
 
 
-/* Folder-open model: pick a folder containing game.md and activate it. In the
+/* Folder-open model: pick a folder containing game.md or game-<variant>.md and activate it. In the
  * desktop app window.rvn shows native dialogs; in a browser we fall back to a
  * path prompt. `kind` is "open" or "new". */
 async function pickFolder(kind) {
@@ -425,7 +466,7 @@ async function pickFolder(kind) {
     if (kind === "new" && typeof b.newFolder === "function") return await b.newFolder();
     if (typeof b.openFolder === "function") return await b.openFolder();
   }
-  return prompt("Path to a game folder (the one containing game.md):", "");
+  return prompt("Path to a game folder (containing game.md or game-<variant>.md):", "");
 }
 
 /* Persist the open game folders and the active one (desktop app); a no-op in a
@@ -451,6 +492,7 @@ async function openGameFolder() {
     const r = await api("POST", "/api/open", { path });
     GAMES = r.games || [];
     game = r.game ? r.game.slug : null;
+    variant = null;
     sel = { kind: "game" };
     selMemo = {};
     stopEmulator();
@@ -470,6 +512,7 @@ async function newGame() {
   try {
     const r = await api("POST", "/api/new", { parent, name, title });
     game = r.game.slug;
+    variant = null;
     sel = { kind: "game" };
     selMemo = {};
     stopEmulator();

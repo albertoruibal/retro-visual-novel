@@ -23,7 +23,7 @@ def _available():
 def _build(ctx):
     import build  # lazy: avoids a circular import while build.py loads targets
 
-    results = build._build_zx128(ctx.slug)
+    results = build._build_zx128(ctx)
     out = BuildResult(target="zx128")
     for item in results or []:
         out.add_output(item.get("path", ""), item.get("kind", ""),

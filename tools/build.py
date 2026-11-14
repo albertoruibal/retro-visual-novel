@@ -16,9 +16,9 @@ POSIX shell and GNU ``stat -c%s``).
 
 Usage:
     python3 tools/build.py list-targets
-    python3 tools/build.py build [game] [target...]
-    python3 tools/build.py build [game] --all
-    python3 tools/build.py run   [game] [target]
+    python3 tools/build.py build [game] [target...] [--variant <id>]
+    python3 tools/build.py build [game] --all [--variant <id>]
+    python3 tools/build.py run   [game] [target] [--variant <id>]
 
     zcc ... src/zx/*.c src/zx/paging.asm src/zx/loader.asm \
             games/<slug>/build/scene_banks.asm ... -I games/<slug>/build \
@@ -187,9 +187,10 @@ def stage_inputs(dest, sources):
     return names
 
 
-def guard_map(gdir):
+def guard_map(gdir, bdir=None):
     """Paging routines must stay below 0xC000, or paging overwrites itself."""
-    mp = os.path.join(gdir, gamestore.BUILD_NAME, "adventure.map")
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    mp = os.path.join(bdir, "adventure.map")
     if not os.path.exists(mp):
         return
     txt = open(mp).read()
@@ -206,13 +207,14 @@ def guard_map(gdir):
             "(fewer/shorter scenes, text, options or arts)." % ", ".join(bad))
 
 
-def _scene_define(gdir, key):
+def _scene_define(gdir, key, bdir=None):
     """Read an integer ``#define key N`` from the game's scene_data.h, or None.
 
     gen_scenes.py emits the per-game sizes there (ART_WS_SIZE, SCENE_WS_SIZE,
     ART_LINES, ...) and we pass the assembler ones; absent means None.
     """
-    path = os.path.join(gdir, gamestore.BUILD_NAME, "scene_data.h")
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    path = os.path.join(bdir, "scene_data.h")
     try:
         txt = open(path).read()
     except OSError:
@@ -242,9 +244,10 @@ def _engine_config(rows):
     return src
 
 
-def _map_addr(gdir, symbol):
+def _map_addr(gdir, symbol, bdir=None):
     """The linked address of one symbol from the game's adventure.map."""
-    path = os.path.join(gdir, gamestore.BUILD_NAME, "adventure.map")
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    path = os.path.join(bdir, "adventure.map")
     try:
         txt = open(path).read()
     except OSError:
@@ -253,7 +256,7 @@ def _map_addr(gdir, symbol):
     return int(m.group(1), 16) if m else None
 
 
-def write_engine_blob(gdir, engdir, engine_asm, asm_sources, env):
+def write_engine_blob(gdir, engdir, engine_asm, asm_sources, env, bdir=None):
     """Rebuild the standalone NIRVANA+ image merged into the TAP/SNA.
 
     `zcc` links the engine into the game's address space but omits it from
@@ -262,8 +265,9 @@ def write_engine_blob(gdir, engdir, engine_asm, asm_sources, env):
     wrappers the game actually references); using a per-game stale file here
     kept the old TOTAL_ROWS after an art_rows change.
     """
-    head = _map_addr(gdir, "__NIRVANAP_head")
-    tail = _map_addr(gdir, "__code_nirvanap_tail")
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    head = _map_addr(gdir, "__NIRVANAP_head", bdir)
+    tail = _map_addr(gdir, "__code_nirvanap_tail", bdir)
     if head is None or tail is None:
         raise SystemExit(
             "adventure.map is missing the NIRVANA+ bounds "
@@ -280,12 +284,12 @@ def write_engine_blob(gdir, engdir, engine_asm, asm_sources, env):
             ("NIRVANAP_fillT_raw_callee.asm", "NIRVANAP_fillT_raw_callee")):
         if name not in asm_sources:
             continue
-        addr = _map_addr(gdir, symbol)
+        addr = _map_addr(gdir, symbol, bdir)
         if addr is not None:
             wrappers.append((addr, name))
     wrappers.sort()
 
-    out = os.path.join(gdir, gamestore.BUILD_NAME, "adventure_NIRVANAP.bin")
+    out = os.path.join(bdir, "adventure_NIRVANAP.bin")
     names = [engine_asm] + [name for _addr, name in wrappers]
     # z80asm -b writes one image per section, named <prefix>_<SECTION>.bin;
     # the NIRVANAP section image already contains the linked wrappers and
@@ -314,11 +318,11 @@ def write_engine_blob(gdir, engdir, engine_asm, asm_sources, env):
     return out
 
 
-def merge_engine(gdir):
+def merge_engine(gdir, bdir=None):
     """Merge the fixed-address NIRVANA+ engine into the main image."""
-    main = bytearray(open(os.path.join(gdir, gamestore.BUILD_NAME,
-                                       "adventure.bin"), "rb").read())
-    engine = os.path.join(gdir, gamestore.BUILD_NAME, "adventure_NIRVANAP.bin")
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    main = bytearray(open(os.path.join(bdir, "adventure.bin"), "rb").read())
+    engine = os.path.join(bdir, "adventure_NIRVANAP.bin")
     if not os.path.exists(engine):
         raise SystemExit(
             "missing %s; the ZX build did not generate the NIRVANA+ image"
@@ -335,19 +339,20 @@ def merge_engine(gdir):
     if len(main) < off:
         main += bytes(off - len(main))
     main[off:off + len(eng)] = eng
-    open(os.path.join(gdir, gamestore.BUILD_NAME,
-                      "adventure_merged.bin"), "wb").write(main)
+    open(os.path.join(bdir, "adventure_merged.bin"), "wb").write(main)
 
 
-def memory_report(gdir):
+def memory_report(gdir, bdir=None):
     """How full the 128K machine is once the game is resident."""
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+
     def size(path):
         return os.path.getsize(path) if os.path.exists(path) else 0
 
-    main = size(os.path.join(gdir, gamestore.BUILD_NAME, "adventure.bin"))
-    engine = os.path.join(gdir, gamestore.BUILD_NAME, "adventure_NIRVANAP.bin")
+    main = size(os.path.join(bdir, "adventure.bin"))
+    engine = os.path.join(bdir, "adventure_NIRVANAP.bin")
     eng = size(engine)
-    banks_dir = os.path.join(gdir, gamestore.BUILD_NAME, "scene_banks")
+    banks_dir = os.path.join(bdir, "scene_banks")
     data = sum(size(os.path.join(banks_dir, "bank%d.bin" % b))
                for b in (1, 3, 4, 6, 7))
     fixed = min(main, BANK)                       # 0x8000..0xBFFF
@@ -358,12 +363,14 @@ def memory_report(gdir):
           % (used, total, 100.0 * used / total))
 
 
-def memory_report48(gdir, used, capacity):
+def memory_report48(gdir, used, capacity, bdir=None):
     """How full the 48K machine is once the flat game is resident."""
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+
     def size(path):
         return os.path.getsize(path) if os.path.exists(path) else 0
 
-    main = size(os.path.join(gdir, gamestore.BUILD_NAME, "adventure.bin"))
+    main = size(os.path.join(bdir, "adventure.bin"))
     limit = 0x10000 - 0x8000
     print("memory: scenes %d/%d bytes (%.1f%% of 0x6000-0x7BFF), main "
           "%d/%d bytes (%.1f%% of 0x8000-0xFFFF; art+inventory), stack "
@@ -372,18 +379,18 @@ def memory_report48(gdir, used, capacity):
              main, limit, 100.0 * main / limit))
 
 
-def _build_zx_model(slug, flat=False):
+def _build_zx_model(ctx, flat=False):
     """Build the ZX model (banked 128K, or flat 48K). Returns its artifacts."""
-    game = gamestore.resolve(slug)
-    if game is None:
-        raise SystemExit("no such game: %r (see 'games/')" % (slug,))
-    gdir = game["dir"]
-    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+    gdir = ctx.gdir
+    bdir = ctx.bdir or os.path.join(gdir, gamestore.BUILD_NAME)
     os.makedirs(bdir, exist_ok=True)
     env = build_env()
     # Tell the child tools (gen_scenes/make_tap/make_sna) exactly which folder
-    # to work on, so an opened game outside games/ resolves for all of them.
+    # and variant to work on, so an opened game outside games/ resolves for all
+    # of them.
     env["RVN_GAME"] = gdir
+    if ctx.variant:
+        env["RVN_VARIANT"] = ctx.variant
     env["SCENE_FLAT"] = "1" if flat else "0"
     env["SCENE_TARGET"] = "zx48" if flat else "zx128"
     py = _py()
@@ -400,7 +407,7 @@ def _build_zx_model(slug, flat=False):
     # scene_data.h). A temp config_private.inc, first on the m4 include path,
     # overrides the vendored one so the art band's height matches the
     # generated tables/banks.
-    art_lines = _scene_define(gdir, "ART_LINES") or 10
+    art_lines = _scene_define(gdir, "ART_LINES", bdir) or 10
     vendor = os.path.join(ROOT, "vendor", "nirvanap")
     builddir = tempfile.mkdtemp(prefix=".zx-", dir=bdir)
     engdir = os.path.join(builddir, "engine")
@@ -483,14 +490,14 @@ def _build_zx_model(slug, flat=False):
         if not flat:
             cmd.append("-lnirvanap")
         for key in ("ART_WS_SIZE", "SCENE_WS_SIZE"):
-            val = _scene_define(gdir, key)
+            val = _scene_define(gdir, key, bdir)
             if val is not None:
                 cmd.append("-Ca-D%s=%d" % (key, val))
         if flat:
             # No paging: keep the stack above the flat store, leaving 1 KB
             # (0x7C00-0x7FFF) between it and the data at 0x6000-0x7BFF.
-            flat_addr = _scene_define(gdir, "FLAT_DATA_ADDR") or 0x6000
-            flat_size = _scene_define(gdir, "FLAT_DATA_SIZE") or 0x1C00
+            flat_addr = _scene_define(gdir, "FLAT_DATA_ADDR", bdir) or 0x6000
+            flat_size = _scene_define(gdir, "FLAT_DATA_SIZE", bdir) or 0x1C00
             cmd += ["-DZX48=1", "-Ca-DZX48=1",
                     "-pragma-define:REGISTER_SP=0x7FFE",
                     "-Ca-DFLAT_DATA_ADDR=%d" % flat_addr,
@@ -515,7 +522,7 @@ def _build_zx_model(slug, flat=False):
         # adventure_NIRVANAP.bin can never mask an art_rows change. The flat
         # 48K build has no NIRVANA+ engine.
         if not flat:
-            write_engine_blob(gdir, engdir, engine_asm, asm_sources, env)
+            write_engine_blob(gdir, engdir, engine_asm, asm_sources, env, bdir)
     finally:
         shutil.rmtree(builddir, ignore_errors=True)
 
@@ -535,7 +542,7 @@ def _build_zx_model(slug, flat=False):
                 "48K build does not fit: BSS reaches 0x%04X; it must stay "
                 "below 0xFFFF." % bss_end)
     else:
-        guard_map(gdir)
+        guard_map(gdir, bdir)
 
     # --- tape (+ snapshot on 128K) ----------------------------------------
     # appmake can't put the fixed-address NIRVANAP+ engine (or raw 0xC000 bank
@@ -546,20 +553,20 @@ def _build_zx_model(slug, flat=False):
     if flat:
         main_bin = os.path.join(bdir, "adventure.bin")
     else:
-        merge_engine(gdir)
+        merge_engine(gdir, bdir)
         main_bin = os.path.join(bdir, "adventure_merged.bin")
     run(["z88dk-appmake", "+zx", "-b", _fwd(main_bin),
          "-o", _fwd(os.path.join(bdir, "advbase.tap")),
          "--org", "32768", "--blockname", "advmain"], env)
     if flat:
-        out_tap = os.path.join(gdir, game["slug"] + "-48k.tap")
+        out_tap = os.path.join(gdir, ctx.out_stem + "-48k.tap")
         run([py, os.path.join(ROOT, "tools", "make_tap48.py"),
              os.path.join(bdir, "advbase.tap"), out_tap, gdir], env)
     else:
-        out_tap = os.path.join(gdir, game["slug"] + ".tap")
+        out_tap = os.path.join(gdir, ctx.out_stem + ".tap")
         run([py, os.path.join(ROOT, "tools", "make_tap.py"),
              os.path.join(bdir, "advbase.tap"), out_tap, gdir], env)
-    out_sna = os.path.join(gdir, game["slug"] + ".sna")
+    out_sna = os.path.join(gdir, ctx.out_stem + ".sna")
     if not flat:
         run([py, os.path.join(ROOT, "tools", "make_sna.py"), gdir, out_sna],
             env)
@@ -570,35 +577,36 @@ def _build_zx_model(slug, flat=False):
             pass
 
     if flat:
-        used = _scene_define(gdir, "FLAT_DATA_USED") or 0
-        size = _scene_define(gdir, "FLAT_DATA_SIZE") or 0x1C00
+        used = _scene_define(gdir, "FLAT_DATA_USED", bdir) or 0
+        size = _scene_define(gdir, "FLAT_DATA_SIZE", bdir) or 0x1C00
         print("OK: %s (%d bytes)"
               % (out_tap, os.path.getsize(out_tap)))
-        memory_report48(gdir, used, size)
+        memory_report48(gdir, used, size, bdir)
         return [{"path": out_tap, "kind": "zx48-tap",
                  "size": os.path.getsize(out_tap)}]
     print("OK: %s (%d bytes), %s (%d bytes)"
           % (out_tap, os.path.getsize(out_tap),
              out_sna, os.path.getsize(out_sna)))
-    memory_report(gdir)
+    memory_report(gdir, bdir)
     return [
         {"path": out_tap, "kind": "zx128-tap", "size": os.path.getsize(out_tap)},
         {"path": out_sna, "kind": "zx128-sna", "size": os.path.getsize(out_sna)},
     ]
 
 
-def _build_zx128(slug):
+def _build_zx128(ctx):
     """The original banked ZX Spectrum 128K pipeline."""
-    return _build_zx_model(slug, flat=False)
+    return _build_zx_model(ctx, flat=False)
 
 
-def _build_zx48(slug):
+def _build_zx48(ctx):
     """The non-paged ZX Spectrum 48K pipeline (fails if the game does not fit)."""
-    return _build_zx_model(slug, flat=True)
+    return _build_zx_model(ctx, flat=True)
 
-def _port_define(gdir, key):
+def _port_define(gdir, key, bdir=None):
     """Read an integer ``#define key N`` from the generated port_data.h."""
-    path = os.path.join(gdir, gamestore.BUILD_NAME, "port_data.h")
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    path = os.path.join(bdir, "port_data.h")
     try:
         txt = open(path).read()
     except OSError:
@@ -640,21 +648,20 @@ def _guard_next_map(path):
                 "is full. Shorten a scene or the inventory text." % end)
 
 
-def _build_next(slug):
+def _build_next(ctx):
     """Build the native ZX Next .nex with Layer 2 art and AY music."""
-    game = gamestore.resolve(slug)
-    if game is None:
-        raise SystemExit("no such game: %r (see 'games/')" % (slug,))
-    gdir = game["dir"]
-    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+    gdir = ctx.gdir
+    bdir = ctx.bdir or os.path.join(gdir, gamestore.BUILD_NAME)
     os.makedirs(bdir, exist_ok=True)
     env = build_env()
     env["RVN_GAME"] = gdir
+    if ctx.variant:
+        env["RVN_VARIANT"] = ctx.variant
     py = _py()
 
     run([py, os.path.join(ROOT, "tools", "gen_port.py"), gdir, "--next"], env)
-    stage = _port_define(gdir, "STAGE_WS_SIZE") or 0
-    song = _port_define(gdir, "SONG_WS_SIZE") or 0
+    stage = _port_define(gdir, "STAGE_WS_SIZE", bdir) or 0
+    song = _port_define(gdir, "SONG_WS_SIZE", bdir) or 0
     if stage + song > 0x2000:
         raise SystemExit(
             "ZX Next staging + song workspace is %d bytes; the lower-RAM "
@@ -682,17 +689,17 @@ def _build_next(slug):
                "-pragma-define:REGISTER_SP=0xc000",
                "-Cz--nex-2mb", "-I."]
         for key in ("PORT_SCENE_WS", "PORT_INV_WS"):
-            val = _port_define(gdir, key)
+            val = _port_define(gdir, key, bdir)
             if val is not None:
                 cmd.append("-Ca-D%s=%d" % (
                     "SCENE_WS_SIZE" if key == "PORT_SCENE_WS" else "INV_WS_SIZE",
                     val))
-        cmd += [*names, "-o", slug]
+        cmd += [*names, "-o", ctx.out_stem]
         run(cmd, env, cwd=td)
-        produced = os.path.join(td, slug + ".nex")
+        produced = os.path.join(td, ctx.out_stem + ".nex")
         if not os.path.exists(produced):
             raise SystemExit("ZX Next build produced no .nex file")
-        _guard_next_map(os.path.join(td, slug + ".map"))
+        _guard_next_map(os.path.join(td, ctx.out_stem + ".map"))
         data = open(produced, "rb").read()
         if not data.startswith(b"Next"):
             raise SystemExit("ZX Next build produced an invalid .nex header")
@@ -700,7 +707,7 @@ def _build_next(slug):
             raise SystemExit("ZX Next .nex has an invalid bank count")
         if sum(1 for i in range(112) if data[18 + i]) != data[9]:
             raise SystemExit("ZX Next .nex bank map is inconsistent")
-        path = os.path.join(gdir, slug + ".nex")
+        path = os.path.join(gdir, ctx.out_stem + ".nex")
         shutil.copyfile(produced, path)
     finally:
         shutil.rmtree(td, ignore_errors=True)
@@ -720,12 +727,11 @@ def _z88dk_missing(env=None):
             if shutil.which(name, path=path) is None]
 
 
-def _game_doc(slug):
-    game = gamestore.resolve(slug)
+def _game_doc(slug, variant=None):
+    game = gamestore.resolve(slug, variant)
     if game is None:
         raise SystemExit("no such game: %r (see 'games/')" % (slug,))
-    md = os.path.join(game["dir"], "game.md")
-    return game, scenefile.parse(md)
+    return game, scenefile.parse(game["md"])
 
 
 def _target_ids(doc, requested=None, build_all=False):
@@ -751,10 +757,13 @@ def _needs_z88dk(ids):
                for t in ids)
 
 
-def build_selected(slug, requested=None, build_all=False):
+def build_selected(slug, requested=None, build_all=False, variant=None):
     """Build every selected target; return a per-target result summary."""
-    game, doc = _game_doc(slug)
+    game, doc = _game_doc(slug, variant)
     env = build_env()
+    env["RVN_GAME"] = game["dir"]
+    if game["variant"]:
+        env["RVN_VARIANT"] = game["variant"]
     ids = _target_ids(doc, requested, build_all)
     if not ids:
         raise SystemExit("no build targets selected (add targets: to game.md)")
@@ -793,10 +802,12 @@ def build_selected(slug, requested=None, build_all=False):
             continue
         options = targets.target_options(doc, target)
         ctx = targets.BuildContext(slug=game["slug"], gdir=game["dir"],
-                                   bdir=os.path.join(game["dir"],
-                                                    gamestore.BUILD_NAME),
+                                   bdir=game["bdir"],
                                    doc=doc, options=options, env=env,
-                                   py=_py(), root=ROOT)
+                                   py=_py(), root=ROOT,
+                                   variant=game["variant"],
+                                   md=game["md"],
+                                   output_stem=game["output_stem"])
         print(f"[{target_id}] building {target.label} ...", flush=True)
         started = time.monotonic()
         try:
@@ -827,15 +838,16 @@ def build_selected(slug, requested=None, build_all=False):
     return summary, failures
 
 
-def run_game(slug, target_id=None):
-    summary, failures = build_selected(slug, [target_id] if target_id else None)
+def run_game(slug, target_id=None, variant=None):
+    summary, failures = build_selected(slug, [target_id] if target_id else None,
+                                       variant=variant)
     if failures:
         raise SystemExit("build failed; not starting the emulator")
     target_id = target_id or (summary[0]["target"] if summary else "zx128")
     target = targets.get_target(target_id)
     target_id = target.id if target else target_id
     if target_id in ("web", "webplayer"):
-        game, _ = _game_doc(slug)
+        game, _ = _game_doc(slug, variant)
         kind = "web game" if target_id == "web" else "web player"
         print(f"{target_id}: exported {kind} at "
               f"{os.path.join(game['dir'], 'web', 'index.html')} "
@@ -845,10 +857,10 @@ def run_game(slug, target_id=None):
         print(f"{target_id}: build complete; use an external emulator "
               f"(outputs above)")
         return
-    game, _ = _game_doc(slug)
+    game, _ = _game_doc(slug, variant)
     ext = ".nex" if target_id == "next" else ".tap"
     suffix = target.artifact_suffix if target else ""
-    image = os.path.join(game["dir"], game["slug"] + suffix + ext)
+    image = os.path.join(game["dir"], game["output_stem"] + suffix + ext)
     machine = "48k" if target_id == "zx48" else None
     env = build_env()
     run([_py(), os.path.join(ROOT, "tools", "spectrum.py"), "off"], env)
@@ -867,6 +879,27 @@ def list_targets():
               f"{', '.join(item['outputs']):<12} {status}")
 
 
+def _variant_arg(args):
+    """Strip --variant <id> / --variant=<id> from ``args`` (mutates list)."""
+    variant = None
+    i = 0
+    while i < len(args):
+        item = args[i]
+        if item == "--variant":
+            if i + 1 < len(args):
+                variant = args[i + 1]
+                del args[i:i + 2]
+                continue
+            del args[i]
+            continue
+        if item.startswith("--variant="):
+            variant = item.split("=", 1)[1]
+            del args[i]
+            continue
+        i += 1
+    return variant
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == "list-targets":
@@ -878,16 +911,20 @@ def main():
     else:
         cmd = "build"
         rest = args
+    variant = _variant_arg(rest) or gamestore.env_variant()
     build_all = "--all" in rest
     rest = [a for a in rest if a != "--all"]
     if not rest:
-        raise SystemExit("usage: build.py %s <game> [target ...] [--all]" % cmd)
+        raise SystemExit(
+            "usage: build.py %s <game> [target ...] [--all] [--variant <id>]"
+            % cmd)
     game_arg = rest[0]
     requested = rest[1:] or None
     if cmd == "run":
-        run_game(game_arg, requested[0] if requested else None)
+        run_game(game_arg, requested[0] if requested else None, variant=variant)
     else:
-        summary, failures = build_selected(game_arg, requested, build_all)
+        summary, failures = build_selected(game_arg, requested, build_all,
+                                           variant=variant)
         print()
         for item in summary:
             elapsed = item.get("seconds")

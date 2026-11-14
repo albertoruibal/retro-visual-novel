@@ -508,3 +508,34 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Variant selector (shown only when a game exports more than one story). */
+.variants[hidden] { display: none; }
+.variants {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  color: var(--dim);
+  font-size: .62rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.variants label {
+  color: var(--dim);
+}
+.variants select {
+  min-height: 34px;
+  padding: 5px 10px;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  letter-spacing: .08em;
+  text-transform: none;
+}
+.variants select:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}

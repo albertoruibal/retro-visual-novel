@@ -2,7 +2,7 @@
 """Multi-game HTML story editor for a banked-scene adventure.
 
 A stdlib-only HTTP server (no Flask) that serves a single-page editor and a
-small JSON API. A game is a folder with a ``game.md``, generated art
+small JSON API. A game is a folder with a ``game.md`` or ``game-<variant>.md``, generated art
 (``assets/gen``) and a ``build/`` tree of generated sources/bank images. In the desktop
 (folder) model one or more game folders anywhere on disk are open — each added
 with ``POST /api/open`` (removed with ``POST /api/close``) or seeded by the
@@ -37,7 +37,8 @@ Run:
     python3 tools/editor/server.py
     # then open http://127.0.0.1:8765
 
-Endpoints (``?game=<slug>`` selects the game; defaults to the first):
+Endpoints (``?game=<slug>`` selects the game and ``?variant=<id>`` the
+``game-<variant>.md`` file; both default to the primary):
     GET    /api/games                 list games + selected slug
     POST   /api/games                 {"name","title"} -> create
     POST   /api/games/duplicate       {"game","name","title"} -> duplicate
@@ -46,14 +47,16 @@ Endpoints (``?game=<slug>`` selects the game; defaults to the first):
     POST   /api/open                  {"path"} -> add an open game folder ("" clears)
     POST   /api/close                 {"game"} -> close one open game folder
     POST   /api/new                   {"parent","name","title"} -> new folder + open
-    GET    /api/project               parse <game>/game.md -> project JSON
+    GET    /api/project               parse the selected story md -> project JSON
+                                      (includes `variant` and `variants`)
                                       (includes a `revision` content hash)
     GET    /api/targets               build-target registry + per-game options
     PUT    /api/project               write <game>/game.md (atomic, .bak kept);
                                       a stale `revision` -> 409 unless `force`
-    GET    /api/raw                   read <game>/game.md verbatim
+    GET    /api/raw                   read the selected story md verbatim
                                       -> {"text","revision"}
-    PUT    /api/raw                   {"text","revision"} -> validate/write;
+    PUT    /api/raw                   {"text","revision"} -> validate/write the
+                                      selected variant file;
                                       a stale revision -> 409 unless `force`
     POST   /api/validate              {"text"} -> lint game.md without writing,
                                       plus {"outline"} scene/art/song/item/flag
@@ -471,6 +474,10 @@ class Handler(BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         return q.get("game", [None])[0]
 
+    def _variant_arg(self, body=None):
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        return q.get("variant", [None])[0] or None
+
     def do_GET(self):
         path = urllib.parse.unquote(self.path.split("?", 1)[0])
         try:
@@ -507,24 +514,28 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Disposition": f'attachment; filename="{fname}"'})
             if path == "/api/games":
                 games = gamestore.list_games()
-                selected = gamestore.resolve(self._game_arg())
-                return self._send(200, {"games": games,
-                                        "folder": bool(gamestore.opened()),
-                                        "selected": selected["slug"] if selected else None})
+                selected = gamestore.resolve(self._game_arg(),
+                                             self._variant_arg())
+                return self._send(200, {
+                    "games": games,
+                    "folder": bool(gamestore.opened()),
+                    "selected": selected["slug"] if selected else None,
+                    "variant": selected["variant"] if selected else None})
             if path == "/api/project":
-                return self._send(200, project_json(self._game_arg()))
+                return self._send(200, project_json(self._game_arg(),
+                                                    self._variant_arg()))
             if path == "/api/targets":
                 doc = None
                 slug = self._game_arg()
                 if slug:
                     try:
-                        game = _game_or_error(slug)
-                        doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+                        game = _game_or_error(slug, self._variant_arg())
+                        doc = scenefile.parse(game["md"])
                     except Exception:               # noqa: BLE001 - no game yet
                         doc = None
                 return self._send(200, targets.targets_json(doc))
             if path == "/api/raw":
-                md = _game_md_path(self._game_arg())
+                md = _game_md_path(self._game_arg(), self._variant_arg())
                 if not os.path.exists(md):
                     return self._send(404, {"error": "game.md does not exist yet"})
                 return self._send(200, {"text": open(md, encoding="utf-8").read(),
@@ -545,9 +556,9 @@ class Handler(BaseHTTPRequestHandler):
                                   _builds.get(bid, {"error": "no such build"}))
             m = re.match(r"^/api/artimages/([^/\\]+)/([^/\\]+)$", path)
             if m:
-                game = _game_or_error(m.group(1))
+                game = _game_or_error(m.group(1), self._variant_arg())
                 art_id = m.group(2)
-                doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+                doc = scenefile.parse(game["md"])
                 art = _find_art(doc, art_id)
                 active = scenefile.art_image_name(art or {}) \
                     or (os.path.basename(_art_image_path(game, art))
@@ -564,11 +575,11 @@ class Handler(BaseHTTPRequestHandler):
                                         "image": active, "files": files})
             m = re.match(r"^/api/refimages/([^/\\]+)/([^/\\]+)$", path)
             if m:
-                game = _game_or_error(m.group(1))
+                game = _game_or_error(m.group(1), self._variant_arg())
                 ref_id = m.group(2)
                 if not scenefile.valid_ref_id(ref_id):
                     return self._send(404, {"error": "no reference"})
-                doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+                doc = scenefile.parse(game["md"])
                 ref = _find_ref(doc, ref_id)
                 active = scenefile.ref_image_name(ref or {}) \
                     or (os.path.basename(_ref_image_path(game, ref))
@@ -585,13 +596,13 @@ class Handler(BaseHTTPRequestHandler):
                                         "image": active, "files": files})
             m = re.match(r"^/api/refimage/([^/\\]+)/([^/\\]+)$", path)
             if m:
-                game = _game_or_error(m.group(1))
+                game = _game_or_error(m.group(1), self._variant_arg())
                 if not scenefile.valid_ref_id(m.group(2)):
                     return self._send(404, {"error": "no reference"})
                 qs = urllib.parse.parse_qs(
                     urllib.parse.urlparse(self.path).query)
                 want = qs.get("file", [None])[0] or None
-                doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+                doc = scenefile.parse(game["md"])
                 ref = _find_ref(doc, m.group(2))
                 if want is not None and scenefile.valid_art_image(want):
                     full = os.path.join(_ref_root(game["dir"]), m.group(2),
@@ -603,11 +614,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, open(full, "rb").read(), "image/png")
             m = re.match(r"^/api/image/([^/\\]+)/([^/\\]+)$", path)
             if m:
-                game = _game_or_error(m.group(1))
+                game = _game_or_error(m.group(1), self._variant_arg())
                 qs = urllib.parse.parse_qs(
                     urllib.parse.urlparse(self.path).query)
                 want = qs.get("file", [None])[0] or None
-                doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+                doc = scenefile.parse(game["md"])
                 art = _find_art(doc, m.group(2))
                 if want is not None and scenefile.valid_art_image(want):
                     full = os.path.join(_art_root(game["dir"]), m.group(2),
@@ -646,14 +657,16 @@ class Handler(BaseHTTPRequestHandler):
                         file=qs.get("file", [None])[0],
                         lines=qs.get("lines", [None])[0],
                         overrides=_preview_overrides(qs),
-                        target_rows=qs.get("rows", [None])[0])
+                        target_rows=qs.get("rows", [None])[0],
+                        variant=self._variant_arg())
                 else:
                     data = art_preview_bytes(m.group(1), m.group(2),
                                              mode=m.group(3) or "nirvana",
                                              crop=qs.get("crop", [None])[0],
                                              file=qs.get("file", [None])[0],
                                              lines=qs.get("lines", [None])[0],
-                                             overrides=_preview_overrides(qs))
+                                             overrides=_preview_overrides(qs),
+                                             variant=self._variant_arg())
                 if data is None:
                     return self._send(404, {"error": "no image"})
                 return self._send(200, data, "image/png")
@@ -696,13 +709,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, {"error": "missing or empty text"})
                 try:
                     _write_game_md(slug, text, None if body.get("force")
-                                   else body.get("revision"))
+                                   else body.get("revision"),
+                                   self._variant_arg())
                 except _ValidationFailed as e:
                     return self._send(400, {"error": str(e), "issues": e.issues})
                 except _SaveConflict as e:
                     return self._send(409, {"error": str(e), "conflict": True,
                                             "revision": e.revision})
-                return self._send(200, project_json(slug))
+                return self._send(200, project_json(slug,
+                                                    self._variant_arg()))
             scenefile.serialize(body)           # validate before writing
             g = body.get("game") or {}
             scenefile.assign_flags(body.get("scenes") or [],
@@ -712,8 +727,8 @@ class Handler(BaseHTTPRequestHandler):
                                        g, body.get("item_meta")),
                                    item_meta=body.get("item_meta"))  # clash
             save_project(body, slug, None if body.get("force")
-                         else body.get("revision"))
-            return self._send(200, project_json(slug))
+                         else body.get("revision"), self._variant_arg())
+            return self._send(200, project_json(slug, self._variant_arg()))
         except KeyError as e:
             return self._send(404, {"error": str(e)})
         except _SaveConflict as e:
@@ -765,55 +780,65 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/generate":
                 art = body.get("art") or body.get("id")
                 jid = start_generate(self._game_arg(body), art,
-                                     body.get("overrides"))
+                                     body.get("overrides"),
+                                     self._variant_arg(body))
                 return self._send(202, {"job": jid})
             if path == "/api/generate_ref":
                 ref = body.get("ref") or body.get("id")
                 jid = start_generate_ref(self._game_arg(body), ref,
-                                         body.get("overrides"))
+                                         body.get("overrides"),
+                                         self._variant_arg(body))
                 return self._send(202, {"job": jid})
             if path == "/api/refine_art":
                 art = body.get("art") or body.get("id")
                 jid = start_refine_art(self._game_arg(body), art,
-                                      body.get("overrides"))
+                                      body.get("overrides"),
+                                      self._variant_arg(body))
                 return self._send(202, {"job": jid})
             if path == "/api/refine_ref":
                 ref = body.get("ref") or body.get("id")
                 jid = start_refine_ref(self._game_arg(body), ref,
-                                      body.get("overrides"))
+                                      body.get("overrides"),
+                                      self._variant_arg(body))
                 return self._send(202, {"job": jid})
             if path == "/api/generate_all":
                 jid = start_generate_all(self._game_arg(body),
-                                         bool(body.get("missing")))
+                                         bool(body.get("missing")),
+                                         self._variant_arg(body))
                 return self._send(202, {"job": jid})
             if path == "/api/upload_art":
                 art = body.get("art") or body.get("id")
-                r = upload_art(self._game_arg(body), art, body.get("data", ""))
+                r = upload_art(self._game_arg(body), art,
+                               body.get("data", ""), self._variant_arg(body))
                 return self._send(200, r)
             if path == "/api/upload_ref":
                 ref = body.get("ref") or body.get("id")
                 r = upload_ref(self._game_arg(body), ref, body.get("data", ""),
-                               body.get("kind") or "up")
+                               body.get("kind") or "up",
+                               self._variant_arg(body))
                 return self._send(200, r)
             if path == "/api/upload_song":
                 song = body.get("song") or body.get("id")
                 r = upload_song(self._game_arg(body), song,
-                                body.get("data", ""))
+                                body.get("data", ""),
+                                self._variant_arg(body))
                 return self._send(200, r)
             if path == "/api/convert_song":
                 song = body.get("song") or body.get("id")
                 r = convert_song(self._game_arg(body), song,
                                  body.get("name"), body.get("data", ""),
-                                 body.get("opts"))
+                                 body.get("opts"), self._variant_arg(body))
                 return self._send(200, r)
             if path == "/api/reconvert_song":
                 song = body.get("song") or body.get("id")
                 r = reconvert_song(self._game_arg(body), song,
-                                   body.get("name"), body.get("opts"))
+                                   body.get("name"), body.get("opts"),
+                                   self._variant_arg(body))
                 return self._send(200, r)
             if path == "/api/build":
                 req = body.get("targets") if isinstance(body, dict) else None
-                bid = start_build(self._game_arg(body), req)
+                bid = start_build(self._game_arg(body), req,
+                                  self._variant_arg(body))
                 return self._send(202, {"build": bid})
             if path == "/api/web_export":
                 return self._send(200, web_export(self._game_arg(body)))
@@ -822,7 +847,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(text, str):
                     return self._send(400, {"error": "missing text"})
                 return self._send(200, {
-                    "issues": lint_game_md(self._game_arg(body), text),
+                    "issues": lint_game_md(self._game_arg(body), text,
+                                           self._variant_arg(body)),
                     "outline": scenefile.outline_links(text)})
             if path == "/api/settings":
                 return self._send(200, save_settings(body))
@@ -846,14 +872,16 @@ class Handler(BaseHTTPRequestHandler):
                     urllib.parse.urlparse(self.path).query)
                 filename = qs.get("file", [None])[0] or ""
                 return self._send(200, delete_art_image(
-                    m.group(1), m.group(2), filename))
+                    m.group(1), m.group(2), filename,
+                    self._variant_arg()))
             m = re.match(r"^/api/refimages/([^/\\]+)/([^/\\]+)$", path)
             if m:
                 qs = urllib.parse.parse_qs(
                     urllib.parse.urlparse(self.path).query)
                 filename = qs.get("file", [None])[0] or ""
                 return self._send(200, delete_ref_image(
-                    m.group(1), m.group(2), filename))
+                    m.group(1), m.group(2), filename,
+                    self._variant_arg()))
             m = re.match(r"^/api/games/([A-Za-z0-9_-]+)$", path)
             if m:
                 gamestore.delete(m.group(1))

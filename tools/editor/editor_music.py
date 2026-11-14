@@ -335,14 +335,14 @@ def slice_midi(data, start=0.0, end=0.0):
 
 
 
-def upload_song(slug, song_id, data):
+def upload_song(slug, song_id, data, variant=None):
     """Store a user-supplied .pt3 module for a declared song.
 
     ``data`` is base64 (or a ``data:`` URL). The song must already be declared
     in ``# Game songs:`` so game.md and the file tree cannot drift apart.
     """
-    game = _game_or_error(slug)
-    doc = project_json(slug)
+    game = _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     if song_id not in doc["game"].get("songs", []):
         raise KeyError(f"unknown song '{song_id}' (declare it in songs: first)")
     if not _valid_song_id(song_id):
@@ -481,7 +481,7 @@ def _convert_midi(midi, opts, name):
 
 
 
-def convert_song(slug, song_id, name, data, opts=None):
+def convert_song(slug, song_id, name, data, opts=None, variant=None):
     """Convert an uploaded MIDI to a .pt3 for a declared song.
 
     Runs the ``spectrumizer`` CLI (Docker image) on the MIDI in ``data`` and
@@ -492,8 +492,8 @@ def convert_song(slug, song_id, name, data, opts=None):
     ``reconvert_song``). The module must pass the same PT3/buffer checks as a
     direct upload.
     """
-    _game_or_error(slug)
-    doc = project_json(slug)
+    _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     if song_id not in doc["game"].get("songs", []):
         raise KeyError(f"unknown song '{song_id}' (declare it in songs: first)")
     if not _valid_song_id(song_id):
@@ -534,14 +534,14 @@ def _convert_and_store(slug, song_id, midi, opts, name):
 
 
 
-def reconvert_song(slug, song_id, name, opts=None):
+def reconvert_song(slug, song_id, name, opts=None, variant=None):
     """Rebuild a song's .pt3 from its stored ``assets/music/<id>.mid``.
 
     Lets the Music tab re-run the converter with a different cut window or
     style without re-uploading the MIDI. The raw source is never rewritten.
     """
-    _game_or_error(slug)
-    doc = project_json(slug)
+    _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     if song_id not in doc["game"].get("songs", []):
         raise KeyError(f"unknown song '{song_id}' (declare it in songs: first)")
     if not _valid_song_id(song_id):

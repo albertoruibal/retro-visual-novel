@@ -27,9 +27,9 @@ def block(flag, payload):
     return (len(body) + 1).to_bytes(2, "little") + body + bytes([chk])
 
 
-def bank_order(gdir):
-    txt = open(os.path.join(gdir, gamestore.BUILD_NAME,
-                            "scene_banks.asm")).read()
+def bank_order(gdir, bdir=None):
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
+    txt = open(os.path.join(bdir, "scene_banks.asm")).read()
     m = re.search(r"_scene_bank_list:(.*)", txt, re.S)
     nums = [int(x, 0) for x in re.findall(r"defb\s+(\S+)", m.group(1))]
     return [n for n in nums if n != 0xFF]
@@ -41,15 +41,15 @@ def main():
         sys.exit("usage: make_tap.py <base.tap> <out.tap> [<game>]")
     base, out_path = args[0], args[1]
     slug = args[2] if len(args) > 2 else None
-    game = gamestore.resolve(slug)
+    game = gamestore.resolve(slug, gamestore.env_variant())
     if game is None:
         sys.exit(f"no such game: {slug!r} (see 'games/')")
     gdir = game["dir"]
+    bdir = game["bdir"]
 
     out = bytearray(open(base, "rb").read())
-    for bn in bank_order(gdir):
-        path = os.path.join(gdir, gamestore.BUILD_NAME, "scene_banks",
-                            f"bank{bn}.bin")
+    for bn in bank_order(gdir, bdir):
+        path = os.path.join(bdir, "scene_banks", f"bank{bn}.bin")
         data = open(path, "rb").read()
         if len(data) > BANK_SIZE:
             sys.exit(f"bank{bn} too big ({len(data)})")

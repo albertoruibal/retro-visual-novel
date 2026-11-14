@@ -37,8 +37,8 @@ def sna_header():
     return bytes(h)
 
 
-def build(gdir, slug, out_path):
-    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+def build(gdir, slug, out_path, bdir=None):
+    bdir = bdir or os.path.join(gdir, gamestore.BUILD_NAME)
     main_bin = open(os.path.join(bdir, "adventure.bin"), "rb").read()
     engine_path = os.path.join(bdir, "adventure_NIRVANAP.bin")
     if not os.path.exists(engine_path):
@@ -84,12 +84,12 @@ def main():
     slug = None
     if args and not args[0].endswith(".sna"):
         slug = args.pop(0)
-    game = gamestore.resolve(slug)
+    game = gamestore.resolve(slug, gamestore.env_variant())
     if game is None:
         sys.exit(f"no such game: {slug!r} (see 'games/')")
     out_path = (args[0] if args
-                else os.path.join(game["dir"], f"{game['slug']}.sna"))
-    build(game["dir"], game["slug"], out_path)
+                else os.path.join(game["dir"], f"{game['output_stem']}.sna"))
+    build(game["dir"], game["slug"], out_path, game["bdir"])
 
 
 if __name__ == "__main__":

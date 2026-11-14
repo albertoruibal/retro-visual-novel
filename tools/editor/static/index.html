@@ -26,6 +26,10 @@
         <button id="gamelabel" class="gamelabel" aria-haspopup="menu" aria-expanded="false" title="Switch game"></button>
         <div id="gamepickpop" class="menu" role="menu" hidden></div>
       </span>
+      <span id="variantpickwrap" class="variantpickwrap" hidden>
+        <label for="variantpick">Variant</label>
+        <select id="variantpick" title="Switch game variant"></select>
+      </span>
       <button id="reload" title="Reload the opened game">Reload</button>
     </span>
     <span class="spacer"></span>
@@ -122,7 +126,7 @@
 
   <div id="view-raw" class="view">
     <div id="rawbar">
-      <span class="hint">Edit this game's <code>game.md</code> directly. Saves
+      <span class="hint">Edit this variant's story file directly. Saves
         are validated and written atomically (a <code>.bak</code> is kept).</span>
       <span class="spacer"></span>
       <span id="rawstatus" class="status"></span>

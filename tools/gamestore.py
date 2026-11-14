@@ -4,7 +4,8 @@
 A game is a self-contained directory::
 
     <game-folder>/
-      game.md                         story (game / art / scene sections)
+      game.md                         primary story (optional)
+      game-<variant>.md               additional story variants
       assets/art/<id>/<action>-<epoch>.png   candidate source images (`image:` picks one)
       <slug>.tap, <slug>.sna, ...     playable build outputs (stay at the root)
       build/scene_banks/bankN.bin     generated bank images
@@ -54,6 +55,12 @@ GAMES_DIR = os.path.join(ROOT, "games")
 BUILD_NAME = "build"
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_VARIANT_FILE_RE = re.compile(r"^game-([A-Za-z0-9][A-Za-z0-9_-]*)\.md$")
+_VARIANT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+DEFAULT_VARIANT = "default"
+# Variant ids that would collide with a target's artifact suffix when the
+# output stem is suffixed (<slug>-<variant><artifact_suffix><ext>).
+RESERVED_VARIANTS = {"48k", "cpc464", "msx1", "oric"}
 DEFAULT_GAME = None  # no hardcoded default: resolve() falls back to the first game
 
 # Generated names inside a game folder; excluded when duplicating so the copy
@@ -75,21 +82,105 @@ def valid_slug(slug):
     return bool(_SLUG_RE.match(slug or "")) and ".." not in slug
 
 
+def variant_id(filename):
+    """The variant id for ``game.md`` / ``game-<id>.md`` (None otherwise)."""
+    if filename == "game.md":
+        return DEFAULT_VARIANT
+    m = _VARIANT_FILE_RE.match(filename or "")
+    if not m:
+        return None
+    ident = m.group(1)
+    if not _VARIANT_RE.match(ident) or ident in RESERVED_VARIANTS:
+        return None
+    return ident
+
+
+def variant_files(path):
+    """Ordered variant files in ``path``: game.md first, then ids sorted.
+
+    Returns ``[{"id", "file", "path", "primary"}]``. A game folder may contain
+    only ``game-<variant>.md`` files; the first one is then primary. A
+    ``game.md`` always takes precedence as the primary variant.
+    """
+    if not path or not os.path.isdir(path):
+        return []
+    found = []
+    base = os.path.join(path, "game.md")
+    if os.path.isfile(base):
+        found.append({"id": DEFAULT_VARIANT, "file": "game.md",
+                      "path": base, "primary": True})
+    names = sorted(n for n in os.listdir(path)
+                   if _VARIANT_FILE_RE.match(n))
+    for name in names:
+        ident = variant_id(name)
+        if ident is None or any(v["id"] == ident for v in found):
+            continue
+        found.append({"id": ident, "file": name,
+                      "path": os.path.join(path, name),
+                      "primary": not found})
+    return found
+
+
+def variants(path):
+    """Ordered variant metadata for a game folder."""
+    return variant_files(path)
+
+
+def _select_variant(entries, variant=None):
+    if not entries:
+        return None
+    if variant in (None, ""):
+        return entries[0]
+    want = str(variant)
+    for entry in entries:
+        if entry["id"] == want:
+            return entry
+    if want == DEFAULT_VARIANT:
+        return entries[0]
+    for entry in entries:
+        if entry["id"].lower() == want.lower():
+            return entry
+    return None
+
+
+def build_dir_for(path, entry):
+    """The generated-intermediates directory for one variant entry."""
+    if entry["primary"]:
+        return os.path.join(path, BUILD_NAME)
+    return os.path.join(path, BUILD_NAME, entry["id"])
+
+
+def output_stem_for(slug, entry):
+    """Artifact stem: <slug> for game.md, <slug>-<id> for variant files."""
+    if entry["file"] == "game.md":
+        return slug
+    return f"{slug}-{entry['id']}"
+
+
 def is_game_dir(path):
-    """True if ``path`` is a directory holding a ``game.md``."""
-    return bool(path) and os.path.isfile(os.path.join(path, "game.md"))
+    """True if ``path`` is a directory holding a game.md or game-<id>.md."""
+    return bool(variant_files(path))
 
 
-def game_from_dir(path):
+def game_from_dir(path, variant=None):
     """Build a game dict for an explicit folder (no ``games/`` lookup)."""
     path = os.path.abspath(os.path.expanduser(path))
+    entries = variant_files(path)
+    entry = _select_variant(entries, variant)
+    if entry is None:
+        return None
     title = ""
     try:
-        title = scenefile.parse(os.path.join(path, "game.md"))["game"].get("title", "")
+        title = scenefile.parse(entry["path"])["game"].get("title", "")
     except Exception:      # noqa: BLE001 - a malformed game still opens
         pass
     slug = os.path.basename(os.path.normpath(path)) or "game"
-    return {"slug": slug, "title": title, "dir": path}
+    return {"slug": slug, "title": title, "dir": path,
+            "variant": entry["id"], "md": entry["path"],
+            "file": entry["file"], "primary": entry["primary"],
+            "variants": entries,
+            "bdir": build_dir_for(path, entry),
+            "output_stem": output_stem_for(slug, entry)}
 
 
 def _norm(path):
@@ -121,7 +212,7 @@ def set_opened(path):
         return None
     path = _norm(path)
     if not is_game_dir(path):
-        raise FileNotFoundError(f"not a game folder (no game.md): {path}")
+        raise FileNotFoundError(f"not a game folder (no game.md or game-<variant>.md): {path}")
     _opened = [path]
     return game_from_dir(path)
 
@@ -135,7 +226,7 @@ def open_folder(path):
     """
     path = _norm(path)
     if not is_game_dir(path):
-        raise FileNotFoundError(f"not a game folder (no game.md): {path}")
+        raise FileNotFoundError(f"not a game folder (no game.md or game-<variant>.md): {path}")
     if path in _opened:
         return game_from_dir(path)
     slug = os.path.basename(os.path.normpath(path)) or "game"
@@ -172,7 +263,10 @@ def game_dir(slug):
     return os.path.join(GAMES_DIR, slug)
 
 
-def game_md(slug):
+def game_md(slug, variant=None):
+    game = resolve(slug, variant)
+    if game is not None:
+        return game["md"]
     return os.path.join(game_dir(slug), "game.md")
 
 
@@ -180,8 +274,11 @@ def gen_dir(slug):
     return os.path.join(game_dir(slug), "assets", "gen")
 
 
-def build_dir(slug):
+def build_dir(slug, variant=None):
     """Where a game's generated intermediates live (never its outputs)."""
+    game = resolve(slug, variant)
+    if game is not None:
+        return game["bdir"]
     return os.path.join(game_dir(slug), BUILD_NAME)
 
 
@@ -192,7 +289,7 @@ def banks_dir(slug):
 def list_games():
     """Return [{"slug", "title", "dir"}]: the open folders, or the workspace."""
     if _opened:
-        return [game_from_dir(p) for p in _opened]
+        return [g for g in (game_from_dir(p) for p in _opened) if g]
     out = []
     if not os.path.isdir(GAMES_DIR):
         return out
@@ -200,41 +297,53 @@ def list_games():
         path = os.path.join(GAMES_DIR, name)
         if not os.path.isdir(path) or not valid_slug(name):
             continue
-        if not os.path.exists(os.path.join(path, "game.md")):
+        entries = variant_files(path)
+        if not entries:
             continue
         title = ""
         try:
-            title = scenefile.parse(os.path.join(path, "game.md"))["game"].get("title", "")
+            title = scenefile.parse(entries[0]["path"])["game"].get("title", "")
         except Exception:      # noqa: BLE001 - a malformed game should still list
             pass
-        out.append({"slug": name, "title": title, "dir": path})
+        out.append({"slug": name, "title": title, "dir": path,
+                    "variant": entries[0]["id"],
+                    "variants": entries})
     return out
 
 
-def resolve(slug=None):
+def resolve(slug=None, variant=None):
     """Resolve a slug or folder path to an existing game.
 
     With folders open, ``slug`` is matched against each open folder's basename
     (its slug) or its path; omitted picks the first open folder. In the
     workspace a ``slug`` that is itself a game directory path is opened
     directly, otherwise it names a folder under ``games/`` (first if omitted).
+    ``variant`` selects a ``game-<variant>.md`` file (``default``/None picks
+    game.md when present, else the first variant alphabetically).
     """
     if _opened:
         if slug:
             path = _find_opened(slug)
-            return game_from_dir(path) if path else None
-        return game_from_dir(_opened[0])
+            return game_from_dir(path, variant) if path else None
+        return game_from_dir(_opened[0], variant)
     if slug and is_game_dir(slug):
-        return game_from_dir(slug)
+        return game_from_dir(slug, variant)
     games = list_games()
     if slug:
         for g in games:
             if g["slug"] == slug:
-                return g
+                return game_from_dir(g["dir"], variant)
         return None
     if not games:
         return None
-    return games[0]
+    return game_from_dir(games[0]["dir"], variant)
+
+
+def env_variant():
+    """The variant id from ``RVN_VARIANT`` (the old ``ZXAD_VARIANT`` too)."""
+    value = (os.environ.get("RVN_VARIANT")
+             or os.environ.get("ZXAD_VARIANT") or "").strip()
+    return value or None
 
 
 def _skeleton(title):
@@ -317,7 +426,8 @@ def duplicate(src_slug, name, title=None):
     os.makedirs(os.path.join(dst, "assets", "gen"), exist_ok=True)
     os.makedirs(os.path.join(dst, BUILD_NAME, "scene_banks"), exist_ok=True)
 
-    md = os.path.join(dst, "game.md")
+    entries = variant_files(dst)
+    md = entries[0]["path"] if entries else os.path.join(dst, "game.md")
     doc = scenefile.parse(md)
     if title:
         doc["game"]["title"] = title
@@ -351,11 +461,24 @@ def rename(old_slug, name):
         raise FileExistsError(f"game '{slug}' already exists")
     os.rename(src["dir"], dst)
     # Build outputs are named after the slug; a renamed folder would otherwise
-    # keep a stale <old_slug>.tap/.sna the emulator can no longer address.
-    for suffix in (".tap", ".sna"):
-        stale = os.path.join(dst, f"{src['slug']}{suffix}")
-        if os.path.exists(stale):
-            os.remove(stale)
+    # keep stale <old_slug>[-variant].<ext> files the emulator cannot address.
+    suffixes = ("", "-48k", "-cpc464", "-msx1", "-oric")
+    exts = (".tap", ".sna", ".nex", ".sms", ".dsk", ".rom", ".gb", ".gbc",
+            ".prg", ".nes")
+    stale = set()
+    for entry in variant_files(dst):
+        stem = (src["slug"] if entry["file"] == "game.md"
+                else f"{src['slug']}-{entry['id']}")
+        for target_suffix in suffixes:
+            for ext in exts:
+                stale.add(f"{stem}{target_suffix}{ext}")
+    for name in stale:
+        path = os.path.join(dst, name)
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
     return {"slug": slug, "title": src["title"], "dir": dst}
 
 

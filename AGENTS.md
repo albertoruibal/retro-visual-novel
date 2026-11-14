@@ -10,7 +10,8 @@ Retro Visual Novel is an 8-bit visual novel authoring + build system for the **Z
 supplies a thin layer (`src/zx/plat_zx.c`, `src/next/plat_next.c`, `src/sms/`, `src/cpc/`, `src/msx1/`, `src/msx2/`, `src/gb/`,
 `src/c64/`, `src/nes/`, `src/oric/`). The three 6502 targets share `src/6502/zx0.c`.
 NIRVANA+ is vendored under `vendor/`. A game
-is a self-contained folder whose story lives in `game.md`; this repository ships a single demo game in `demo-game/`.
+is a self-contained folder whose story lives in `game.md` or in one or more `game-<variant>.md` files; this repository
+ships a single demo game in `demo-game/` with English (`game-en.md`) and Spanish (`game-es.md`) variants.
 A stdlib-only Python editor (`tools/editor/server.py`) serves a browser UI to author games, generate art with local
 models, and run the build.
 
@@ -78,15 +79,17 @@ constraints live in `docs/systems/zx128.md`.
     electron/scripts/prepare-python.js  stage .venv from tools/requirements.txt
     electron/scripts/bundle.js          assemble dist-resources/ for packaging
     demo-game/               the demo game (the only game in this repo)
-    demo-game/game.md        story (game / art / ref / scene sections)
+    demo-game/game-en.md     story (game / art / ref / scene sections)
+    demo-game/game-es.md     Spanish variant, sharing the same assets
     demo-game/assets/        art/<id>/, refs/<id>/ and music/<id>.pt3 sources
     demo-game/build/         generated intermediates/banks (gitignored)
 
 Generated per-game files live in `<game-folder>/build/` (`scene_data.h`, `scene_banks.asm`, `scene_bankN.asm`,
 `scene_flags.txt`, the `.bin`/`port_*` intermediates and `scene_banks/bankN.bin`) and are gitignored. Only the playable
-outputs (`<slug>.tap`, `.sna`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`) and the editor's `game.md.bak` stay at
-the game root
-(for the demo, `demo-game/`). Do not hand-edit generated files; edit `game.md` and rebuild.
+outputs (`<slug>.tap`, `.sna`, `.sms`, `.dsk`, `.rom`, `.gbc`, `.prg`, `.nes`; variant files use
+`<slug>-<variant>...`) and the editor's `.bak` files stay at the game root (for the demo, `demo-game/`). A variant's
+intermediates live in `build/<variant>/`; the primary variant keeps `build/`. Do not hand-edit generated files; edit
+the story `.md` and rebuild.
 
 ## Build / run
 
@@ -106,6 +109,7 @@ Useful commands:
 
     python3 tools/build.py list-targets
     python3 tools/build.py build demo-game    # every system selected in game.md
+    python3 tools/build.py build demo-game zx128 --variant es   # one variant
     python3 tools/build.py build demo-game sms cpc cpc464 gb
     python3 tools/build.py build demo-game c64 nes   # cc65 targets
     python3 tools/build.py list-targets              # shows cc65 availability
@@ -217,6 +221,16 @@ There is no test suite and no configured linter. Verify by:
 
 ## Invariants and gotchas
 
+- **Variant stories are `game.md` (optional primary) plus `game-<variant>.md` files in the same folder.** Variant ids
+  are ASCII tokens (`[A-Za-z0-9][A-Za-z0-9_-]*`; `48k`, `cpc464`, `msx1` and `oric` are reserved because they collide
+  with target suffixes). `gamestore.variant_files`/`variant_id` own discovery: `game.md` is first and primary, then
+  variant files alphabetically; without `game.md` the first variant is primary. `gamestore.resolve(slug, variant)`
+  returns `variant`, `variants`, `md`, `bdir` and `output_stem`. `RVN_VARIANT` (and `--variant <id>`) select one in
+  `build.py`, `gen_scenes.py`, `gen_port.py`, `gen_images.py` and `make_*`; the editor passes `?variant=` (and its
+  `withGame()` appends it). Art/ref/music folders are shared; each variant's md keeps its own `image:` pointers.
+  Native outputs are `<slug>.<ext>` for `game.md` and `<slug>-<variant><artifact_suffix><ext>` for a variant file;
+  `web/` exports every variant to `novel/<id>/` and `files/<id>/` and the player shell renders a variant selector
+  (ids only, hidden for one variant). Keep `game.md` optional in every new code path.
 - **`game.md` has exactly one reader/writer: `tools/scenefile.py`.** The build (`gen_scenes.py`) and the editor both
   import it. Any format change goes there first; never parse the format ad hoc elsewhere.
 - Every save re-serialises canonically via `scenefile.serialize()`, which re-emits the single `# game.md — ...` banner
@@ -570,11 +584,12 @@ There is no test suite and no configured linter. Verify by:
   `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
   tab edits the selection with one second-level sub-tab per platform; the Game tab keeps the shared settings
   (including Text colours).
-- Editor writes are atomic and keep `game.md.bak`; art files are migrated when an art id is renamed
+- Editor writes are atomic and keep a `<file>.bak`; art files are migrated when an art id is renamed
   (`_migrate_art_files`). Saves are conflict-checked: `/api/project` and `/api/raw` carry a `revision` (sha256 of
   game.md), and a stale one returns 409 so a concurrent edit by another user/process is not silently overwritten;
   the SPA offers to overwrite (`force`) or keep its buffer. Background writers (`_set_art_image`/jobs) refresh
-  `P.revision` after they update game.md.
+  `P.revision` after they update the selected variant file. The top bar's variant selector is session state; the
+  structured/Source tabs and image/music jobs edit the selected variant, while the web export always bundles all.
 - `compose.yml` live-mounts an **absolute daemon-host path**, not `./`; update it if the checkout moves.
 - UI is vanilla JS/CSS in `tools/editor/static/`; match the existing dark theme, inline-SVG mask icons per tab, and the
   `VIEWS` / `EDIT_MODES` split in `core.js`. Structured tabs share the `#view-edit` shell; `graph`/`emu` are their
@@ -602,9 +617,13 @@ There is no test suite and no configured linter. Verify by:
   the picture.
 - **Web player:** the frontend is split into the story runtime (`tools/webgame_runtime/`, classic
   `index.html` + `game.js` + `app.js` + `style.css`, data assigned to `window.RVN_GAME`, never fetched) and the player
-  shell (`tools/webplayer_runtime/`, data assigned to `window.RVN_PLAYER`). `tools/webgame.py` is the export/build
-  step: it parses `game.md` through `scenefile.py`, writes both data files, copies or converts the art, renders used
-  PT3 songs to 22050 Hz mono WAVs in `novel/assets/music/` with `spectrumizer.play` (cache in `assets/gen/`),
+  shell. Multi-variant games export `novel/<id>/` and `files/<id>/`; `player-data.js` carries `variants` (each with
+  its own `src` and `systems`) and the shell shows a variant selector at the top when there is more than one. The
+  novel's `storageKey` namespaces progress/sound per variant. Keep the old top-level `web`/`systems` aliases and the
+  legacy single-variant fallback working. Player shell (`tools/webplayer_runtime/`, data assigned to
+  `window.RVN_PLAYER`). `tools/webgame.py` is the export/build step: it parses each variant through `scenefile.py`,
+  writes both data files, copies or converts the art, renders used PT3 songs to 22050 Hz mono WAVs in
+  `novel/<variant>/assets/music/` with `spectrumizer.play` (cache in `assets/gen/`),
   copies only the selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`.
   `POST /api/web_export` writes that folder, `GET /play/<slug>/...` serves it statically, and
   `GET /api/webzip/<slug>` re-exports then streams an itch.io-ready zip with `index.html` at the root; the folder is

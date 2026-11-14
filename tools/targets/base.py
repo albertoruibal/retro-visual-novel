@@ -60,6 +60,14 @@ class BuildContext:
     root: str
     bdir: str = ""
     verbose: bool = True
+    variant: str = ""
+    md: str = ""
+    output_stem: str = ""
+
+    @property
+    def out_stem(self) -> str:
+        """The artifact basename (slug for game.md, slug-variant otherwise)."""
+        return self.output_stem or self.slug
 
 
 @dataclass

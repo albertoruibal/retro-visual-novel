@@ -29,36 +29,109 @@
     if (player) player.hidden = true;
   }
 
-  var nativeSystems = (D && Array.isArray(D.systems)) ? D.systems : [];
-  var hasWeb = !!(D && D.web && D.web.src);
-  if (!hasWeb && !nativeSystems.length) {
+  var variantsEl = $("variants");
+  var variantPick = $("variantpick");
+
+  function variantList(data) {
+    if (data && Array.isArray(data.variants) && data.variants.length) {
+      return data.variants.map(function (item, index) {
+        var id = String(item.id || ("v" + (index + 1)));
+        return {
+          id: id,
+          label: item.label || id,
+          src: item.src || "",
+          popupMenu: !!item.popupMenu,
+          systems: Array.isArray(item.systems) ? item.systems : []
+        };
+      });
+    }
+    if (data && data.web && data.web.src) {
+      return [{
+        id: "default",
+        label: "default",
+        src: data.web.src,
+        popupMenu: !!data.web.popupMenu,
+        systems: Array.isArray(data.systems) ? data.systems : []
+      }];
+    }
+    if (data && Array.isArray(data.systems)) {
+      return [{
+        id: "default",
+        label: "default",
+        src: "",
+        popupMenu: false,
+        systems: data.systems
+      }];
+    }
+    return [];
+  }
+
+  var variants = D ? variantList(D) : [];
+  if (!variants.length || !variants.some(function (item) {
+    return item.src || item.systems.length;
+  })) {
     fatal("This player has no game data.");
     return;
   }
   player.hidden = false;
 
-  var systems = (hasWeb ? [{ id: "web", label: D.web.label || "Web version",
-                             kind: "web", machine: "HTML5",
-                             media: D.web.media || "web",
-                             mediaLabel: D.web.mediaLabel || "Web" }] : [])
-    .concat(nativeSystems);
+  var currentVariant = variants[0];
+  var systems = [];
   var byId = {};
-  systems.forEach(function (system) { byId[system.id] = system; });
-  var current = hasWeb ? "web" : systems[0].id;
+  var current = "";
+  var hasWeb = false;
   var bootSeq = 0;
   var emulator = null;
   var speccy = null;
   var speccyPromise = null;
   var resizeTimer = null;
 
-  function storageKey() { return "rvn.player." + (D.slug || "game") + ".system"; }
+  function variantKey() {
+    return "rvn.player." + (D.slug || "game") + ".variant";
+  }
+
+  function storageKey() {
+    return "rvn.player." + (D.slug || "game") + ".system." +
+      currentVariant.id;
+  }
+
+  function findVariant(id) {
+    var found = null;
+    variants.forEach(function (item) { if (item.id === id) found = item; });
+    return found;
+  }
+
+  function storedVariant() {
+    try {
+      var value = window.localStorage.getItem(variantKey());
+      if (value && findVariant(value)) return value;
+    } catch (error) { /* storage unavailable */ }
+    return variants[0].id;
+  }
+
+  function applyVariant(id) {
+    currentVariant = findVariant(id) || variants[0];
+    hasWeb = !!currentVariant.src;
+    systems = (hasWeb ? [{
+      id: "web",
+      label: "Web version",
+      kind: "web",
+      machine: "HTML5",
+      media: "web",
+      mediaLabel: "Web",
+      popupMenu: currentVariant.popupMenu
+    }] : []).concat(currentVariant.systems);
+    byId = {};
+    systems.forEach(function (system) { byId[system.id] = system; });
+    current = hasWeb ? "web" : (systems[0] ? systems[0].id : "");
+  }
 
   function storedSystem() {
     try {
       var value = window.localStorage.getItem(storageKey());
       if (value && byId[value]) return value;
     } catch (error) { /* storage unavailable */ }
-    return hasWeb ? "web" : systems[0].id;
+    return hasWeb ? "web" : (systems[0] ? systems[0].id : "");
   }
 
   function setStatus(text, bad) {
@@ -98,7 +171,7 @@
     if (deckEl) deckEl.dataset.media = media;
     if (deckName) deckName.textContent = system.mediaLabel || media;
     if (system.kind === "web") {
-      hintEl.textContent = D.web && D.web.popupMenu
+      hintEl.textContent = currentVariant.popupMenu
         ? "The mobile-first web novel. SPACE opens the options menu; tap or click an option, word or item."
         : "The mobile-first web novel. Tap or click an option, word or item.";
     } else if (system.emulator === "jsspeccy" && speccyTouchWanted()) {
@@ -107,7 +180,9 @@
       hintEl.textContent = "Click the screen first so the emulator receives the keyboard.";
     }
     reloadEl.disabled = false;
-    document.title = (D.title || "Visual Novel") + " — " + (system.label || system.id);
+    var variant = variants.length > 1 ? currentVariant.label + " — " : "";
+    document.title = (D.title || "Visual Novel") + " — " + variant +
+      (system.label || system.id);
   }
 
   function setActive(id) {
@@ -131,6 +206,34 @@
       button.addEventListener("click", function () { boot(system.id); });
       systemsEl.appendChild(button);
     });
+  }
+
+  function renderVariants() {
+    if (!variantsEl || !variantPick) return;
+    if (variants.length < 2) {
+      variantsEl.hidden = true;
+      return;
+    }
+    variantsEl.hidden = false;
+    variantPick.replaceChildren();
+    variants.forEach(function (variant) {
+      var option = document.createElement("option");
+      option.value = variant.id;
+      option.textContent = variant.label;
+      variantPick.appendChild(option);
+    });
+    variantPick.value = currentVariant.id;
+  }
+
+  function changeVariant(id) {
+    if (!id || id === currentVariant.id) return;
+    var wanted = current;
+    try { window.localStorage.setItem(variantKey(), id); }
+    catch (error) { /* ignore */ }
+    applyVariant(id);
+    renderVariants();
+    renderSystems();
+    boot(byId[wanted] ? wanted : (storedSystem() || current));
   }
 
   function stop() {
@@ -359,7 +462,7 @@
     frame.title = (D.title || "Game") + " — " + system.label;
     frame.setAttribute("allow", "autoplay; gamepad; fullscreen");
     frame.src = system.kind === "web"
-      ? new URL(D.web.src, window.location.href).href + "?embed=1"
+      ? new URL(currentVariant.src, window.location.href).href + "?embed=1"
       : nativeQuery(system, "emulator/" + system.page + "/index.html");
     frame.addEventListener("load", function () {
       if (seq === bootSeq) hideBoot();
@@ -443,7 +546,17 @@
   });
 
   if (D.title) titleEl.textContent = D.title;
+  var requestedVariant = new URLSearchParams(window.location.search)
+    .get("variant");
+  applyVariant(requestedVariant && findVariant(requestedVariant)
+    ? requestedVariant : storedVariant());
+  renderVariants();
   renderSystems();
+  if (variantPick) {
+    variantPick.addEventListener("change", function () {
+      changeVariant(variantPick.value);
+    });
+  }
   var requested = new URLSearchParams(window.location.search).get("system");
   boot(requested && byId[requested] ? requested : storedSystem());
 })();

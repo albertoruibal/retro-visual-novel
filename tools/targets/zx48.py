@@ -69,7 +69,7 @@ def _preview(src, conv, options, game=None):
 def _build(ctx):
     import build  # lazy: avoids a circular import while build.py loads targets
 
-    results = build._build_zx48(ctx.slug)
+    results = build._build_zx48(ctx)
     out = BuildResult(target="zx48")
     for item in results or []:
         out.add_output(item.get("path", ""), item.get("kind", ""),

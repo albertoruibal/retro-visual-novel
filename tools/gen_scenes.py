@@ -1336,27 +1336,60 @@ def write_port_data_h(path, title_ink, title_bright, have_inv_blob=False,
         f.write("\n".join(lines))
 
 
+def _variant_args(argv):
+    """Strip --variant <id> / --variant=<id>; return (positional, variant)."""
+    out = []
+    variant = None
+    i = 0
+    while i < len(argv):
+        item = argv[i]
+        if item == "--variant":
+            if i + 1 < len(argv):
+                variant = argv[i + 1]
+                i += 2
+                continue
+            i += 1
+            continue
+        if item.startswith("--variant="):
+            variant = item.split("=", 1)[1]
+            i += 1
+            continue
+        out.append(item)
+        i += 1
+    return out, variant
+
+
 def main():
     # First argument may be a game slug ("the-arousa-job"), a game directory
-    # ("games/the-arousa-job") or a game.md path. The optional second
+    # ("games/the-arousa-job") or a game-<variant>.md path. The optional second
     # argument overrides the output header path (used by tests).
-    arg = sys.argv[1] if len(sys.argv) > 1 else None
+    args, variant = _variant_args(sys.argv[1:])
+    variant = variant or gamestore.env_variant()
+    arg = args[0] if args else None
     if arg and os.path.isfile(arg):
-        md = arg
-        gdir = os.path.dirname(os.path.abspath(arg))
+        md = os.path.abspath(arg)
+        gdir = os.path.dirname(md)
+        inferred = gamestore.variant_id(os.path.basename(md))
+        g = gamestore.game_from_dir(gdir, inferred or variant)
+        if g is not None:
+            md, gdir = g["md"], g["dir"]
+        else:
+            gdir = os.path.abspath(gdir)
     elif arg and gamestore.is_game_dir(arg):
-        gdir = os.path.abspath(arg)
-        md = os.path.join(gdir, "game.md")
+        g = gamestore.game_from_dir(os.path.abspath(arg), variant)
+        md, gdir = g["md"], g["dir"]
     else:
         slug = os.path.basename(os.path.normpath(arg)) if arg else None
-        g = gamestore.resolve(slug)
+        g = gamestore.resolve(slug, variant)
         if g is None:
             sys.exit(f"no such game: {arg!r} (see 'games/')")
-        md = os.path.join(g["dir"], "game.md")
-        gdir = g["dir"]
-    out_h = (sys.argv[2] if len(sys.argv) > 2
-             else os.path.join(gdir, gamestore.BUILD_NAME, "scene_data.h"))
-    bdir = os.path.join(gdir, gamestore.BUILD_NAME)
+        md, gdir = g["md"], g["dir"]
+    g = gamestore.game_from_dir(gdir, variant or
+                                gamestore.variant_id(os.path.basename(md)))
+    bdir = g["bdir"] if g is not None else os.path.join(
+        gdir, gamestore.BUILD_NAME)
+    out_h = (args[1] if len(args) > 1
+             else os.path.join(bdir, "scene_data.h"))
     os.makedirs(bdir, exist_ok=True)
     max_bank = int(os.environ.get("SCENE_MAX_BANK", BANK_SIZE))
     gen_dir = os.path.join(gdir, "assets", "gen")

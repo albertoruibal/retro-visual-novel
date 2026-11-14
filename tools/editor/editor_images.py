@@ -135,7 +135,7 @@ def _reference_extra_images(game_dir, names, refs_meta):
 
 
 def _render_art(slug, art_id, art, game, overrides, job_id=None,
-                refs_meta=None, refs_done=None):
+                refs_meta=None, refs_done=None, variant=None):
     """Render one art and write a *new* candidate PNG + sanitised result JSON.
 
     Each run drops ``gen-<epoch>.png`` (with embedded PNG metadata stripped, and
@@ -173,10 +173,11 @@ def _render_art(slug, art_id, art, game, overrides, job_id=None,
             ref = by_id.get(name)
             if ref is None:
                 raise ValueError(f"unknown reference image '{name}'")
-            _, _, _, img = _render_ref(slug, name, ref, game, None, job_id)
+            _, _, _, img = _render_ref(slug, name, ref, game, None, job_id,
+                                       variant)
             ref["image"] = img
             done.add(name)
-        rec = _game_or_error(slug)
+        rec = _game_or_error(slug, variant)
         request = dict(params)
         request["extra_images"] = _reference_extra_images(rec["dir"], refs,
                                                           refs_meta)
@@ -194,7 +195,7 @@ def _render_art(slug, art_id, art, game, overrides, job_id=None,
         raise _JobCancelled()
     b64 = res["images"][0].split(",", 1)[-1]
     png = pngmeta.strip_png_metadata(base64.b64decode(b64))
-    rec = _game_or_error(slug)
+    rec = _game_or_error(slug, variant)
     name = _new_art_filename("gen")
     adir = os.path.join(_art_root(rec["dir"]), art_id)
     os.makedirs(adir, exist_ok=True)
@@ -202,12 +203,12 @@ def _render_art(slug, art_id, art, game, overrides, job_id=None,
         open(os.path.join(adir, name), "wb").write(png)
         json.dump(pngmeta.sanitize_result(res),
                   open(os.path.join(adir, name[:-4] + "_result.json"), "w"))
-    _set_art_image(slug, art_id, name)
+    _set_art_image(slug, art_id, name, variant)
     return prompt, params, len(png), name, refs
 
 
 
-def _render_ref(slug, ref_id, ref, game, overrides, job_id=None):
+def _render_ref(slug, ref_id, ref, game, overrides, job_id=None, variant=None):
     """Render one ``# References`` image from its own prompt (no art references).
 
     References are generated separately from their own ``# References`` section and
@@ -240,7 +241,7 @@ def _render_ref(slug, ref_id, ref, game, overrides, job_id=None):
         raise _JobCancelled()
     b64 = res["images"][0].split(",", 1)[-1]
     png = pngmeta.strip_png_metadata(base64.b64decode(b64))
-    rec = _game_or_error(slug)
+    rec = _game_or_error(slug, variant)
     name = _new_art_filename("gen")
     rdir = os.path.join(_ref_root(rec["dir"]), ref_id)
     os.makedirs(rdir, exist_ok=True)
@@ -248,16 +249,18 @@ def _render_ref(slug, ref_id, ref, game, overrides, job_id=None):
         open(os.path.join(rdir, name), "wb").write(png)
         json.dump(pngmeta.sanitize_result(res),
                   open(os.path.join(rdir, name[:-4] + "_result.json"), "w"))
-    _set_ref_image(slug, ref_id, name)
+    _set_ref_image(slug, ref_id, name, variant)
     return prompt, params, len(png), name
 
 
 
-def _run_generate(job_id, slug, art_id, art, game, overrides, refs_meta=None):
+def _run_generate(job_id, slug, art_id, art, game, overrides, refs_meta=None,
+                  variant=None):
     _jobs[job_id]["status"] = "running"
     try:
         prompt, params, n, name, refs = _render_art(
-            slug, art_id, art, game, overrides, job_id, refs_meta)
+            slug, art_id, art, game, overrides, job_id, refs_meta,
+            variant=variant)
         _jobs[job_id].update(prompt=prompt, params=params, image=name,
                              refs=refs)
         _jobs[job_id].update(status="done", bytes=n, finished=time.time())
@@ -272,56 +275,59 @@ def _run_generate(job_id, slug, art_id, art, game, overrides, refs_meta=None):
 
 
 
-def start_generate(slug, art_id, overrides):
+def start_generate(slug, art_id, overrides, variant=None):
     if not IMAGE_ENABLED:
         raise ValueError("image generation is disabled (set STABLE_DIFFUSION_URL)")
-    game = _game_or_error(slug)
-    doc = project_json(slug)
+    game = _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     art = _find_art(doc, art_id)
     if art is None:
         raise KeyError(f"unknown art '{art_id}'")
-    job_id = f"{game['slug']}-{art_id}-{int(time.time()*1000)}"
-    _jobs[job_id] = {"id": job_id, "game": game["slug"], "kind": "art",
+    job_id = f"{game['slug']}-{game['variant']}-{art_id}-{int(time.time()*1000)}"
+    _jobs[job_id] = {"id": job_id, "game": game["slug"],
+                     "variant": game["variant"], "kind": "art",
                      "art": art_id, "status": "queued",
                      "started": time.time()}
     t = threading.Thread(target=_run_generate,
                          args=(job_id, game["slug"], art_id, art, doc["game"],
                                overrides, doc.get("refs") or []),
+                         kwargs={"variant": game["variant"]},
                          daemon=True)
     t.start()
     return job_id
 
 
 
-def start_generate_ref(slug, ref_id, overrides):
+def start_generate_ref(slug, ref_id, overrides, variant=None):
     """Queue a reference-image render (its own prompt, no art references)."""
     if not IMAGE_ENABLED:
         raise ValueError("image generation is disabled (set STABLE_DIFFUSION_URL)")
-    game = _game_or_error(slug)
+    game = _game_or_error(slug, variant)
     if not scenefile.valid_ref_id(ref_id):
         raise ValueError(f"invalid reference id {ref_id!r}")
-    doc = project_json(slug)
+    doc = project_json(slug, variant)
     ref = _find_ref(doc, ref_id)
     if ref is None:
         raise KeyError(f"unknown reference '{ref_id}'")
-    job_id = f"{game['slug']}-ref-{ref_id}-{int(time.time()*1000)}"
-    _jobs[job_id] = {"id": job_id, "game": game["slug"], "kind": "ref",
+    job_id = f"{game['slug']}-{game['variant']}-ref-{ref_id}-{int(time.time()*1000)}"
+    _jobs[job_id] = {"id": job_id, "game": game["slug"],
+                     "variant": game["variant"], "kind": "ref",
                      "ref": ref_id, "status": "queued",
                      "started": time.time()}
     t = threading.Thread(target=_run_generate_ref,
                          args=(job_id, game["slug"], ref_id, ref,
-                               doc["game"], overrides),
+                               doc["game"], overrides, game["variant"]),
                          daemon=True)
     t.start()
     return job_id
 
 
 
-def _run_generate_ref(job_id, slug, ref_id, ref, game, overrides):
+def _run_generate_ref(job_id, slug, ref_id, ref, game, overrides, variant=None):
     _jobs[job_id]["status"] = "running"
     try:
         prompt, params, n, name = _render_ref(slug, ref_id, ref, game,
-                                              overrides, job_id)
+                                              overrides, job_id, variant)
         _jobs[job_id].update(prompt=prompt, params=params, image=name)
         _jobs[job_id].update(status="done", bytes=n, finished=time.time())
     except _JobCancelled:
@@ -343,7 +349,8 @@ def _refine_target(game):
 
 
 
-def _refine_image(slug, kind, ident, entry, game, overrides=None, job_id=None):
+def _refine_image(slug, kind, ident, entry, game, overrides=None, job_id=None,
+                  variant=None):
     """Refine an existing art/reference at 2x with img2img.
 
     The selected image is enlarged with Lanczos and re-rendered with the same
@@ -353,7 +360,7 @@ def _refine_image(slug, kind, ident, entry, game, overrides=None, job_id=None):
     """
     if job_id is not None and _is_cancelled(job_id):
         raise _JobCancelled()
-    rec = _game_or_error(slug)
+    rec = _game_or_error(slug, variant)
     src = _art_image_path(rec, entry) if kind == "art" \
         else _ref_image_path(rec, entry)
     if not src or not os.path.exists(src):
@@ -401,56 +408,61 @@ def _refine_image(slug, kind, ident, entry, game, overrides=None, job_id=None):
         json.dump(pngmeta.sanitize_result(res),
                   open(os.path.join(out_dir, name[:-4] + "_result.json"), "w"))
     if kind == "art":
-        _set_art_image(slug, ident, name)
+        _set_art_image(slug, ident, name, variant)
     else:
-        _set_ref_image(slug, ident, name)
+        _set_ref_image(slug, ident, name, variant)
     summary = dict(params)
     summary.pop("init_images", None)
     return prompt, summary, len(png), name
 
 
 
-def start_refine_art(slug, art_id, overrides=None):
+def start_refine_art(slug, art_id, overrides=None, variant=None):
     if not IMAGE_ENABLED:
         raise ValueError("image generation is disabled (set STABLE_DIFFUSION_URL)")
-    game = _game_or_error(slug)
-    doc = project_json(slug)
+    game = _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     art = _find_art(doc, art_id)
     if art is None:
         raise KeyError(f"unknown art '{art_id}'")
-    job_id = f"{game['slug']}-refine-{art_id}-{int(time.time()*1000)}"
-    _jobs[job_id] = {"id": job_id, "game": game["slug"], "kind": "refine",
+    job_id = f"{game['slug']}-{game['variant']}-refine-{art_id}-{int(time.time()*1000)}"
+    _jobs[job_id] = {"id": job_id, "game": game["slug"],
+                     "variant": game["variant"], "kind": "refine",
                      "art": art_id, "status": "queued", "started": time.time()}
     threading.Thread(target=_run_refine,
                      args=(job_id, game["slug"], "art", art_id, art,
-                           doc["game"], overrides), daemon=True).start()
+                           doc["game"], overrides, game["variant"]),
+                     daemon=True).start()
     return job_id
 
 
 
-def start_refine_ref(slug, ref_id, overrides=None):
+def start_refine_ref(slug, ref_id, overrides=None, variant=None):
     if not IMAGE_ENABLED:
         raise ValueError("image generation is disabled (set STABLE_DIFFUSION_URL)")
-    game = _game_or_error(slug)
-    doc = project_json(slug)
+    game = _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     ref = _find_ref(doc, ref_id)
     if ref is None:
         raise KeyError(f"unknown reference '{ref_id}'")
-    job_id = f"{game['slug']}-refine-ref-{ref_id}-{int(time.time()*1000)}"
-    _jobs[job_id] = {"id": job_id, "game": game["slug"], "kind": "refine",
+    job_id = f"{game['slug']}-{game['variant']}-refine-ref-{ref_id}-{int(time.time()*1000)}"
+    _jobs[job_id] = {"id": job_id, "game": game["slug"],
+                     "variant": game["variant"], "kind": "refine",
                      "ref": ref_id, "status": "queued", "started": time.time()}
     threading.Thread(target=_run_refine,
                      args=(job_id, game["slug"], "ref", ref_id, ref,
-                           doc["game"], overrides), daemon=True).start()
+                           doc["game"], overrides, game["variant"]),
+                     daemon=True).start()
     return job_id
 
 
 
-def _run_refine(job_id, slug, kind, ident, entry, game, overrides):
+def _run_refine(job_id, slug, kind, ident, entry, game, overrides, variant=None):
     _jobs[job_id]["status"] = "running"
     try:
         prompt, params, n, name = _refine_image(slug, kind, ident, entry,
-                                                game, overrides, job_id)
+                                                game, overrides, job_id,
+                                                variant)
         _jobs[job_id].update(prompt=prompt, params=params, image=name)
         _jobs[job_id].update(status="done", bytes=n, finished=time.time())
     except _JobCancelled:
@@ -464,7 +476,7 @@ def _run_refine(job_id, slug, kind, ident, entry, game, overrides):
 
 
 
-def _run_generate_all(job_id, slug, missing=False):
+def _run_generate_all(job_id, slug, missing=False, variant=None):
     """Render every reference, then every (or every missing) art, in order.
 
     Both a full and a ``missing`` run re-render every declared ``# References``
@@ -477,8 +489,8 @@ def _run_generate_all(job_id, slug, missing=False):
     """
     _jobs[job_id]["status"] = "running"
     try:
-        doc = project_json(slug)
-        game_rec = _game_or_error(slug)
+        doc = project_json(slug, variant)
+        game_rec = _game_or_error(slug, variant)
         arts = doc["arts"]
         if missing:
             arts = [a for a in arts
@@ -499,7 +511,7 @@ def _run_generate_all(job_id, slug, missing=False):
             _jobs[job_id].update(current=ref_id, index=done + 1)
             try:
                 _, _, n, img = _render_ref(slug, ref_id, ref, game, None,
-                                           job_id)
+                                           job_id, variant)
                 ref["image"] = img
                 refs_done.add(ref_id)
                 _jobs[job_id]["bytes"] = n
@@ -522,7 +534,8 @@ def _run_generate_all(job_id, slug, missing=False):
             _jobs[job_id].update(current=art_id, index=done + 1)
             try:
                 _, _, n, name, _refs = _render_art(
-                    slug, art_id, art, game, None, job_id, refs, refs_done)
+                    slug, art_id, art, game, None, job_id, refs, refs_done,
+                    variant)
                 _jobs[job_id]["bytes"] = n
                 _jobs[job_id]["image"] = name
                 art_ok += 1
@@ -548,7 +561,7 @@ MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 
 
 
-def upload_art(slug, art_id, data):
+def upload_art(slug, art_id, data, variant=None):
     """Store a user-supplied image as a new candidate for an art.
 
     ``data`` is a base64 string or a ``data:image/...;base64,`` URL (what the
@@ -558,8 +571,8 @@ def upload_art(slug, art_id, data):
     fresh ``up-<epoch>.png`` and becomes the art's ``image:``; earlier
     candidates are kept.
     """
-    game = _game_or_error(slug)
-    doc = project_json(slug)
+    game = _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     art = _find_art(doc, art_id)
     if art is None:
         raise KeyError(f"unknown art '{art_id}'")
@@ -589,28 +602,28 @@ def upload_art(slug, art_id, data):
     im.save(buf, "PNG")
     with _lock:
         open(out, "wb").write(pngmeta.strip_png_metadata(buf.getvalue()))
-    _set_art_image(slug, art_id, name)
+    _set_art_image(slug, art_id, name, variant)
     return {"art": art_id, "image": name, "width": width, "height": height,
             "size": width if width == height else None,
             "bytes": os.path.getsize(out),
-            "revision": _game_md_revision(os.path.join(game["dir"], "game.md"))}
+            "revision": _game_md_revision(game["md"])}
 
 
 REF_MAX_SIDE = 1024
 
 
 
-def upload_ref(slug, ref_id, data, kind="up"):
+def upload_ref(slug, ref_id, data, kind="up", variant=None):
     """Store a user-supplied image as a new candidate for a reference.
 
     Reference images are not cropped to the art band; they keep their own
     aspect and are only capped to ``REF_MAX_SIDE`` so a huge upload cannot
     bloat the model request. The new file becomes the reference's ``image:``.
     """
-    game = _game_or_error(slug)
+    game = _game_or_error(slug, variant)
     if not scenefile.valid_ref_id(ref_id):
         raise ValueError(f"invalid reference id {ref_id!r}")
-    doc = project_json(slug)
+    doc = project_json(slug, variant)
     ref = _find_ref(doc, ref_id)
     if ref is None:
         raise KeyError(f"unknown reference '{ref_id}'")
@@ -647,14 +660,14 @@ def upload_ref(slug, ref_id, data, kind="up"):
     im.save(buf, "PNG")
     with _lock:
         open(out, "wb").write(pngmeta.strip_png_metadata(buf.getvalue()))
-    _set_ref_image(slug, ref_id, name)
+    _set_ref_image(slug, ref_id, name, variant)
     return {"ref": ref_id, "image": name, "width": width, "height": height,
             "bytes": os.path.getsize(out),
-            "revision": _game_md_revision(os.path.join(game["dir"], "game.md"))}
+            "revision": _game_md_revision(game["md"])}
 
 
 
-def start_generate_all(slug, missing=False):
+def start_generate_all(slug, missing=False, variant=None):
     """Queue a run over every art, or only the arts lacking any image.
 
     ``missing`` lets the editor fill in only the not-yet-rendered art without
@@ -663,19 +676,20 @@ def start_generate_all(slug, missing=False):
     """
     if not IMAGE_ENABLED:
         raise ValueError("image generation is disabled (set STABLE_DIFFUSION_URL)")
-    game = _game_or_error(slug)
-    doc = project_json(slug)
+    game = _game_or_error(slug, variant)
+    doc = project_json(slug, variant)
     if missing:
         pending = [a for a in doc["arts"] if _art_image_path(game, a) is None]
         if not pending:
             raise ValueError("no missing art to generate")
     elif not doc["arts"]:
         raise ValueError("no art sections to regenerate")
-    job_id = f"{game['slug']}-all-{int(time.time()*1000)}"
-    _jobs[job_id] = {"id": job_id, "game": game["slug"], "kind": "all",
+    job_id = f"{game['slug']}-{game['variant']}-all-{int(time.time()*1000)}"
+    _jobs[job_id] = {"id": job_id, "game": game["slug"],
+                     "variant": game["variant"], "kind": "all",
                      "status": "queued", "started": time.time()}
     threading.Thread(target=_run_generate_all,
-                     args=(job_id, game["slug"], missing),
+                     args=(job_id, game["slug"], missing, game["variant"]),
                      daemon=True).start()
     return job_id
 
@@ -710,10 +724,10 @@ def _preview_overrides(qs):
 
 
 def _preview_context(slug, art_id, crop, file, lines, overrides,
-                     target_id=None):
+                     target_id=None, variant=None):
     """Resolve (src, conv, doc, art) for an Art-tab preview query."""
-    game = _game_or_error(slug)
-    doc = scenefile.parse(os.path.join(game["dir"], "game.md"))
+    game = _game_or_error(slug, variant)
+    doc = scenefile.parse(game["md"])
     art = _find_art(doc, art_id)
     if file is not None and scenefile.valid_art_image(file):
         src = os.path.join(_art_root(game["dir"]), art_id, file)
@@ -768,13 +782,14 @@ def _preview_context(slug, art_id, crop, file, lines, overrides,
 
 
 def target_art_preview_bytes(slug, art_id, target_id, crop=None, file=None,
-                             lines=None, overrides=None, target_rows=None):
+                             lines=None, overrides=None, target_rows=None,
+                             variant=None):
     """Return a PNG preview using a target plugin's converter."""
     target = targets.get_target(target_id)
     if target is None or target.preview is None:
         return None
     src, conv, doc, _art, _rows = _preview_context(
-        slug, art_id, crop, file, lines, overrides, target.id)
+        slug, art_id, crop, file, lines, overrides, target.id, variant)
     if not src:
         return None
     options = targets.target_options(doc, target)
@@ -790,7 +805,7 @@ def target_art_preview_bytes(slug, art_id, target_id, crop=None, file=None,
 
 
 def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
-                      file=None, lines=None):
+                      file=None, lines=None, variant=None):
     """Return a band PNG preview of the art as the Spectrum will show it.
 
     The band is the source cropped to ``crop`` and scaled to 256 x (8*art_rows)
@@ -818,7 +833,7 @@ def art_preview_bytes(slug, art_id, mode="nirvana", crop=None, overrides=None,
     ``_preview_overrides``) on top.
     """
     src, conv, doc, _art, rows = _preview_context(
-        slug, art_id, crop, file, lines, overrides, "zx128")
+        slug, art_id, crop, file, lines, overrides, "zx128", variant)
     if not src:
         return None
     from PIL import Image

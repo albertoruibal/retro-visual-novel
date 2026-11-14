@@ -4,9 +4,25 @@ The authoring format for a game's art, scenes, items and songs.
 
 A game is a single folder. `game.md` at its root holds the whole game — settings, art, items and the story — and the
 folder's `assets/` tree holds the binary side: art images under `assets/art/<id>/`, reference images under
-`assets/refs/<id>/`, PT3 music under `assets/music/<id>.pt3`. The editor edits `game.md` (structured tabs plus a raw
-Source tab) and the build reads it; both go through the same parser, `tools/scenefile.py`, so they can never disagree
-about the format. Every save re-serialises the file canonically and keeps a `game.md.bak` beside it.
+`assets/refs/<id>/`, PT3 music under `assets/music/<id>.pt3`. The editor edits the selected story file (structured tabs
+plus a raw Source tab) and the build reads it; both go through the same parser, `tools/scenefile.py`, so they can never
+disagree about the format. Every save re-serialises the file canonically and keeps a `<file>.bak` beside it.
+
+### Variants
+
+A folder may instead hold several story variants named `game-<variant>.md` (for example `game-en.md` and
+`game-es.md`). `game.md` is optional; when present it is the primary variant and is listed first. Without it, the
+alphabetically first `game-<variant>.md` is primary. Variant ids are ASCII tokens (letters, digits, `-`, `_`) and are
+shown as-is in the editor and web player selectors.
+
+Variants share the folder's `assets/` tree. Each file still has its own `# Art`, `# References`, `# Items` and
+`# Scenes` sections, so translations can use the same art ids and `image:` pointers. Keep art ids identical across
+variants when they share pictures: renaming or regenerating an art in one variant updates that variant's `image:`
+pointer (and a rename moves the shared folder), so copy the pointer to the other variants if you want them in sync. Native builds are named
+`<slug>.tap` for `game.md` and `<slug>-<variant>.tap` for a `game-<variant>.md` variant; generated intermediates go
+to `build/` for the primary variant and `build/<variant>/` for the others.
+
+Build or edit one variant with `--variant <id>` on the command line or the variant picker in the editor/web player.
 
 The file is ordinary Markdown. Each top-level section is a `# Heading` and each entry inside it is a `## <id>`
 subtitle; prose and indented example blocks are ignored wherever they appear. An id is a short ASCII token
@@ -552,6 +568,6 @@ with "scene/art data exceeds available banks"; the fix is to merge arts (repoint
 drop detail from prompts, not to squeeze text.
 The songs' 4158-byte cap is separate and enforced at conversion time.
 
-The editor writes `game.md` atomically (keeping `game.md.bak`) and refuses a save that fails validation. It is fine
+The editor writes the selected game file atomically (keeping a `.bak`) and refuses a save that fails validation. It is fine
 to hand-edit the file; the next structured save re-serialises it canonically, so formatting is normalised rather than
 preserved, and old spellings are rewritten to the current ones in the process.
