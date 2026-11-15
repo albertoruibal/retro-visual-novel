@@ -150,11 +150,11 @@
     if (hasWeb) {
       systems.push({
         id: "web",
-        label: "Web version",
+        label: "HTML5",
         kind: "web",
         machine: "HTML5",
         media: "web",
-        mediaLabel: "Web"
+        mediaLabel: "HTML5"
       });
     }
     byId = {};
@@ -207,7 +207,7 @@
     if (deckEl) deckEl.dataset.media = media;
     if (deckName) deckName.textContent = system.mediaLabel || media;
     if (system.kind === "web") {
-      hintEl.textContent = "The mobile-first web novel. Tap or click an option, word or item.";
+      hintEl.textContent = "The mobile-first HTML5 story. Tap or click an option, word or item.";
     } else if (system.emulator === "jsspeccy" && speccyTouchWanted()) {
       hintEl.textContent = "Use the on-screen pad: the arrows move, ENTER confirms and SPACE opens the action dialog.";
     } else {
@@ -565,7 +565,7 @@
     stop();
     setAspect(system);
     if (system.kind === "web") {
-      showBoot("Loading web version…", "HTML5 · no install, no plugins");
+      showBoot("Loading HTML5…", "HTML5 · no install, no plugins");
       bootFrame(system, seq);
       return;
     }

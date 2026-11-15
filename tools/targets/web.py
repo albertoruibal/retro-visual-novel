@@ -1,10 +1,10 @@
-"""Web game target.
+"""HTML5 game target.
 
-The web build is not a native binary: it writes a self-contained
-``<game>/web/`` folder with the mobile-first novel, the browser emulators of
+The HTML5 build is not a native binary: it writes a self-contained
+``<game>/web/`` folder with the mobile-first story, the browser emulators of
 the other selected systems and their built artifacts.  The ``webplayer`` target
-writes the same player without the novel; this target is the Web game and is
-selected with ``## web`` under ``# Systems``.
+writes the same Web Player without the HTML5 story; this target is the HTML5
+game and is selected with ``## web`` under ``# Systems``.
 """
 from __future__ import annotations
 
@@ -56,11 +56,11 @@ def _build(ctx):
 
 TARGET = Target(
     id="web",
-    label="Web",
-    description="Web game: the mobile-first novel plus the player shell and a "
-                "playable web emulator for every other selected system. The "
-                "hidden Web player target refreshes the emulators without the "
-                "novel; ticking Web adds the story.",
+    label="HTML5",
+    description="HTML5 game: the mobile-first story plus the Web Player shell "
+                "and a playable browser emulator for every other selected "
+                "system. The hidden Web Player target refreshes the emulators "
+                "without the story; ticking HTML5 adds it.",
     outputs=("web/",),
     options=(
         TargetOption(

@@ -1,7 +1,7 @@
 "use strict";
 // ------------------------------------------------------------- web emulators
-/* The Emulator tab previews the exported combined web player: the mobile-first
- * novel plus a browser emulator for every selected system. The tab has no
+/* The Emulator tab previews the exported combined Web Player: the mobile-first
+ * HTML5 story plus a browser emulator for every selected system. The tab has no
  * toolbar of its own; opening it saves pending edits, exports <game>/web/ and
  * mounts the player. The top-bar Export player button refreshes it. */
 let emu = null;              // { exit() } for the running player

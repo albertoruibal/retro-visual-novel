@@ -44,7 +44,8 @@ constraints live in `docs/systems/zx128.md`.
     tools/gamestore.py       open/create/duplicate/rename game folders (demo-game/)
     tools/gen_scenes.py      game.md -> build/scene_data.h + port_data.h
                              + bankN.bin + *.asm
-    tools/targets/           pluggable build targets (zx128, zx48, next, sms, cpc, cpc464, msx2, gb, c64, nes, oric, web)
+    tools/targets/           pluggable build targets (zx128, zx48, next, cpc,
+                             cpc464, msx1, msx2, c64, oric, sms, nes, gb, web)
     tools/smsart.py          SMS art preview/build conversion
     tools/pt3frames.py       shared spectrumizer PT3 replay/envelope front-end
     tools/smsmusic.py        PT3 -> SN76489 PSG stream for the SMS runtime
@@ -203,7 +204,7 @@ There is no test suite and no configured linter. Verify by:
    topic under `tools/editor/static/` (classic `<script src="/static/<topic>.js">` tags sharing one global scope), no
    bundler. For C64/NES screen checks run VICE
    (`x64sc -autostartprgmode 1 -autostart ... -limitcycles ... -exitscreenshot`) or FCEUX under `xvfb-run`; those
-   desktop emulators are not vendored (the editor bundles the VICE/FCEUmm web cores for in-browser play).
+   desktop emulators are not vendored (the editor bundles the VICE/FCEUmm browser emulator cores for in-browser play).
 4. **Headless screen check** for engine/art changes: `tools/spectrum.py` drives ZEsarUX-13.0 (in the repo) over ZRCP, no
    X server. On a fresh box it needs `libsdl1.2-compat` (provides `libSDL-1.2.so.0`) and `libncurses6`, or it dies with
    `fuse did not start`:
@@ -415,7 +416,7 @@ There is no test suite and no configured linter. Verify by:
   `system_cpc464` / `system_msx1` / `system_msx2` / `system_msx` / `system_gb` / `system_c64` / `system_nes` /
   `system_oric` / `system_web` are reserved build-time pseudo-flags**
   (`scenefile.SYSTEM_FLAGS`): valid only in `if`/`unless`, folded per target by `gen_scenes.py`/`gen_port.py` (and by
-  the web export, where only `system_web` is true), never assigned a flag id or runtime state. Using one as a
+  the HTML5 export, where only `system_web` is true), never assigned a flag id or runtime state. Using one as a
   declaration, `start:`, `ending:`, effect or selectable-word flag is an error.
 - Flags are ids 0..127; inventory items are ids 128..191 and are also flags, so `if` tests either. Use `set`/`unset` for
   flags, `pick`/`leave` for items. Scene and item options may carry up to 8 `if`/`unless` tokens; every condition must
@@ -577,8 +578,8 @@ There is no test suite and no configured linter. Verify by:
   kills the server process tree with `taskkill /T` on Windows and picks `python`/`Scripts/python.exe`/`zcc.exe` there.
   For the desktop app the user supplies a z88dk built for the target OS/CPU (see the desktop notes).
 - **Build systems live in a `# Systems` section.** Each `## <id>` block selects that system and holds its options
-  (`zx`/`sms`/`cpc`/`cpc464`/`msx2`/`gb` `art_rows:`, MSX2/CPC `columns:`, CPC `mode:`); selected systems build in the
-  system-list display order (128K, 48K, Next, CPC 6128, CPC 464, MSX2, C64, Oric, SMS, NES, GBC, Web), and each
+  (`art_rows:` on every art target, MSX2/CPC `columns:`, CPC `mode:`); selected systems build in the system-list
+  display order (128K, 48K, Next, CPC 6128, CPC 464, MSX1, MSX2, C64, Oric, SMS, NES, GBC, HTML5), and each
   system's log
   is separated by a `==== name [id] ====` banner; the legacy
   `targets:` list and `<target>_<option>` keys are still read and rewrite into blocks on save. The editor's **Systems**
@@ -589,7 +590,7 @@ There is no test suite and no configured linter. Verify by:
   game.md), and a stale one returns 409 so a concurrent edit by another user/process is not silently overwritten;
   the SPA offers to overwrite (`force`) or keep its buffer. Background writers (`_set_art_image`/jobs) refresh
   `P.revision` after they update the selected variant file. The top bar's variant selector is session state; the
-  structured/Source tabs and image/music jobs edit the selected variant, while the web export always bundles all.
+  structured/Source tabs and image/music jobs edit the selected variant, while the HTML5 export always bundles all.
 - `compose.yml` live-mounts an **absolute daemon-host path**, not `./`; update it if the checkout moves.
 - UI is vanilla JS/CSS in `tools/editor/static/`; match the existing dark theme, inline-SVG mask icons per tab, and the
   `VIEWS` / `EDIT_MODES` split in `core.js`. Structured tabs share the `#view-edit` shell; `graph`/`emu` are their
@@ -600,7 +601,7 @@ There is no test suite and no configured linter. Verify by:
   so top-level `let`/`const`/`function` names must stay **unique across files** and each file needs its own `"use
   strict";`. CSS is likewise split (`base.css`…`responsive.css`, linked in that order; the cascade is the same as one
   file). Keep a new topic in a new file and add it to `index.html` in dependency order; the entry stays last.
-- **Emulator tab:** a player-only preview. Opening it saves pending edits, exports the combined web player
+- **Emulator tab:** a player-only preview. Opening it saves pending edits, exports the combined Web Player
   (`POST /api/web_export`) and mounts it in `#emu` (the top-bar **Export player** button re-exports and reloads it).
   There is no per-tab system picker, Play/Stop, download or fullscreen control. The exported player shell
   (`tools/webplayer_runtime/player.js`) supplies the right-hand system selector and embeds each selected system's
@@ -615,11 +616,11 @@ There is no test suite and no configured linter. Verify by:
   `.screen` (`tools/webplayer_runtime/player.js`): a D-pad plus ENTER/SPACE/P that dispatches synthetic key
   events at the canvas parent, using bare `5`/`6`/`7`/`8` for the directions, and reserves its height when scaling
   the picture.
-- **Web player:** the frontend is split into the story runtime (`tools/webgame_runtime/`, classic
+- **HTML5 runtime and Web Player:** the frontend is split into the HTML5 runtime (`tools/webgame_runtime/`, classic
   `index.html` + `game.js` + `app.js` + `style.css`, data assigned to `window.RVN_GAME`, never fetched) and the player
   shell. Multi-variant games export `novel/<id>/` and `files/<id>/`; `player-data.js` carries `variants` (each with
   its own `src` and `systems`) and the shell shows a variant selector at the top when there is more than one. The
-  novel's `storageKey` namespaces progress/sound per variant. Keep the old top-level `web`/`systems` aliases and the
+  story's `storageKey` namespaces progress/sound per variant. Keep the old top-level `web`/`systems` aliases and the
   legacy single-variant fallback working. Player shell (`tools/webplayer_runtime/`, data assigned to
   `window.RVN_PLAYER`). `tools/webgame.py` is the export/build step: it parses each variant through `scenefile.py`,
   writes both data files, copies or converts the art, renders used PT3 songs to 22050 Hz mono WAVs in
@@ -627,26 +628,26 @@ There is no test suite and no configured linter. Verify by:
   copies only the selected systems' emulator bundles and artifacts, and writes `<game-folder>/web/`.
   `POST /api/web_export` writes that folder, `GET /play/<slug>/...` serves it statically, and
   `GET /api/webzip/<slug>` re-exports then streams an itch.io-ready zip with `index.html` at the root; the folder is
-  gitignored. The player lists the Web novel only when
-  Web is ticked, then only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts
-  are skipped with warnings); with Web unticked no `novel/` is written and only the native entries remain. The player
+  gitignored. The player lists the HTML5 story only when
+  HTML5 is ticked, then only `targets.selected_targets(doc)` that have a browser emulator (Next and missing artifacts
+  are skipped with warnings); with HTML5 unticked no `novel/` is written and only the native entries remain. The player
   has no download button. The editor's Emulator tab saves pending edits, exports and previews
   the folder when it opens; the top-bar **Export player** button re-exports and reloads the preview.
-  There is no separate Web tab. The runtime persists progress (current scene + flags) in `localStorage` under
+  There is no separate HTML5 tab. The HTML5 runtime persists progress (current scene + flags) in `localStorage` under
   `rvn.web.<slug>.state` and sound state under `rvn.web.<slug>.sound`; **Restart** clears the story state. It must never
   grow request-time story generation or rendering. **The automatic end-of-build step is the hidden `webplayer` target**
   (`tools/targets/webplayer.py`), which calls `webgame.export_player()` and writes only the player shell, emulators and
-  native artifacts. **Web is a `# Systems` target** (`tools/targets/web.py`) built only when `## web` is ticked or
-  `web` is requested; it calls `webgame.export_game()` and writes the player plus the novel. Both targets write the
-  same `<game>/web/` folder atomically, so the final one wins. `build.py` and the editor orchestrator append
-  `webplayer` unless the target list already contains `web` or `webplayer`; `RVN_WEB_AUTO=0` disables that automatic
-  step for the orchestrator's per-target children. `targets.Target.hidden` keeps `webplayer` out of the Systems UI and
-  `list-targets`, but it remains directly buildable (`build.py build <game> webplayer`).
-  Ticking `## web` only adds the novel (`## web` selects it, `system_web` is its pseudo-flag); the Emulator tab
-  previews the combined export regardless. The Web system has its own `art_rows` (novel band, default 10), `mono` and
+  native artifacts. **HTML5 is a `# Systems` target** (`tools/targets/web.py`, id `web`) built only when `## web` is
+  ticked or `web` is requested; it calls `webgame.export_game()` and writes the player plus the HTML5 story. Both
+  targets write the same `<game>/web/` folder atomically, so the final one wins. `build.py` and the editor
+  orchestrator append `webplayer` unless the target list already contains `web` or `webplayer`; `RVN_WEB_AUTO=0`
+  disables that automatic step for the orchestrator's per-target children. `targets.Target.hidden` keeps `webplayer`
+  out of the Systems UI and `list-targets`, but it remains directly buildable (`build.py build <game> webplayer`).
+  Ticking `## web` only adds the HTML5 story (`## web` selects it, `system_web` is its pseudo-flag); the Emulator tab
+  previews the combined export regardless. The HTML5 system has its own `art_rows` (story band, default 10), `mono` and
   `dither`; mono is baked at export into a dithered 256 x `8*art_rows` PNG with the art crop re-fitted to that band,
-  and the Art tab previews it. Keep the novel **mobile-first** (fluid single column, 44px taps, safe areas, bottom
-  item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and update `docs/web-runtime.md`
+  and the Art tab previews it. Keep the HTML5 story **mobile-first** (fluid single column, 44px taps, safe areas, bottom
+  item sheet), mirror the shared engine's condition/clear/pick/word/carry semantics, and update `docs/web-player.md`
   with any data/route/export change.
 - **ZX Next runtime:** `tools/targets/next.py` builds a native `+zxn` `.nex` with `tools/gen_port.py --next`.
   The shared portable core draws text/title/inventory on the ULA and the picture on a Layer 2 256-colour band clipped
@@ -842,8 +843,8 @@ There is no test suite and no configured linter. Verify by:
   `## sms dither:` accepts the full list; the 14-colour art palette is chosen from the undithered image and only pixel
   assignment is dithered. The text layer uses z88dk's newlib `arch/sms.h` helpers, not SMSlib.
 - **Portable under-art dialog:** `PORT_OVERLAY_MENU` makes `show_scene` give the text every row from `PORT_TEXT_TOP`
-  to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on SMS, Game Boy Color, Commodore
-  64 and NES;
+  to `PLAT_ROWS-1` and skip the pinned options and inventory band. It is mandatory on Commodore 64, SMS, NES and
+  Game Boy Color;
   ZX, MSX2, Oric, the CPC (any mode) and Next opt in with the system's `menu: popup` target option (ZX/CPC/Oric
   `SPACE`, MSX2 `SPACE` or joystick button 2). The ZX `port_data.h` emits the define, and the ZX `plat_clear_text`
   also clears row 23 when it is set. `A`/button 1 (CPC: `SPACE`) opens and closes `menu_screen()`, a modal list drawn over that pane:

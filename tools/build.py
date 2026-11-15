@@ -848,7 +848,7 @@ def run_game(slug, target_id=None, variant=None):
     target_id = target.id if target else target_id
     if target_id in ("web", "webplayer"):
         game, _ = _game_doc(slug, variant)
-        kind = "web game" if target_id == "web" else "web player"
+        kind = "HTML5 game" if target_id == "web" else "Web Player"
         print(f"{target_id}: exported {kind} at "
               f"{os.path.join(game['dir'], 'web', 'index.html')} "
               f"(serve it over HTTP to play the native emulators)")

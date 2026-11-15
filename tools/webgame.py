@@ -1,32 +1,33 @@
 #!/usr/bin/env python3
-"""Export a game as a standalone web player.
+"""Export a game as a standalone Web Player.
 
 The export is a self-contained folder that plays the story in the browser and
-bundles the selected native systems' web emulators and built files:
+bundles the selected native systems' browser emulators and built files:
 
     <game-folder>/web/
       index.html, player.js, player-data.js, style.css
-      novel/<variant>/       each variant's mobile-first story runtime
+      novel/<variant>/       each variant's mobile-first HTML5 story
       emulator/              only the selected systems' emulator bundles
       files/<variant>/       one played artifact per native system
 
 The story runtime (``tools/webgame_runtime/``) reads ``novel/game.js``, which
 assigns ``window.RVN_GAME``.  The player shell reads ``player-data.js``, which
 assigns ``window.RVN_PLAYER``.  Both data files are classic scripts, so the
-novel works from ``file://``; the native emulator entries need an HTTP host
-(GitHub Pages, itch.io or ``python3 -m http.server``).
+HTML5 story works from ``file://``; the native emulator entries need an HTTP
+host (GitHub Pages, itch.io or ``python3 -m http.server``).
 
     python3 tools/webgame.py <slug>          # write <game-folder>/web/
-    python3 tools/webgame.py <slug> --player # player only, no novel
-    python3 tools/webgame.py <slug> --game   # player plus the novel
-    python3 tools/webgame.py <slug> --json   # print the novel data
+    python3 tools/webgame.py <slug> --player # player only, no HTML5 story
+    python3 tools/webgame.py <slug> --game   # player plus the HTML5 story
+    python3 tools/webgame.py <slug> --json   # print the HTML5 data
 
 Only the systems ticked in ``# Systems`` are included.  The player shell and
-the selected native systems' emulators are always part of the export; the Web
-novel (``novel/``) is added when the Web system is selected (or forced by
-``export_game``).  Its art is baked to a dithered black-and-white band when
-``mono`` is on, using the Web ``art_rows``/``dither`` options.  ``export_player``
-writes the player without the novel, so the two build steps are independent.
+the selected native systems' emulators are always part of the export; the
+HTML5 story (``novel/``) is added when the HTML5 system is selected (or forced
+by ``export_game``).  Its art is baked to a dithered black-and-white band when
+``mono`` is on, using the HTML5 ``art_rows``/``dither`` options.
+``export_player`` writes the Web Player without the story, so the two build
+steps are independent.
 Systems without a browser emulator (such as the ZX Spectrum Next) and missing
 build artifacts are skipped with a warning.  The player itself has no download
 button; the editor's Emulator toolbar downloads the current system's built file.
@@ -172,9 +173,9 @@ def _art_sources(rec, doc):
 
 
 def selected_art_rows(doc):
-    """The art-band height used by the web layout.
+    """The art-band height used by the HTML5 layout.
 
-    The Web system has its own ``## web art_rows`` (even 8..16, default 10).
+    The HTML5 system has its own ``## web art_rows`` (even 8..16, default 10).
     Fall back to the selected native systems (ZX first) only when the target
     registry is unavailable, then to the legacy shared ``art_lines``.
     """
@@ -208,7 +209,7 @@ def selected_art_rows(doc):
 
 
 def _web_options(doc):
-    """Resolve the Web target's ``mono`` and ``dither`` settings."""
+    """Resolve the HTML5 target's ``mono`` and ``dither`` settings."""
     try:
         target = targets.get_target("web")
         if target is not None:
@@ -224,10 +225,10 @@ def _web_options(doc):
 
 
 def render_web_art(im, conv, rows):
-    """Render a Web band: dithered 1-bit with mono, else the fitted source.
+    """Render an HTML5 band: dithered 1-bit with mono, else the fitted source.
 
-    ``rows`` is the band height in 16px tile rows (Web ``art_rows`` / 2). An
-    explicit crop is always re-fitted to the Web band aspect before baking, so
+    ``rows`` is the band height in 16px tile rows (HTML5 ``art_rows`` / 2). An
+    explicit crop is always re-fitted to the HTML5 band aspect before baking, so
     a crop authored for another target never stretches, in mono or colour.
     """
     import zxart
@@ -440,7 +441,7 @@ def _media_for(extension):
 
 
 def _web_selected(doc):
-    """True when the Web system is ticked (it owns the novel entry)."""
+    """True when the HTML5 system is ticked (it owns the story entry)."""
     return "web" in targets.selected_targets(doc)
 
 
@@ -482,7 +483,7 @@ def _player_systems(rec, doc):
                 entry["run"] = "GAME"
             emulator_dirs.update(EMU_ASSET_DIRS[target.emulator])
         else:
-            warnings.append(f"{variant}/{target.label}: no web emulator; "
+            warnings.append(f"{variant}/{target.label}: no browser emulator; "
                             "skipped")
             continue
         entry["_source"] = source
@@ -507,11 +508,11 @@ def _player_data(base, variants):
     if primary:
         if primary.get("src"):
             data["web"] = {
-                "label": "Web version",
+                "label": "HTML5",
                 "src": primary["src"],
                 "machine": "HTML5",
                 "media": "web",
-                "mediaLabel": "Web",
+                "mediaLabel": "HTML5",
             }
         data["systems"] = primary.get("systems") or []
     return data
@@ -592,7 +593,7 @@ def _render_music(rec, doc, novel_dir, warnings):
 
 
 def _write_web_art(src, dest, art, game, rows, warnings):
-    """Write one novel art, baking the Web mono/dither setting when enabled."""
+    """Write one HTML5 art, baking the HTML5 mono/dither setting when enabled."""
     try:
         from PIL import Image
 
@@ -603,7 +604,7 @@ def _write_web_art(src, dest, art, game, rows, warnings):
         return
     except Exception as err:            # noqa: BLE001 - fall back to the source
         warnings.append(
-            f"{art.get('id', os.path.basename(src))}: web black-and-white "
+            f"{art.get('id', os.path.basename(src))}: HTML5 black-and-white "
             f"conversion failed: {err}; using the source image")
     shutil.copyfile(src, dest)
 
@@ -660,7 +661,7 @@ def export_web(slug, include_novel=None, variants=None):
     Every variant is exported into its own ``novel/<variant>/`` and
     ``files/<variant>/`` subtree, and the player shell gets a variant selector
     when more than one is present. ``include_novel`` forces the mobile-first
-    story in or out; ``None`` (the default) follows each variant's Web system
+    story in or out; ``None`` (the default) follows each variant's HTML5 system
     selection. ``variants`` optionally restricts the exported ids.
     """
     base = _game(slug)
@@ -784,12 +785,12 @@ def export_web(slug, include_novel=None, variants=None):
     }
 
 def export_player(slug):
-    """Write the browser player and native emulators without the novel."""
+    """Write the Web Player and native emulators without the HTML5 story."""
     return export_web(slug, include_novel=False)
 
 
 def export_game(slug):
-    """Write the browser player plus the mobile-first Web novel."""
+    """Write the Web Player plus the mobile-first HTML5 story."""
     return export_web(slug, include_novel=True)
 
 
@@ -816,17 +817,17 @@ def zip_filename(slug):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Export a game as a standalone web player.")
+        description="Export a game as a standalone Web Player.")
     parser.add_argument("game", help="game slug or folder")
     parser.add_argument("--variant", default=None,
                         help="variant id (default: the primary game.md/variant)")
     parser.add_argument("--json", action="store_true",
-                        help="print the novel data instead of exporting")
+                        help="print the HTML5 data instead of exporting")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--player", action="store_true",
-                      help="write the player without the mobile-first novel")
+                      help="write the player without the mobile-first HTML5 story")
     mode.add_argument("--game", dest="web_game", action="store_true",
-                      help="write the player plus the mobile-first novel")
+                      help="write the player plus the mobile-first HTML5 story")
     args = parser.parse_args(argv)
     if args.json:
         print(json.dumps(webgame_data(args.game, args.variant), indent=2,

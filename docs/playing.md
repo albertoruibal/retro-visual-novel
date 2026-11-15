@@ -6,24 +6,24 @@ changes is how you move, confirm and open the inventory/action list. The built g
 
 The text of a scene is above the options, and an option that is hidden by a flag is simply not shown. Highlighted
 `{{words}}` are one-shot: selecting one sets its flag and redraws the scene. A system with `menu: popup` enabled in
-`# Systems` puts its options and held items in a dialog instead of the pinned list (the Master System, Game Boy
-Color, Commodore 64 and NES always do this).
+`# Systems` puts its options and held items in a dialog instead of the pinned list (Commodore 64, Master System,
+NES and Game Boy Color always do this).
 
 ## Controls at a glance
 
 | Target | Move / scroll | Confirm | Options & items |
 |---|---|---|---|
 | ZX Spectrum 128K | Cursor keys or W/A/S/D | Enter | Bottom inventory row, or `SPACE` dialog |
+| ZX Spectrum 48K | Same as 128K | Enter | Bottom inventory row, or `SPACE` dialog |
 | ZX Spectrum Next | Cursor keys, W/A/S/D, arrow keys or joystick | Enter or fire | Bottom inventory row, or `SPACE` dialog |
 | Amstrad CPC | Cursor/WASD/8/2/4/6/joystick | Enter/Space/fire | Pinned/inventory, or `SPACE` dialog |
 | MSX1 / MSX2 | Cursor/WASD/8/2/4/6/joystick (either port) | Enter/Space/fire | Pinned options/inventory, or `SPACE`/button 2 |
-| Sega Master System | D-pad | Button 2 | Button 1 opens/closes the action dialog |
-| Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
 | Commodore 64 | Cursor keys or W/A/S/D | Return | `SPACE` opens/closes the action dialog |
-| NES | D-pad | A | B or Select opens/closes the action dialog |
 | Oric Atmos | Cursor keys or W/A/S/D | Return | Bottom inventory row, or `SPACE` dialog |
-| Web player | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
-
+| Sega Master System | D-pad | Button 2 | Button 1 opens/closes the action dialog |
+| NES | D-pad | A | B or Select opens/closes the action dialog |
+| Nintendo Game Boy Color | D-pad | A or Start | B opens/closes the action dialog |
+| HTML5 | Tap/click or `Up`/`Down` | Tap/click or `Enter`/`Space` | Bottom inventory bar; tap an item |
 The editor's **Emulator** tab runs the ZX Spectrum in JSSpeccy, the C64 in VICE, the NES in FCEUmm and the Oric Atmos
 in Oricutron. On a phone or tablet the Spectrum emulator shows an on-screen pad below the picture: arrows move,
 `ENTER` confirms, `SPACE` opens the action dialog when the game uses it, and `P` toggles music, so a hardware
@@ -32,18 +32,6 @@ keyboard is not needed. Click the Oric picture first so the canvas takes keyboar
 forwards the physical keyboard (cursor keys/`W` `A` `S` `D`, `RETURN`, `SPACE`). For the NES, EmulatorJS's defaults
 are arrows = D-pad, `Z` = A (confirm), `X` = B (open/close the dialog), `V` = Select and `Enter` = Start; remap them in
 its Control Settings.
-
-## Web player
-
-The exported web player and the editor's Emulator tab (which auto-exports and previews it) use the same
-mobile-first novel. Tap or
-click an option, a highlighted word or an inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the
-focused control, and `Escape` closes the item screen. The inventory bar stays at the bottom on phones, and
-**Restart** resets the story. Use the **Sound: on/off** button to mute the music; browsers may wait for the first
-click or key press before starting it. The player lists only the systems ticked in the Systems tab. When a native
-ZX Spectrum entry is selected on a touch device, the same on-screen pad (arrows/`ENTER`/`SPACE`/`P`) appears below the
-picture. The editor's top-bar **Export player** button re-exports and reloads the preview. See
-[the web player](web-runtime.md) for export and implementation details.
 
 ## ZX Spectrum 128K
 
@@ -87,7 +75,7 @@ Without a bundled Next emulator, run it with ZEsarUX:
 
 ## Amstrad CPC 6128 / 464
 
-Both CPC joystick ports work; the web emulator maps its arrow keys to port 0. The controls are identical on the
+Both CPC joystick ports work; the browser emulator maps its arrow keys to port 0. The controls are identical on the
 6128 and 464 builds. The 464 build is a 64K disk image (it needs a disk drive, e.g. the DDI-1) and streams its
 pictures from the disk, so the first scene may pause briefly while a new art loads.
 
@@ -117,34 +105,6 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 - The text pane never scrolls, so a scene's text (and options on the pinned layout) must fit the rows left below the
   art band. The MSX1 build has no music yet; the MSX2 build uses `P` to toggle it.
 
-## Sega Master System
-
-- **D-pad:** `UP`/`DOWN` scroll a long scene body, or move between highlighted words when the text fits.
-  `LEFT`/`RIGHT` move between highlighted words (or scroll when the scene has none).
-- **Button 2:** confirm the highlighted word or option.
-- **Button 1:** open and close the action dialog. It lists the scene options first and then the held items (prefixed
-  `*`); the D-pad moves and scrolls the list, button 2 confirms and button 1 closes it.
-- On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
-  permanent inventory row.
-- **Music:** the console's `PAUSE` button pauses/resumes the converted SN76489 soundtrack.
-- **Sound effects:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves also play short UI
-  sound effects, including while the music is paused.
-
-## Nintendo Game Boy Color
-
-- **D-pad:** `UP`/`DOWN` scroll a long scene body, or move between highlighted words when the text fits.
-  `LEFT`/`RIGHT` move between highlighted words (or scroll when the scene has none).
-- **A or Start:** confirm the highlighted word or option.
-- **B:** open and close the action dialog. It lists the scene options first and then the held items (prefixed `*`);
-  the D-pad moves and scrolls the list, `A`/`Start` confirms and `B` closes it.
-- On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
-  permanent inventory row. On a CGB the configured `highlight_ink:` colours the selection; the `>` marker remains so
-  the same cartridge is still usable on a monochrome Game Boy.
-- **Music:** `Select` pauses/resumes the converted Game Boy APU soundtrack.
-- **Sound effects:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves also play short UI
-  sound effects, including while the music is paused.
-- The Game Boy Color build has no boot-password screen.
-
 ## Commodore 64
 
 - **Movement:** cursor keys or `W` `A` `S` `D`; `RETURN` confirms.
@@ -167,6 +127,19 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 - **Music:** not implemented yet on the Oric Atmos build.
 - There is no boot-password screen.
 
+## Sega Master System
+
+- **D-pad:** `UP`/`DOWN` scroll a long scene body, or move between highlighted words when the text fits.
+  `LEFT`/`RIGHT` move between highlighted words (or scroll when the scene has none).
+- **Button 2:** confirm the highlighted word or option.
+- **Button 1:** open and close the action dialog. It lists the scene options first and then the held items (prefixed
+  `*`); the D-pad moves and scrolls the list, button 2 confirms and button 1 closes it.
+- On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
+  permanent inventory row.
+- **Music:** the console's `PAUSE` button pauses/resumes the converted SN76489 soundtrack.
+- **Sound effects:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves also play short UI
+  sound effects, including while the music is paused.
+
 ## NES
 
 - **Movement:** D-pad; `A` confirms.
@@ -178,12 +151,42 @@ pictures from the disk, so the first scene may pause briefly while a new art loa
 - There is no boot-password screen. The build targets MMC1 cartridges with 8KB battery WRAM, so use the editor's
   Emulator tab, a compatible emulator (FCEUX, Mesen, Nestopia) or a flash cart.
 
+## Nintendo Game Boy Color
+
+- **D-pad:** `UP`/`DOWN` scroll a long scene body, or move between highlighted words when the text fits.
+  `LEFT`/`RIGHT` move between highlighted words (or scroll when the scene has none).
+- **A or Start:** confirm the highlighted word or option.
+- **B:** open and close the action dialog. It lists the scene options first and then the held items (prefixed `*`);
+  the D-pad moves and scrolls the list, `A`/`Start` confirms and `B` closes it.
+- On a long item description, `UP`/`DOWN` scroll the description while the cursor is on the first entry. There is no
+  permanent inventory row. On a CGB the configured `highlight_ink:` colours the selection; the `>` marker remains so
+  the same cartridge is still usable on a monochrome Game Boy.
+- **Music:** `Select` pauses/resumes the converted Game Boy APU soundtrack.
+- **Sound effects:** cursor moves, confirmations, backing out, item pickups/drops and blocked moves also play short UI
+  sound effects, including while the music is paused.
+- The Game Boy Color build has no boot-password screen.
+
+## HTML5
+
+The HTML5 runtime runs the story directly in the browser. Tap or click an option, a highlighted word or an
+inventory item. `Up`/`Down` move focus, `Enter`/`Space` activate the focused control, and `Escape` closes the item
+screen. The inventory bar stays at the bottom on phones, and **Restart** resets the story. Use the **Sound: on/off**
+button to mute the music; browsers may wait for the first click or key press before starting it.
+
+## Web Player
+
+The Web Player is the multi-emulator interface written to `<game-folder>/web/`: it embeds the HTML5 runtime and a
+browser emulator for every selected native system. The editor's Emulator tab auto-exports and previews it. It lists
+only the systems ticked in the Systems tab. When a native ZX Spectrum entry is selected on a touch device, the same
+on-screen pad (arrows/`ENTER`/`SPACE`/`P`) appears below the picture. The editor's top-bar **Export player** button
+re-exports and reloads the preview. See [the Web Player](web-player.md) for export and implementation details.
+
 ## Other notes
 
 - Items can have their own options; choosing one applies its effects and returns to the current scene. **Drop**
   removes the item and frees its slot.
 - A game's `# Game carry:` cap limits how many items are held; when the pack is full, `pick` options are hidden, so
   dropping an item is how you make room.
-- On the targets with a permanent inventory row (ZX, MSX2, CPC by default) the item screen also has **Drop** and
-  **Back** entries. On the dialog targets (SMS, Game Boy Color, Commodore 64, NES, and any system with
-  `menu: popup`) the action dialog is the only way in.
+- On the targets with a permanent inventory row (ZX, CPC, MSX2 by default) the item screen also has **Drop** and
+  **Back** entries. On the dialog targets (Commodore 64, Sega Master System, NES, Game Boy Color, and any
+  system with `menu: popup`) the action dialog is the only way in.

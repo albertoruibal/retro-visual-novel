@@ -38,7 +38,7 @@ Next's AY player. The output is a NextZXOS `.nex` executable.
 
   `tools/spectrum.py` also accepts `run <game>.nex` and uses ZEsarUX's
   `--machine TBBlue` path. The editor's Emulator tab lists only targets with a
-  bundled web emulator; ZX Next is intentionally not listed and is not part of the web player. The editor Docker
+  bundled browser emulator; ZX Next is intentionally not listed and is not part of the Web Player. The editor Docker
   image has no ZEsarUX, so run the built `.nex` from the host (or point
   `$ZESARUX` at an installed binary).
 

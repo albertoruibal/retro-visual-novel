@@ -1,4 +1,4 @@
-"""Static web player serving, export and zip routes.
+"""Static Web Player serving, export and zip routes.
 
 The player is frontend-only: ``tools/webgame_runtime/`` (story) and
 ``tools/webplayer_runtime/`` (system selector) are plain classic-script pages

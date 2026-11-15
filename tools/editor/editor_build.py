@@ -27,12 +27,12 @@ def _build_env_for(slug, variant=None):
 
 
 def _selected_build_ids(doc, requested=None):
-    """Requested targets plus the automatic web player step.
+    """Requested targets plus the automatic Web Player step.
 
-    The player is appended unless the list already contains the Web game
+    The player is appended unless the list already contains the HTML5 game
     (``web``, which exports the player too) or the player itself. This applies
     to both "Build all" and "Build selected": building one native system
-    refreshes the emulator player, but never writes the novel.
+    refreshes the emulator player, but never writes the HTML5 story.
     """
     req = [str(t).strip().lower() for t in (requested or [])
            if str(t).strip()]
@@ -49,8 +49,8 @@ def _run_build(build_id, slug, requested=None, variant=None):
     Each target runs as its own tools/build.py child so one platform failing
     does not stop the others; the combined log keeps the ``[target]`` prefixes
     emitted by the dispatcher, and ``targets`` holds per-platform status. The
-    web player is always built last; ticking Web swaps that step for the Web
-    game, which also writes the novel.
+    Web Player is always built last; ticking HTML5 swaps that step for the
+    HTML5 game, which also writes the story.
     """
     _builds[build_id]["status"] = "running"
     log = []

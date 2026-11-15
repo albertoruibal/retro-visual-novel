@@ -103,9 +103,9 @@ Endpoints (``?game=<slug>`` selects the game and ``?variant=<id>`` the
     GET    /api/build/<id>            build status + log tail
     GET    /api/tap/<slug>/<name>     game's built <name>.tap / .sna (ZX emulator)
     GET    /api/artifact/<slug>/<name> any built target artifact (.sms/.rom/.dsk/.gbc/.tap/.sna/.nex/.prg/.nes)
-    GET    /play/<slug>/              exported web player (Emulator tab iframe)
-    GET    /play/<slug>/<file>        static player, novel, emulator and file assets
-    POST   /api/web_export            export the player plus the novel (when selected)
+    GET    /play/<slug>/              exported Web Player (Emulator tab iframe)
+    GET    /play/<slug>/<file>        static player, HTML5 story, emulator and file assets
+    POST   /api/web_export            export the player plus the HTML5 story (when selected)
     GET    /api/webzip/<slug>         download the itch.io-ready player zip
     GET    /emulator/<file>           vendored web emulators (static/emulator/)
     GET    /monaco/<file>             vendored Monaco editor (static/monaco/)

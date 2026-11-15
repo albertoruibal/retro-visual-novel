@@ -53,7 +53,7 @@ the compressed art/song blobs from the disk instead of paging the extra banks.
 - **Controls:** arrow keys or W/A/S/D move the cursor; Enter or the joystick fire button chooses (Space also chooses
   on the pinned layout). `P` toggles music. With `menu: popup`, up/down scrolls long scene text (left/right moves
   between highlighted words) and `SPACE` opens/closes the action dialog in every mode.
-  Both CPC joystick ports work; the web emulator maps its arrow keys to port 0.
+  Both CPC joystick ports work; the browser emulator maps its arrow keys to port 0.
 - **Build:** `zcc +cpc -subtype=dsk`; the internal file name is the fixed 8.3 `GAME` so emulators can auto-run it.
   Output `<slug>.dsk`.
 - **Emulator:** CPCJS/Caprice32 WASM (`emulator/cpc`), auto-running `GAME`.

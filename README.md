@@ -19,7 +19,7 @@ and other 8-bit targets, with a shared engine and authoring editor.
 - [Sega Master System](docs/systems/sms.md): Beta
 - [Nintendo Entertainment System](docs/systems/nes.md): Beta
 - [Nintendo Game Boy Color](docs/systems/gb.md): Beta
-- [HTML5](docs/web-runtime.md)
+- [HTML5](docs/web-player.md): Browser story runtime, played in the Web Player
 
 See [playing the games](docs/playing.md) for the controls on each target.
 
@@ -38,7 +38,7 @@ See [authoring games](docs/authoring.md) for information about the Markdown form
 A folder can hold several story variants side by side: `game.md` (optional, the primary variant) plus
 `game-<variant>.md` files such as `game-en.md` and `game-es.md`. They share the same `assets/art/`, `assets/refs/` and
 `assets/music/` folders. The editor adds a variant picker when more than one file exists, native builds are suffixed
-(`<slug>-es.tap`), and the exported web player gets a variant selector at the top.
+(`<slug>-es.tap`), and the exported Web Player gets a variant selector at the top.
 
 ## Editor desktop app
 
@@ -58,14 +58,14 @@ It has tabs to edit the game sections:
 * Items: Carried by the player, each item can be selected, and it has options that can be enabled only for certain scenes. 
 * Graph: Draws a graph of the scene relationship.
 * Source: Allows to directly edit the Markdown of the game with syntax validation and navigation via CTRL + click.
-* Build: Builds the game for the selected systems. Every build also refreshes the browser player
-  (`<game-folder>/web/`) with the selected systems' emulators through a separate **Web player** step; ticking
-  **Web** builds the **Web game** instead, adding the mobile-first novel. The Build log separates each system with a
-  `==== name [id] ====` banner.
-* Emulator: Auto-exports and starts the combined web player: the mobile-first novel (when **Web** is ticked) plus a
-  browser emulator for every selected system that has one (JSSpeccy for ZX, EmulatorJS/smsplus for SMS, WebMSX C-BIOS
-  for MSX1/MSX2, CPCJS/Caprice32 for the CPC 6128 and CPC 464, EmulatorJS/Gambatte for Game Boy Color,
-  EmulatorJS/VICE x64sc for Commodore 64, EmulatorJS/FCEUmm for NES and Oricutron for Oric Atmos). Use the top-bar
+* Build: Builds the game for the selected systems. Every build also refreshes the Web Player
+  (`<game-folder>/web/`) with the selected systems' emulators through a separate **Web Player** step; ticking
+  **HTML5** builds the **HTML5 game** instead, adding the mobile-first story. The Build log separates each system with
+  a `==== name [id] ====` banner.
+* Emulator: Auto-exports and starts the combined Web Player: the mobile-first story (when **HTML5** is ticked) plus
+  a browser emulator for every selected system that has one (JSSpeccy for ZX, CPCJS/Caprice32 for the CPC 6128 and
+  CPC 464, WebMSX C-BIOS for MSX1/MSX2, EmulatorJS/VICE x64sc for Commodore 64, Oricutron for Oric Atmos,
+  EmulatorJS/smsplus for SMS, EmulatorJS/FCEUmm for NES and EmulatorJS/Gambatte for Game Boy Color). Use the top-bar
   **Export player** button to re-export and reload the preview. ZX Next is not bundled in the browser; use
   `python3 tools/build.py run <game> next` with ZEsarUX.
 
@@ -111,8 +111,8 @@ It uses python tools and z88dk (https://z88dk.org/site/), sccz80 with the classi
 Every colour system has a **Black and white** option in its `## <system>` block (and the Systems tab). It converts
 the art to a dithered black-and-white band and forces white text on the black background. On the 48K, turning it off
 uses classic 8x8 attribute-colour art; its mono mode keeps the Game-tab text colours and `title_ink:` for the title,
-text and menu options, like the 128K. The Oric Atmos is always monochrome and has no such option. The Web novel also
-bakes its art this way and has its own `art_rows` and `dither` settings.
+text and menu options, like the 128K. The Oric Atmos is always monochrome and has no such option. The HTML5
+runtime also bakes its art this way and has its own `art_rows` and `dither` settings.
 
 The build driver is a pluggable target registry (`tools/targets/`). Each target module exports a `TARGET` with its
 output names, per-game options and build, validation and preview hooks. The selected systems and their options live
@@ -127,25 +127,24 @@ python3 tools/build.py build <game> --all
 python3 tools/build.py build <game> zx128 --variant es   # one variant
 ```
 
-Outputs: `<slug>.tap` / `.sna` (ZX), `.nex` (ZX Next), `.sms`, `.dsk` (CPC 6128), `.dsk` with the
-`-cpc464` suffix (CPC 464), `.rom` (MSX2) / `-msx1.rom` (MSX1), `.gbc` (Game Boy Color), `.prg` (Commodore 64),
-`.nes` (NES),
-`<slug>-oric.tap` (Oric Atmos) and `<game-folder>/web/` (Web).
+Outputs: `<slug>.tap` / `.sna` (ZX 128K), `<slug>-48k.tap` (ZX 48K), `.nex` (ZX Next), `.dsk` (CPC 6128),
+`-cpc464.dsk` (CPC 464), `<slug>-msx1.rom` (MSX1), `.rom` (MSX2), `.prg` (Commodore 64), `<slug>-oric.tap`
+(Oric Atmos), `.sms` (Sega Master System), `.nes` (NES), `.gbc` (Game Boy Color) and `<game-folder>/web/` (HTML5).
 
-Every build writes the standalone player to `<game-folder>/web/`. The automatic **Web player** step contains the
-selected systems' web emulators and playable files; ticking **Web** builds the **Web game**, which adds the
-mobile-first novel, framed by its own `art_rows` and optionally baked as dithered black-and-white art. Build the
+Every build writes the standalone Web Player to `<game-folder>/web/`. The automatic **Web Player** step contains
+the selected systems' browser emulators and playable files; ticking **HTML5** builds the **HTML5 game**, which adds
+the mobile-first story, framed by its own `art_rows` and optionally baked as dithered black-and-white art. Build the
 player alone with `python3 tools/build.py build <game> webplayer`, or the game with `... build <game> web`;
 `python3 tools/webgame.py <slug> --player|--game` does the same export directly. The Emulator tab auto-exports and
 previews the combined player; the top-bar **Export player** button re-exports and reloads it.
-See [the web player](docs/web-runtime.md).
+See [the Web Player](docs/web-player.md).
 
 ## Licenses
 
 Retro Visual Novel is released under the MIT License; see [LICENSE](LICENSE).
 
 Vendored components keep their own upstream licenses: see
-`tools/editor/static/emulator/THIRD_PARTY.md` for the web emulators, and the
+`tools/editor/static/emulator/THIRD_PARTY.md` for the browser emulators, and the
 `README`/`LICENSE` files under `vendor/` (NIRVANA+, ZX0 and Pixel Operator).
 
 ## Notes for developers and agents

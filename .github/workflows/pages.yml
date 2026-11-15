@@ -1,4 +1,4 @@
-name: Deploy web player
+name: Deploy Web Player
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build every demo variant and the web player
+      - name: Build every demo variant and the Web Player
         env:
           Z88DK_IMAGE: z88dk/z88dk:latest@sha256:2922a2a794494fbcb43d56de7022dc898a6bbe6bc2859409d0b00e4be57da9e4
         run: |

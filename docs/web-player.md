@@ -1,10 +1,10 @@
-# Web player
+# Web Player
 
-The web player plays a game in any modern browser. It bundles the browser emulator and built file for each system
-ticked in the Systems tab. **Every full build writes `<game-folder>/web/`** through the hidden **Web player** step so
-the native emulator player is always available. Web is itself a system: ticking `## web` swaps that step for the **Web
-game**, which adds the mobile-first novel (the **Web version** entry) to the same player. The two steps are separate,
-so a build can produce the player without the web game. Systems that are not selected are never included.
+The Web Player plays a game in any modern browser. It bundles the browser emulator and built file for each system
+ticked in the Systems tab. **Every full build writes `<game-folder>/web/`** through the hidden **Web Player** step so
+the native emulator player is always available. HTML5 is itself a system: ticking `## web` swaps that step for the
+**HTML5 game**, which adds the mobile-first story (the **HTML5** entry) to the same player. The two steps are separate,
+so a build can produce the Web Player without the HTML5 story. Systems that are not selected are never included.
 
 There are two ways to run it:
 
@@ -12,11 +12,11 @@ There are two ways to run it:
   iframe. It has no selector or toolbar of its own; the editor's top-bar **Export player** button re-exports and
   reloads the preview.
 - **Exported folder** — a self-contained `<game-folder>/web/` tree that can be copied to any static host, uploaded to
-  itch.io, or opened directly (the Web novel works from `file://`; the native emulators need an HTTP host).
+  itch.io, or opened directly (the HTML5 story works from `file://`; the native emulators need an HTTP host).
 
-The runtime is **frontend-only**: story playback lives in `tools/webgame_runtime/app.js`; the player shell and system
-selector live in `tools/webplayer_runtime/`. Python only exports data and copies static files at build time. The
-editor server never generates story data per request.
+The HTML5 runtime is **frontend-only**: story playback lives in `tools/webgame_runtime/app.js`; the player shell
+and system selector live in `tools/webplayer_runtime/`. Python only exports data and copies static files at build time.
+The editor server never generates story data per request.
 
 ## Layout
 
@@ -45,33 +45,33 @@ subpath), or inside an itch.io embed.
 | Path | Purpose |
 |---|---|
 | `tools/webgame.py` | Player/game export, data files, music rendering, folder export and zip |
-| `tools/targets/webplayer.py` | Hidden automatic Web player build (no novel) |
-| `tools/targets/web.py` | Web game build (player plus the novel) |
+| `tools/targets/webplayer.py` | Hidden automatic Web Player build (no HTML5 story) |
+| `tools/targets/web.py` | HTML5 game build (player plus the HTML5 story) |
 | `tools/webplayer_runtime/index.html` | Player shell |
 | `tools/webplayer_runtime/player.js` | System selector, JSSpeccy and iframe emulator boot |
 | `tools/webplayer_runtime/style.css` | Player layout |
-| `tools/webgame_runtime/index.html` | Novel shell |
+| `tools/webgame_runtime/index.html` | HTML5 story shell |
 | `tools/webgame_runtime/app.js` | Scene/flag/item engine, music playback and DOM rendering |
-| `tools/webgame_runtime/style.css` | Mobile-first novel layout and theme |
+| `tools/webgame_runtime/style.css` | Mobile-first HTML5 story layout and theme |
 | `tools/editor/static/player.js` | Editor Emulator-tab export/preview actions |
 | `tools/editor/editor_web.py` | Static export serving, export and zip routes |
 
-The runtime is plain classic JavaScript: no modules and no bundler. `index.html` loads `player-data.js` and `player.js`
-in the player shell, and `game.js` then `app.js` in the novel.
+The HTML5 runtime is plain classic JavaScript: no modules and no bundler. `index.html` loads `player-data.js` and
+`player.js` in the player shell, and `game.js` then `app.js` in the HTML5 story.
 
 ## Selected systems
 
-The **Web** system (`## web`) owns the **Web version** novel: it is written by the `web` target, which runs when Web
+The **HTML5** system (`## web`) owns the **HTML5** story: it is written by the `web` target, which runs when HTML5
 is ticked or when `web` is requested explicitly. The hidden `webplayer` target refreshes the same folder without the
-novel. Native entries come from `targets.selected_targets(doc)` (Web itself is not a native entry), in the system
-display order:
+story. Native entries come from `targets.selected_targets(doc)` (HTML5 itself is not a native entry), in the display
+order:
 
-- A selected system with a bundled web emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), SMS and Game Boy
-  Color (EmulatorJS), MSX2 (WebMSX), CPC 6128/464 (CPCJS/Caprice32), C64 (EmulatorJS VICE), NES (EmulatorJS FCEUmm)
-  and Oric Atmos (Oricutron).
+- A selected system with a bundled browser emulator becomes a playable entry: ZX 128K/48K (JSSpeccy), CPC 6128/464
+  (CPCJS/Caprice32), MSX1/MSX2 (WebMSX), C64 (EmulatorJS VICE), Oric Atmos (Oricutron), SMS (EmulatorJS/smsplus),
+  NES (EmulatorJS FCEUmm) and Game Boy Color (EmulatorJS/Gambatte).
 - The ZX Spectrum Next has no bundled browser emulator, so it is not included in the player.
 - A selected system whose built artifact is missing is skipped with an export warning. Build it first for it to appear.
-- Unselected native systems are never copied or listed. With Web unticked the automatic `webplayer` step writes no
+- Unselected native systems are never copied or listed. With HTML5 unticked the automatic `webplayer` step writes no
   `novel/` folders and the player offers only the selected native systems; if nothing is selected it reports that
   there is no game data.
 
@@ -83,7 +83,7 @@ and reloads the preview.
 | Route | Purpose |
 |---|---|
 | `GET /play/<slug>/` | The exported player shell |
-| `GET /play/<slug>/<file>` | Any file from `<game-folder>/web/` (novel, emulator, files) |
+| `GET /play/<slug>/<file>` | Any file from `<game-folder>/web/` (HTML5 story, emulator, files) |
 | `GET /play/<slug>` | Redirect to the trailing-slash form |
 | `POST /api/web_export` | Write `<game-folder>/web/` and return its info |
 | `GET /api/webzip/<slug>` | Re-export and download the itch.io-ready zip |
@@ -101,7 +101,7 @@ window.RVN_GAME = {
   variant: "en",                 // game-<variant>.md id
   storageKey: "demo-game.en",    // localStorage namespace for progress/sound
   title: "The Lighthouse Keeper",
-  artRows: 12,                  // Web art_rows (even, 8..16)
+  artRows: 12,                  // HTML5 art_rows (even, 8..16)
   mono: false,                  // baked mono art + white text when true
   dither: "off",                // mono dither scheme
   startScene: "start",
@@ -151,11 +151,12 @@ Text lines are rendered `segments` plus conditions. A segment with a `flag` is a
 the current scene. `popup` is an empty string or the option's `msg` text. A scene's `music` is a song id or `null`;
 songs that could not be rendered are removed and the scene becomes silent.
 
-The web novel always pins the scene options and the inventory on screen. A native system's `menu: popup` setting only
-changes that native build; it never turns the web options into a pop-up menu or hides them behind a button.
+The HTML5 story always pins the scene options and the inventory on screen. A native system's `menu: popup` setting only
+changes that native build; it never turns the HTML5 options into a pop-up menu or hides them behind a button.
 
-The native `system_*` build-time flags are folded during export with the web target, so all of them are false:
-lines/options gated with `if system_zx` are omitted, and `unless system_zx` lines remain.
+The native `system_*` build-time flags are folded during export with the HTML5 target: `system_web` is true and
+every other `system_*` flag is false, so lines/options gated with `if system_zx` are omitted and `unless system_zx`
+lines remain.
 
 `player-data.js` assigns `window.RVN_PLAYER`. Each variant carries its own story path and native systems; the player
 shows a variant selector at the top of its sidebar when more than one entry is present (`web`/`systems` are kept as an
@@ -178,31 +179,31 @@ window.RVN_PLAYER = {
     { id: "es", label: "es", title: "Juego de demostración",
       src: "novel/es/index.html", systems: [/* ... */] }
   ],
-  web: { label: "Web version", src: "novel/en/index.html", machine: "HTML5" },
+  web: { label: "HTML5", src: "novel/en/index.html", machine: "HTML5" },
   systems: [/* the primary variant's systems */]
 };
 ```
 
 Switching the variant stops the current emulator or iframe, rebuilds the system list for that variant and starts the
-same system id when present (otherwise the variant's Web novel). The selection is saved in
-`localStorage["rvn.player.<slug>.variant"]`; scenes/flags and sound use the novel's `storageKey`, so each variant has
+same system id when present (otherwise the variant's HTML5 story). The selection is saved in
+`localStorage["rvn.player.<slug>.variant"]`; scenes/flags and sound use the story's `storageKey`, so each variant has
 its own progress.
 
 ## Music
 
 `# Game songs:` declares PT3 modules. Each scene's `music:` (or the game default) is resolved by
 `scenefile.resolve_song`. The exporter renders each used module with `spectrumizer.play` to a 22050 Hz mono WAV in
-`novel/<variant>/assets/music/`, reusing the `assets/gen/song_<id>.wav` cache. If `spectrumizer` is unavailable the export still
-succeeds with a warning and no music.
+`novel/<variant>/assets/music/`, reusing the `assets/gen/song_<id>.wav` cache. If `spectrumizer` is unavailable the
+export still succeeds with a warning and no music.
 
-The novel creates a looping `<audio>` element, switches tracks when the scene's song changes, pauses for `music: off`,
-and restarts the current track on **Restart**. Browsers block autoplay until the player interacts, so the first click or
-key press starts playback. A **Sound: on/off** button is shown only when the game has songs; its state is persisted
-under `rvn.web.<slug>.sound`.
+The HTML5 runtime creates a looping `<audio>` element, switches tracks when the scene's song changes, pauses for
+`music: off`, and restarts the current track on **Restart**. Browsers block autoplay until the player interacts, so the
+first click or key press starts playback. A **Sound: on/off** button is shown only when the game has songs; its state
+is persisted under `rvn.web.<slug>.sound`.
 
 ## Story semantics
 
-The runtime mirrors `src/portable/core/game.c` and `src/portable/core/scene.c`:
+The HTML5 runtime mirrors `src/portable/core/game.c` and `src/portable/core/scene.c`:
 
 - Entering a scene sets its `ending:` flag before its text and options are evaluated.
 - A text line or option is visible only when all its `if`/`unless` conditions hold.
@@ -224,24 +225,24 @@ The runtime mirrors `src/portable/core/game.c` and `src/portable/core/scene.c`:
 ## Art
 
 Each art uses its selected source PNG, either the per-art `image:` candidate or the same fallback resolution as the
-8-bit build. By default no palette conversion, dithering or NIRVANA+ processing is applied: the web wants the full
-source image.
+8-bit build. By default no palette conversion, dithering or NIRVANA+ processing is applied: the HTML5 runtime wants
+the full source image.
 
-The Web system has its own options under `## web`:
+The HTML5 system has its own options under `## web`:
 
-- `art_rows:` (even 8..16, default 10) sets the novel band height to 256 x `8 * art_rows` pixels, independent of the
+- `art_rows:` (even 8..16, default 10) sets the HTML5 band height to 256 x `8 * art_rows` pixels, independent of the
   native systems.
-- `mono: on` (the Systems tab's **Black and white**) bakes each art to a dithered 1-bit black-and-white PNG at the Web
-  band size, forces white text on black, and re-fits an explicit crop to the Web band aspect before conversion.
+- `mono: on` (the Systems tab's **Black and white**) bakes each art to a dithered 1-bit black-and-white PNG at the HTML5
+  band size, forces white text on black, and re-fits an explicit crop to the HTML5 band aspect before conversion.
 - `dither:` chooses the mono scheme (`bayer2`…`sierra`); `off` becomes the 2x2 Bayer dither. It has no effect while
   Black and white is off, when the full-colour source is copied unchanged.
 
 `crop: x y w h` is the same percentage rectangle as the editor's Art tab. An art without an explicit crop uses the
 centred band-aspect window, where the aspect is `256 / (8 * artRows)`. An explicit crop keeps its full width and
 re-centres its vertical window to that aspect (clamped to the source), so a crop authored for another band height is
-never stretched; the colour runtime does this in CSS while mono bakes it at export. A missing art shows a neutral
-placeholder. The Art tab lists a **Web** preview alongside the selected native previews, using the Web options above
-(including unsaved control changes).
+never stretched; the HTML5 runtime does this in CSS while mono bakes it at export. A missing art shows a neutral
+placeholder. The Art tab lists an **HTML5** preview alongside the selected native previews, using the HTML5 options
+above (including unsaved control changes).
 
 The art frame is capped at `45dvh` and keeps its aspect ratio, so the picture does not swallow a phone screen in
 landscape. Colour art keeps the browser's default image scaling; baked mono art uses `image-rendering: pixelated` so
@@ -249,8 +250,8 @@ the dither stays crisp.
 
 ## Player layout
 
-- The system selector is a retro right-hand sidebar of rocker keys: only the selected native systems, then the Web
-  version (when Web is ticked) last. A media bay above it shows the matching tape, disk, cartridge or web icon for the
+- The system selector is a retro right-hand sidebar of rocker keys: only the selected native systems, then the **HTML5**
+  entry (when HTML5 is ticked) last. A media bay above it shows the matching tape, disk, cartridge or web icon for the
   current system. The variant selector sits at the top of the sidebar.
 - On mobile (<=900 px wide, portrait or landscape) the sidebar is hidden behind a top-bar burger button and opens as
   a right-hand drawer over the screen; the scrim, the close button, Escape, or picking a system closes it. The player
@@ -259,7 +260,7 @@ the dither stays crisp.
 - Short landscape phones lock the player to the viewport height and use a compact two-row Spectrum pad below the
   full-width screen, so the picture keeps most of the screen. Desktop windows wider than 900 px keep the static
   right-hand sidebar and the original spacing.
-- The Web version uses the full mobile-first novel in an iframe.
+- The HTML5 runtime uses the full mobile-first story in an iframe.
 - Native systems use JSSpeccy inline or the pinned emulator page in an iframe. The screen keeps the system's display
   aspect ratio, except in short mobile landscape where it fills the stage and the picture is letterboxed inside it.
 - On a coarse-pointer (touch) device the native ZX Spectrum entry also draws a `.speccy-touch` pad below the screen:
@@ -269,26 +270,26 @@ the dither stays crisp.
   two rows and `speccyZoom()` gives the freed height to the screen.
 - The panel shows the selected system, a hint, **Reload** and **Fullscreen**.
 - `?system=<id>` selects a system directly (useful for links and testing); otherwise the last system is restored from
-  `localStorage`, defaulting to the first native system (or Web when no native system is selected).
+  `localStorage`, defaulting to the first native system (or HTML5 when no native system is selected).
 
 ## Export
 
 ```bash
-python3 tools/build.py build <game>             # native systems + automatic Web player
-python3 tools/build.py build <game> zx128       # zx128 + Web player (no novel)
-python3 tools/build.py build <game> web         # Web game (player + novel)
-python3 tools/build.py build <game> webplayer   # Web player only
+python3 tools/build.py build <game>             # native systems + automatic Web Player
+python3 tools/build.py build <game> zx128       # zx128 + Web Player (no story)
+python3 tools/build.py build <game> web         # HTML5 game (player + story)
+python3 tools/build.py build <game> webplayer   # Web Player only
 python3 tools/webgame.py <slug>                 # selection-based export
 python3 tools/webgame.py <slug> --player        # player only
-python3 tools/webgame.py <slug> --game          # player plus the novel
-python3 tools/webgame.py <slug> --json          # inspect the novel data
+python3 tools/webgame.py <slug> --game          # player plus the HTML5 story
+python3 tools/webgame.py <slug> --json          # inspect the HTML5 data
 ```
 
-Every build runs the automatic Web player last, after the native artifacts it bundles, so `<game-folder>/web/` is
-always refreshed. A build of one native system therefore refreshes the player without touching the novel. Ticking
-`## web` under `# Systems` makes the `web` target replace that player step with the Web game, adding the `novel/`
-subtree and the **Web version** entry. The folder is replaced atomically. The zip produced by
-`GET /api/webzip/<slug>` has `index.html` at the archive root and is ready to upload to itch.io as an HTML game. The
+Every build runs the automatic Web Player last, after the native artifacts it bundles, so `<game-folder>/web/` is
+always refreshed. A build of one native system therefore refreshes the player without touching the HTML5 story. Ticking
+`## web` under `# Systems` makes the `web` target replace that player step with the HTML5 game, adding the `novel/`
+subtree and the **HTML5** entry. The folder is replaced atomically. The zip produced by
+`GET /api/webzip/<slug>` has `index.html` at the archive root and is ready to upload to itch.io as an HTML5 game. The
 folder is gitignored (`<game-folder>/web/`; in this repo `/demo-game/web/`).
 
 ## Publishing on GitHub Pages
@@ -300,19 +301,19 @@ folder is gitignored (`<game-folder>/web/`; in this repo `/demo-game/web/`).
 
 ## Limits and notes
 
-- The Web novel has music, but no save slots; progress (current scene + flags) is saved automatically in `localStorage`
-  under `rvn.web.<slug>.state` and restored on reload. **Restart** is the only state reset.
+- The HTML5 story has music, but no save slots; progress (current scene + flags) is saved automatically in
+  `localStorage` under `rvn.web.<slug>.state` and restored on reload. **Restart** is the only state reset.
 - The password is checked in the browser; the value is present in `game.js`.
-- Colour novel art is not converted; the Web `mono`/`dither` options apply to the baked black-and-white band only.
-- The web band height is a framing choice only; the story has no screen-budget limits, so long text and many options
+- Colour HTML5 art is not converted; the HTML5 `mono`/`dither` options apply to the baked black-and-white band only.
+- The HTML5 band height is a framing choice only; the story has no screen-budget limits, so long text and many options
   simply scroll.
 - Native emulator entries need a web server (or a host such as itch.io/GitHub Pages); opening the player from
-  `file://` only guarantees the Web novel.
+  `file://` only guarantees the HTML5 story.
 - Missing native artifacts, unrenderable songs and systems without a browser emulator are reported as export warnings.
 
 ## Troubleshooting
 
-- **Web player entry is missing pieces**: build the selected systems first; the export lists the missing filenames.
+- **Web Player entry is missing pieces**: build the selected systems first; the export lists the missing filenames.
 - **Blank scene**: check that `game.md` has at least one scene and the first scene has valid `art:` and options.
 - **Missing art**: the art needs a selected image; generation-only references are not exported.
 - **Old art in the player**: click the editor's top-bar **Export player** button (it re-exports and reloads the
@@ -324,7 +325,7 @@ folder is gitignored (`<game-folder>/web/`; in this repo `/demo-game/web/`).
 
 1. `python3 -m py_compile tools/webgame.py tools/editor/editor_web.py tools/editor/server.py`
 2. Open the editor **Emulator** tab; it saves pending edits, exports and starts the player automatically.
-3. Exercise the novel, including sound on/off, a scene music change and **Restart**.
+3. Exercise the HTML5 story, including sound on/off, a scene music change and **Restart**.
 4. Use the top-bar **Export player** button and confirm the preview reloads; switch to a native system and confirm it
    boots.
 5. `python3 tools/webgame.py <slug>`, serve the folder over HTTP and repeat; verify only selected systems appear and

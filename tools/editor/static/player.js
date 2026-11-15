@@ -1,6 +1,6 @@
 "use strict";
-// -------------------------------------------------------------- web player
-/* The Emulator tab's Web player previews the exported combined player.  The
+// -------------------------------------------------------------- Web Player
+/* The Emulator tab's Web Player previews the exported combined player.  The
  * export itself (story runtime, selected emulators, downloadable files and
  * rendered music) is a build step in tools/webgame.py; the server only writes
  * <game>/web/ and serves those files.  Pending edits are saved before an

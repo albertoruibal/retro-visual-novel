@@ -13,7 +13,7 @@ disagree about the format. Every save re-serialises the file canonically and kee
 A folder may instead hold several story variants named `game-<variant>.md` (for example `game-en.md` and
 `game-es.md`). `game.md` is optional; when present it is the primary variant and is listed first. Without it, the
 alphabetically first `game-<variant>.md` is primary. Variant ids are ASCII tokens (letters, digits, `-`, `_`) and are
-shown as-is in the editor and web player selectors.
+shown as-is in the editor and Web Player selectors.
 
 Variants share the folder's `assets/` tree. Each file still has its own `# Art`, `# References`, `# Items` and
 `# Scenes` sections, so translations can use the same art ids and `image:` pointers. Keep art ids identical across
@@ -22,7 +22,7 @@ pointer (and a rename moves the shared folder), so copy the pointer to the other
 `<slug>.tap` for `game.md` and `<slug>-<variant>.tap` for a `game-<variant>.md` variant; generated intermediates go
 to `build/` for the primary variant and `build/<variant>/` for the others.
 
-Build or edit one variant with `--variant <id>` on the command line or the variant picker in the editor/web player.
+Build or edit one variant with `--variant <id>` on the command line or the variant picker in the editor/Web Player.
 
 The file is ordinary Markdown. Each top-level section is a `# Heading` and each entry inside it is a `## <id>`
 subtitle; prose and indented example blocks are ignored wherever they appear. An id is a short ASCII token
@@ -171,9 +171,6 @@ overrides the prompt line above the input ("Enter the password:" by default).
     dither: floyd           # full list
     menu: popup             # optional: options/items in a SPACE dialog
     title_ink: text         # optional: scene/item title colour
-    ## sms
-    art_rows: 12            # default 12; always uses the action dialog
-    dither: floyd           # full list
     ## cpc
     mode: 1                 # video mode 0|1|2 (default 1)
     columns: 32             # text columns 32|40|62 (default 32)
@@ -191,31 +188,34 @@ overrides the prompt line above the input ("Enter the password:" by default).
     art_rows: 12            # default 12
     dither: floyd           # full list
     menu: popup             # optional: options/items in a SPACE/button-2 dialog
-    ## gb
-    art_rows: 8             # 8 (default 8); Game Boy Color action dialog
-    dither: floyd           # full list
     ## c64
     art_rows: 8             # 8|10|12 (default 8); C64 action dialog
-    dither: floyd           # full list
-    ## nes
-    art_rows: 10            # 8|10|12 (default 10); NES action dialog
     dither: floyd           # full list
     ## oric
     art_rows: 8             # 8|10|12 (default 8)
     dither: bayer2          # full list; off becomes bayer2 on this 1-bit target
     menu: popup             # optional: options/items in a SPACE dialog
+    ## sms
+    art_rows: 12            # default 12; always uses the action dialog
+    dither: floyd           # full list
+    ## nes
+    art_rows: 10            # 8|10|12 (default 10); NES action dialog
+    dither: floyd           # full list
+    ## gb
+    art_rows: 8             # 8 (default 8); Game Boy Color action dialog
+    dither: floyd           # full list
     ## web
-    art_rows: 10            # novel band rows, even (default 10)
+    art_rows: 10            # HTML5 band rows, even (default 10)
     mono: on                # optional: bake dithered B&W art + white text
     dither: bayer2          # mono art only; off becomes bayer2
 
 A build compiles the selected systems in the system-list display order (ZX 128K, ZX 48K, Next, CPC 6128, CPC 464,
-MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color, Web); each system's log is separated
+MSX1, MSX2, Commodore 64, Oric, SMS, NES, Game Boy Color, HTML5); each system's log is separated
 by a `==== name [id] ====` banner and, where the target supports it, a playable artifact lands in the game folder
-(`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.sms`, `.dsk`, `<slug>-cpc464.dsk`, `.rom`, `.gbc`, `.prg`,
-`.nes`, `<slug>-oric.tap`). Every build also writes the `<game-folder>/web/` player with the selected native
-emulators through the automatic hidden **Web player** step; a `## web` block swaps that step for the **Web game**,
-which adds the mobile-first novel to the player. An absent `# Systems`
+(`<slug>.tap`, `.sna`, `<slug>-48k.tap`, `.nex`, `.dsk`, `<slug>-cpc464.dsk`, `<slug>-msx1.rom`, `.rom`, `.prg`,
+`<slug>-oric.tap`, `.sms`, `.nes`, `.gbc`). Every build also writes the `<game-folder>/web/` player with the
+selected native emulators through the automatic hidden **Web Player** step; a `## web` block swaps that step for the
+**HTML5 game**, which adds the mobile-first story to the player. An absent `# Systems`
 means the legacy `targets:` list in `# Game`, or the 128K ZX target when that is absent too. Old hand-written
 `<target>_<option>` lines in `# Game` (and the old `## zx art_lines:` spelling) are still read and are rewritten into
 this section on save; `## zx` is read as an alias for `## zx128`. The editor's **Systems** tab edits the selection with
@@ -230,12 +230,12 @@ races more of the screen for the picture and leaves less room for text; see [Scr
 `zx128` and `zx48` have independent bands: the 128K value is stored as the legacy `# Game art_lines` setting,
 while `## zx48 art_rows` lives in its own block. A legacy shared value is copied into the 48K setting on load when
 that block has no `art_rows`, so existing games keep their layout. `## web art_rows` is a separate framing choice for
-the novel's picture band and does not follow the native systems.
+the HTML5 picture band and does not follow the native systems.
 
 `menu: popup` (ZX, CPC, MSX2 and Oric; default `inline`) moves the scene options and held items out of the text band
 and into the action dialog: `SPACE` on ZX, CPC and Oric, and `SPACE` or joystick button 2 on MSX2. The scene text then
 owns every row below the art (rows `art_rows+1..23` on ZX/MSX2, and rows `art_rows+1..24` on Oric) and the permanent
-inventory row disappears. The dialog is **always** used on the Master System, Game Boy Color, Commodore 64 and NES,
+inventory row disappears. The dialog is **always** used on the Commodore 64, Master System, NES and Game Boy Color,
 which have no pinned-option layout. The editor's **Systems** tab sets this per system.
 
 `title_ink:` (ZX only; default `text`) colours the scene title on row 0 and the item screen's title. `text` follows
@@ -247,12 +247,12 @@ same colour.
 colour target accepts the full list: `off` snaps to the nearest, `bayer2`/`bayer4`/`bayer8` are ordered matrices from
 coarsest to finest, `noise` is plain grain, and `floyd`, `atkinson`, `jarvis`, `stucki` and `sierra` are
 error-diffusion kernels (jarvis smoothest, atkinson highest contrast). The per-cell/tile/block targets (ZX 48K,
-MSX1, GBC, C64 and NES) dither between the colours allowed for that cell; the fixed-palette targets dither across
+MSX1, C64, NES and GBC) dither between the colours allowed for that cell; the fixed-palette targets dither across
 their whole palette. Monochrome targets cannot honour `off` (a hard threshold would leave only black and white), so
-`zx48`, `msx1`, `oric` and a Web novel with **Black and white** substitute a 2x2 Bayer dither, and CPC Mode 1
-substitutes a 4x4 Bayer dither for its black/grey/white ramp. Web uses `dither:` only for its baked mono art; with
-Black and white off the novel keeps the full-colour source image. Set it in each system's block so one game can use
-an ordered pattern on one machine and Floyd-Steinberg where the palette is richer. Older files with a single
+`zx48`, `msx1`, `oric` and an HTML5 story with **Black and white** substitute a 2x2 Bayer dither, and CPC Mode 1
+substitutes a 4x4 Bayer dither for its black/grey/white ramp. HTML5 uses `dither:` only for its baked mono art; with
+Black and white off the HTML5 story keeps the full-colour source image. Set it in each system's block so one game
+can use an ordered pattern on one machine and Floyd-Steinberg where the palette is richer. Older files with a single
 `# Game dither:` line migrate it to each selected system on load; a per-art `dither:` is dropped, because art no
 longer owns that setting.
 
@@ -406,11 +406,12 @@ This is how one source can give each system its own instructions or credits, for
       Press ENTER to choose. -> if system_zx128
       Press SPACE to open the menu and ENTER or fire to choose. -> if system_cpc
 
-The generated scene data (and therefore the ZX 128K/48K/Next/CPC/SMS/MSX2/GB builds) differs per target. Per-scene
+The generated scene data (and therefore the ZX 128K/48K, Next, CPC 6128/464, MSX1/MSX2, C64, Oric, SMS, NES and
+Game Boy Color builds) differs per target. Per-scene
 limits such
 as the 8 text lines and 6 options apply after this folding, so a scene may carry more source lines when each target
-keeps only its own subset. The web export is not one of those systems, so all native system flags are false there;
-keep a generic line for the web build.
+keeps only its own subset. The HTML5 export is not one of those systems, so all native system flags are false there;
+keep a generic line for the HTML5 build.
 
 ### Options
 
