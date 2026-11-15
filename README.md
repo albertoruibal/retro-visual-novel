@@ -1,25 +1,25 @@
 # Retro Visual Novel
 
 **Retro Visual Novel** is an 8-bit visual novel creator for the ZX Spectrum 128K
-and other 8-bit targets, with a shared engine and authoring UI.
+and other 8-bit targets, with a shared engine and authoring editor.
 
-[**Play the demo in your browser**](https://albertoruibal.github.io/retro-visual-novel/)
+[**Play the demo game in your browser**](https://albertoruibal.github.io/retro-visual-novel/)
 
 ## Supported targets
 
-- [ZX Spectrum 128K](docs/systems/zx128.md)
-- [ZX Spectrum 48K](docs/systems/zx48.md)
+- [ZX Spectrum 128K](docs/systems/zx128.md): With Nirvana+ art scenes
+- [ZX Spectrum 48K](docs/systems/zx48.md): No sound
 - [ZX Spectrum Next](docs/systems/next.md)
-- [Amstrad CPC 6128](docs/systems/cpc.md) (alpha)
-- [Amstrad CPC 464](docs/systems/cpc464.md) (alpha)
-- [MSX1](docs/systems/msx1.md) (alpha)
-- [MSX2](docs/systems/msx2.md) (alpha)
-- [Sega Master System](docs/systems/sms.md)  (alpha)
-- [Nintendo Game Boy Color](docs/systems/gb.md) (alpha)
-- [Commodore 64](docs/systems/c64.md) (alpha)
-- [Nintendo Entertainment System](docs/systems/nes.md) (alpha)
-- [Oric Atmos](docs/systems/oric.md) (alpha)
-- [Web player](docs/web-runtime.md) (selected systems' emulators; the Web game adds the mobile-first novel)
+- [Amstrad CPC 6128](docs/systems/cpc.md): Beta
+- [Amstrad CPC 464](docs/systems/cpc464.md): beta
+- [MSX1](docs/systems/msx1.md)
+- [MSX2](docs/systems/msx2.md)
+- [Commodore 64](docs/systems/c64.md): Alpha, no sound
+- [Oric Atmos](docs/systems/oric.md): Alpha, no sound
+- [Sega Master System](docs/systems/sms.md): Beta
+- [Nintendo Entertainment System](docs/systems/nes.md): Beta
+- [Nintendo Game Boy Color](docs/systems/gb.md): Beta
+- [HTML5](docs/web-runtime.md)
 
 See [playing the games](docs/playing.md) for the controls on each target.
 
