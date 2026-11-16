@@ -259,8 +259,9 @@ There is no test suite and no configured linter. Verify by:
   options/Drop/Back entries are pinned to the bottom the same way. The description is clamped so the entries fit
   (`21 - art_rows - entries` description lines). On the dialog layouts (`PORT_OVERLAY_MENU`) the entries instead start
   immediately below the description, which is clamped to the rows the entries leave free. On pinned ZX item-entry
-  labels are truncated rather than wrapped (`PORT_NO_ENTRY_WRAP`), and scroll markers use `PORT_SCROLL_COL` 61:
-  printing the last cell makes the ZX ROM scroll the whole screen and shift the NIRVANA+ band.
+  labels are truncated rather than wrapped (`PORT_NO_ENTRY_WRAP`), and scroll markers plus the inventory overflow
+  marker use column 61 (`PORT_SCROLL_COL`/`PORT_INV_MARK_R`): printing the last cell (console columns 62/63, the
+  second half of the physical last cell) makes the ZX ROM scroll the whole screen and shift the NIRVANA+ band.
 - **The NIRVANA+ engine is rebuilt per game** with `TOTAL_ROWS = art_rows`: `tools/build.py` writes a temp
   `config_private.inc` (patching the `defc` and the m4 `define` line) and passes `-m4=-I<tmpdir>` **before** the
   vendored include, so only bytes inside the engine's padded hole change — `org_nirvanap` stays `0xDC03`.
