@@ -1,7 +1,7 @@
 {
   "name": "retro-visual-novel",
   "productName": "Retro Visual Novel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Desktop editor + builder for the Retro Visual Novel creator",
   "license": "MIT",
   "author": {
