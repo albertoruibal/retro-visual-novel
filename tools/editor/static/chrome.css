@@ -159,12 +159,16 @@
 /* Variant selector next to the game picker (only for multi-variant games). */
 .variantpickwrap[hidden] { display: none; }
 .variantpickwrap {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: baseline; gap: 6px;
   color: var(--dim); font-size: 11px; letter-spacing: .08em;
   text-transform: uppercase;
 }
+.variantpickwrap label {
+  display: inline-flex; align-items: center; margin: 0;
+  font-size: 11px; font-weight: 600; line-height: 1.4;
+}
 .variantpickwrap select {
-  padding: 5px 8px; color: var(--fg); background: var(--surface);
+  width: auto; padding: 5px 8px; color: var(--fg); background: var(--surface);
   border: 1px solid var(--line); border-radius: 999px; font: inherit;
   letter-spacing: normal; text-transform: none;
 }
